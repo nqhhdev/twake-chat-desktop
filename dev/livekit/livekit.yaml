@@ -1,0 +1,13 @@
+# LiveKit SFU of the local stack (calls, M5). It shares the network of Synapse
+# (docker-compose.yaml): the app reaches it on 127.0.0.1. Test values only.
+port: 7880
+bind_addresses: ['0.0.0.0']
+rtc:
+  tcp_port: 7881
+  udp_port: 7882
+  use_external_ip: false
+  node_ip: 127.0.0.1
+keys:
+  devkey: twake-chat-dev-livekit-secret-0123456789
+logging:
+  level: info

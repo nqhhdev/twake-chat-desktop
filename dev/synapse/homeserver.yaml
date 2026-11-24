@@ -1,0 +1,65 @@
+# Test-only homeserver: never expose it. Secrets below are local test values.
+server_name: localhost
+pid_file: /data/homeserver.pid
+public_baseurl: http://localhost:18008/
+listeners:
+  - port: 8008
+    type: http
+    tls: false
+    x_forwarded: false
+    bind_addresses: ["0.0.0.0"]
+    resources:
+      - names: [client, federation]
+        compress: false
+  # The OpenID check of the call token service (lk-jwt-service), which asks over
+  # HTTPS federation only: a self-signed certificate made by dev/up.sh
+  - port: 8448
+    type: http
+    tls: true
+    bind_addresses: ["0.0.0.0"]
+    resources:
+      - names: [openid]
+        compress: false
+tls_certificate_path: /config/tls/localhost.crt
+tls_private_key_path: /config/tls/localhost.key
+# Calls (M5): the LiveKit focus of the well-known (MSC4143), as the web reads it,
+# and delayed events (MSC4140) so that a call membership ends if the app dies
+serve_client_wellknown: true
+extra_well_known_client_content:
+  org.matrix.msc4143.rtc_foci:
+    - type: livekit
+      livekit_service_url: http://localhost:18080
+experimental_features:
+  msc4140_enabled: true
+max_event_delay_duration: 24h
+database:
+  name: sqlite3
+  args:
+    database: /data/homeserver.db
+log_config: /config/log.config
+media_store_path: /data/media_store
+signing_key_path: /data/localhost.signing.key
+trusted_key_servers: []
+report_stats: false
+enable_registration: false
+registration_shared_secret: dev-registration-secret
+macaroon_secret_key: dev-macaroon-secret
+form_secret: dev-form-secret
+suppress_key_server_warning: true
+rc_message: { per_second: 1000, burst_count: 1000 }
+rc_login:
+  address: { per_second: 1000, burst_count: 1000 }
+  account: { per_second: 1000, burst_count: 1000 }
+  failed_attempts: { per_second: 1000, burst_count: 1000 }
+rc_registration: { per_second: 1000, burst_count: 1000 }
+rc_joins:
+  local: { per_second: 1000, burst_count: 1000 }
+rc_room_creation: { per_second: 1000, burst_count: 1000 }
+rc_invites:
+  per_room: { per_second: 1000, burst_count: 1000 }
+  per_user: { per_second: 1000, burst_count: 1000 }
+  per_issuer: { per_second: 1000, burst_count: 1000 }
+# Link previews (M4), tested against a page served from the host (dev/preview-page.sh):
+# private ranges stay allowed here only, never in a real deployment.
+url_preview_enabled: true
+url_preview_ip_range_blacklist: ['169.254.169.254/32']
