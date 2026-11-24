@@ -1,0 +1,17 @@
+/target
+/.cargo-home
+/reference
+.DS_Store
+/rust/tools/node/node_modules
+dev/synapse/.signing-generated
+dev/.*.log
+dev/synapse-last.log
+dev/.*.exit
+dev/snapshots/
+dev/.alice-recovery-key
+/rust/units/domain-rs/target
+*.node
+target-build.log
+/vendor/pdfium
+/vendor/webrtc
+dev/synapse/tls/
