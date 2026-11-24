@@ -1,0 +1,135 @@
+// Search in a conversation (Cmd+F on macOS, Ctrl+F elsewhere), beside it like the info pane.
+import { ListView } from "std-widgets.slint";
+import { Theme } from "theme.slint";
+import { TextButton } from "parts.slint";
+
+export struct SearchHit {
+    id: string,
+    sender: string,
+    time: string,
+    text: string,
+}
+
+export component SearchPane inherits Rectangle {
+    in property <[SearchHit]> hits;
+    in property <string> status;
+    in property <bool> can-search-older;
+    in-out property <string> query;
+    in-out property <bool> files-only;
+    callback search(string, bool);
+    callback search-older();
+    callback open-hit(string);
+    callback close();
+    background: Theme.background;
+    Rectangle { x: 0; width: 1px; background: Theme.line; }
+    VerticalLayout {
+        Rectangle {
+            height: 56px;
+            Rectangle { y: parent.height - 1px; height: 1px; background: Theme.line; }
+            HorizontalLayout {
+                padding-left: 16px;
+                padding-right: 8px;
+                Text { text: "Search"; font-size: 16px; font-weight: 600; color: Theme.text; vertical-alignment: center; horizontal-stretch: 1; }
+                VerticalLayout {
+                    alignment: center;
+                    TextButton { label: "Close"; clicked => { root.close(); } }
+                }
+            }
+        }
+        HorizontalLayout {
+            padding: 12px;
+            spacing: 8px;
+            Rectangle {
+                height: 40px;
+                border-radius: 20px;
+                background: Theme.panel;
+                FocusScope {
+                    capture-key-pressed(event) => {
+                        if event.text == Key.Escape {
+                            root.close();
+                            return accept;
+                        }
+                        return reject;
+                    }
+                    input := TextInput {
+                        x: 16px;
+                        width: parent.width - 32px;
+                        vertical-alignment: center;
+                        single-line: true;
+                        color: Theme.text;
+                        text <=> root.query;
+                        accessible-label: "Search in this conversation";
+                        edited => { root.search(self.text, root.files-only); }
+                        init => { self.focus(); }
+                    }
+                }
+                if input.text == "": Text {
+                    x: 16px;
+                    text: "Words in the messages";
+                    color: Theme.text-secondary;
+                    vertical-alignment: center;
+                }
+            }
+            Rectangle {
+                width: 64px;
+                height: 32px;
+                y: 4px;
+                border-radius: 16px;
+                background: root.files-only ? Theme.primary : Theme.panel;
+                accessible-role: checkbox;
+                accessible-checked: root.files-only;
+                accessible-label: "Only messages with a file";
+                TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => {
+                        root.files-only = !root.files-only;
+                        root.search(root.query, root.files-only);
+                    }
+                }
+                Text {
+                    text: "Files";
+                    color: root.files-only ? white : Theme.text;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+        if root.status != "": Text {
+            text: root.status;
+            color: Theme.text-secondary;
+            font-size: 12px;
+            wrap: word-wrap;
+            x: 16px;
+            width: parent.width - 32px;
+        }
+        ListView {
+            for hit in root.hits: Rectangle {
+                height: hit-layout.preferred-height;
+                background: hit-touch.has-hover ? Theme.hover : transparent;
+                accessible-role: list-item;
+                accessible-label: hit.sender + ", " + hit.time + ": " + hit.text;
+                hit-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.open-hit(hit.id); }
+                }
+                hit-layout := VerticalLayout {
+                    padding-left: 16px;
+                    padding-right: 16px;
+                    padding-top: 8px;
+                    padding-bottom: 8px;
+                    spacing: 2px;
+                    HorizontalLayout {
+                        Text { text: hit.sender; font-weight: 600; color: Theme.text; overflow: elide; horizontal-stretch: 1; }
+                        Text { text: hit.time; font-size: 12px; color: Theme.text-secondary; }
+                    }
+                    Text { text: hit.text; color: Theme.text; wrap: word-wrap; max-height: 60px; overflow: elide; }
+                }
+            }
+        }
+        if root.can-search-older: HorizontalLayout {
+            padding: 8px;
+            alignment: center;
+            TextButton { label: "Search older messages"; clicked => { root.search-older(); } }
+        }
+    }
+}

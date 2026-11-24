@@ -1,0 +1,96 @@
+// Quick switcher (Cmd+K on macOS, Ctrl+K elsewhere): find a conversation by name.
+import { Theme } from "theme.slint";
+import { Suggestion } from "parts.slint";
+
+export component Switcher inherits Rectangle {
+    in property <[Suggestion]> items;
+    in-out property <int> selected;
+    in-out property <string> query;
+    callback search(string);
+    callback choose(int);
+    callback cancel();
+    background: #00000040;
+    TouchArea { clicked => { root.cancel(); } }
+    Rectangle {
+        y: 96px;
+        x: (parent.width - self.width) / 2;
+        width: min(560px, parent.width - 32px);
+        height: 64px + min(root.items.length, 8) * 48px + 8px;
+        border-radius: 12px;
+        background: Theme.background;
+        drop-shadow-blur: 24px;
+        drop-shadow-color: #00000040;
+        accessible-role: groupbox;
+        accessible-label: "Go to conversation";
+        TouchArea { }
+        scope := FocusScope {
+            capture-key-pressed(event) => {
+                if event.text == Key.Escape {
+                    root.cancel();
+                    return accept;
+                }
+                if event.text == Key.UpArrow {
+                    root.selected = max(0, root.selected - 1);
+                    return accept;
+                }
+                if event.text == Key.DownArrow {
+                    root.selected = min(root.items.length - 1, root.selected + 1);
+                    return accept;
+                }
+                if event.text == Key.Return {
+                    if root.items.length > 0 { root.choose(root.selected); }
+                    return accept;
+                }
+                return reject;
+            }
+            VerticalLayout {
+                padding: 8px;
+                spacing: 4px;
+                Rectangle {
+                    height: 48px;
+                    border-radius: 8px;
+                    background: Theme.panel;
+                    input := TextInput {
+                        x: 16px;
+                        width: parent.width - 32px;
+                        vertical-alignment: center;
+                        font-size: 16px;
+                        color: Theme.text;
+                        single-line: true;
+                        text <=> root.query;
+                        accessible-label: "Conversation name";
+                        edited => { root.search(self.text); }
+                        init => { self.focus(); }
+                    }
+                    if input.text == "": Text {
+                        x: 16px;
+                        text: "Go to conversation…";
+                        color: Theme.text-secondary;
+                        font-size: 16px;
+                        vertical-alignment: center;
+                    }
+                }
+                for item[i] in root.items: Rectangle {
+                    height: 48px;
+                    border-radius: 8px;
+                    background: i == root.selected ? Theme.hover : transparent;
+                    accessible-role: list-item;
+                    accessible-label: item.label;
+                    accessible-item-selected: i == root.selected;
+                    TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.choose(i); }
+                    }
+                    HorizontalLayout {
+                        padding-left: 12px;
+                        padding-right: 12px;
+                        spacing: 12px;
+                        Text { width: 24px; text: item.icon; vertical-alignment: center; horizontal-alignment: center; color: Theme.text-secondary; }
+                        Text { text: item.label; color: Theme.text; vertical-alignment: center; overflow: elide; }
+                        Text { text: item.detail; color: Theme.text-secondary; font-size: 12px; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
+                    }
+                }
+            }
+        }
+    }
+}
