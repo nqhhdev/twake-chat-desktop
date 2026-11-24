@@ -1,0 +1,1730 @@
+// Twake Chat desktop: sign-in, room list and conversation (M1).
+import { ListView, ScrollView, DatePickerPopup, Date } from "std-widgets.slint";
+import { Theme } from "theme.slint";
+import { Avatar, Badge, PrimaryButton, TextButton, Field, Suggestion, TextChange, LinkTarget, PdfPage, Icon, Icons } from "parts.slint";
+import { Switcher } from "switcher.slint";
+import { SearchHit, SearchPane } from "search.slint";
+import { FeedLine, ActivityPane } from "activity.slint";
+import { Row, ReactionChip, PollAnswerRow, MessageLine, AudioState, Animations } from "timeline.slint";
+export { AudioState, Animations }
+export { Icons }
+import { MemberRow, RoomInfoData, InfoPane, ConfirmDialog, CreateDialog, PollDialog } from "info.slint";
+import { CallStage, CallTileRow } from "call.slint";
+export { Row, ReactionChip, PollAnswerRow, MemberRow, RoomInfoData, Suggestion, SearchHit, FeedLine, CallTileRow }
+
+export struct SpaceItem {
+    id: string,
+    name: string,
+    initials: string,
+    tint: color,
+    avatar: image,
+    has-avatar: bool,
+}
+
+component SpaceButton inherits Rectangle {
+    in property <string> label;
+    in property <string> initials;
+    in property <color> tint;
+    in property <image> picture;
+    in property <bool> has-picture;
+    in property <bool> selected;
+    // An icon of the OS in place of the initials, when it has one
+    in property <image> symbol;
+    callback clicked();
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    background: selected ? Theme.selected : touch.has-hover ? Theme.hover : transparent;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-action-default => { clicked(); }
+    touch := TouchArea { clicked => { root.clicked(); } }
+    if root.symbol.width == 0: Avatar { x: 6px; y: 6px; size: 40px; initials: root.initials; tint: root.tint; picture: root.picture; has-picture: root.has-picture; }
+    if root.symbol.width > 0: Rectangle {
+        x: 6px;
+        y: 6px;
+        width: 40px;
+        height: 40px;
+        border-radius: 20px;
+        background: root.tint;
+        Icon { source: root.symbol; color: #ffffff; size: 20px; }
+    }
+}
+
+component Chip inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    callback clicked();
+    height: 28px;
+    width: t.preferred-width + 20px;
+    border-radius: 14px;
+    background: selected ? Theme.primary : Theme.panel;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-action-default => { clicked(); }
+    TouchArea { clicked => { root.clicked(); } }
+    t := Text { text: root.label; color: selected ? Theme.on-primary : Theme.text; font-size: 12px; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+}
+
+export struct RoomRow {
+    id: string,
+    name: string,
+    initials: string,
+    tint: color,
+    preview: string,
+    time: string,
+    unread: int,
+    mentions: int,
+    encrypted: bool,
+    invite: bool,
+    avatar: image,
+    has-avatar: bool,
+}
+
+component RoomLine inherits Rectangle {
+    in property <RoomRow> room;
+    in property <bool> selected;
+    callback clicked();
+    callback accept();
+    callback decline();
+    height: 68px;
+    background: selected ? Theme.selected : touch.has-hover ? Theme.hover : transparent;
+    border-radius: 12px;
+    accessible-role: list-item;
+    accessible-label: room.name + (room.unread > 0 ? ", " + room.unread + " unread" : "");
+    accessible-action-default => { clicked(); }
+    touch := TouchArea { clicked => { root.clicked(); } }
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 12px;
+        alignment: stretch;
+        VerticalLayout {
+            alignment: center;
+            Avatar { initials: room.initials; tint: room.tint; size: 44px; picture: room.avatar; has-picture: room.has-avatar; }
+        }
+        VerticalLayout {
+            alignment: center;
+            spacing: 2px;
+            HorizontalLayout {
+                spacing: 6px;
+                Text {
+                    text: room.name;
+                    color: Theme.text;
+                    font-weight: room.unread > 0 ? 700 : 500;
+                    overflow: elide;
+                    horizontal-stretch: 1;
+                }
+                Text { text: room.time; color: Theme.text-secondary; font-size: 12px; }
+            }
+            HorizontalLayout {
+                spacing: 6px;
+                Text {
+                    text: room.invite ? "Invitation" : room.preview;
+                    color: Theme.text-secondary;
+                    font-size: 13px;
+                    overflow: elide;
+                    horizontal-stretch: 1;
+                }
+                if room.mentions > 0: Badge { label: "@"; }
+                if room.unread > 0: Badge { label: room.unread > 99 ? "99+" : room.unread; }
+                if room.invite: TextButton { label: "Join"; clicked => { root.accept(); } }
+                if room.invite: TextButton { label: "Decline"; clicked => { root.decline(); } }
+            }
+        }
+    }
+}
+
+component SignIn inherits Rectangle {
+    in-out property <string> homeserver;
+    in-out property <string> username;
+    in-out property <string> password;
+    in property <bool> busy;
+    in property <string> error;
+    callback sign-in();
+    callback sign-in-sso();
+    background: Theme.panel;
+    VerticalLayout {
+        alignment: center;
+        HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                width: 380px;
+                background: Theme.background;
+                border-radius: 20px;
+                VerticalLayout {
+                    padding: 32px;
+                    spacing: 16px;
+                    Text { text: "Twake Chat"; font-size: 26px; font-weight: Theme.weight-bold; color: Theme.text; }
+                    Text { text: "Sign in to your Matrix homeserver"; color: Theme.text-secondary; }
+                    Field { label: "Homeserver"; text <=> root.homeserver; }
+                    PrimaryButton {
+                        label: busy ? "Signing in…" : "Sign in with SSO";
+                        enabled: !busy && homeserver != "";
+                        clicked => { root.sign-in-sso(); }
+                    }
+                    Text { text: "or with a password"; color: Theme.text-secondary; font-size: 12px; horizontal-alignment: center; }
+                    Field { label: "Username"; text <=> root.username; }
+                    Field {
+                        label: "Password";
+                        password: true;
+                        text <=> root.password;
+                        accepted => { if !busy { root.sign-in(); } }
+                    }
+                    PrimaryButton {
+                        label: "Sign in";
+                        enabled: !busy && homeserver != "" && username != "" && password != "";
+                        clicked => { root.sign-in(); }
+                    }
+                    if error != "": Text { text: error; color: Theme.error; wrap: word-wrap; }
+                }
+            }
+        }
+    }
+}
+
+// The composer. `hint` shows what the next send does (a reply, an edit), with a way out.
+component Composer inherits Rectangle {
+    in property <bool> enabled;
+    in property <string> placeholder: "Message";
+    in property <string> hint;
+    in-out property <string> text;
+    callback send(string);
+    callback cancel();
+    callback attach();
+    callback poll();
+    callback typing(bool);
+    // Suggestions for the word before the caret (emoji, @person, #room, /command)
+    in property <[Suggestion]> suggestions;
+    in-out property <int> selected;
+    in property <[string]> emojis;
+    // The caret moves to caret-pos each time caret-serial changes (set from Rust)
+    in property <int> caret-pos;
+    in property <int> caret-serial;
+    property <bool> emoji-open;
+    callback edited(string, int);
+    callback pick(int);
+    callback dismiss();
+    callback insert(string, int);
+    // Files waiting to leave with the next send
+    in property <[string]> staged;
+    callback unstage(int);
+    callback paste();
+    // A voice message on its way (web `RecordingBar`)
+    in property <bool> recording;
+    in property <string> recording-time;
+    callback record();
+    callback stop-recording(bool);
+    // The formats bar (web `FormatToolbar`): Markdown written around the selection
+    in-out property <bool> formats-open;
+    callback text-format(string, string, int, int) -> TextChange;
+    callback paste-link(string, int, int) -> TextChange;
+    callback link-target(string, int, int) -> LinkTarget;
+    callback link-apply(string, int, int, string, string) -> TextChange;
+    property <bool> link-open;
+    property <LinkTarget> link;
+    property <bool> link-invalid;
+    property <int> sel-start: min(input.cursor-position-byte-offset, input.anchor-position-byte-offset);
+    property <int> sel-end: max(input.cursor-position-byte-offset, input.anchor-position-byte-offset);
+    function take(change: TextChange) {
+        if change.ok {
+            root.text = change.text;
+            input.set-selection-offsets(change.from, change.to);
+            input.focus();
+            root.edited(change.text, change.to);
+        }
+    }
+    function format(name: string) {
+        root.take(root.text-format(input.text, name, root.sel-start, root.sel-end));
+    }
+    function open-link() {
+        root.link = root.link-target(input.text, root.sel-start, root.sel-end);
+        root.link-invalid = false;
+        root.link-open = true;
+    }
+    changed caret-serial => { input.set-selection-offsets(caret-pos, caret-pos); input.focus(); }
+    height: (hint != "" ? 30px : 0px) + (staged.length > 0 ? 40px : 0px) + 66px + max(32px, min(200px, input.preferred-height + 10px));
+    if suggestions.length > 0: Rectangle {
+        x: 56px;
+        width: min(420px, parent.width - 72px);
+        height: min(suggestions.length, 8) * 36px + 8px;
+        y: -self.height - 4px;
+        border-radius: 10px;
+        background: Theme.background;
+        border-width: 1px;
+        border-color: Theme.line;
+        drop-shadow-blur: 12px;
+        drop-shadow-color: #00000030;
+        accessible-role: list;
+        VerticalLayout {
+            padding: 4px;
+            for item[i] in suggestions: Rectangle {
+                height: 36px;
+                border-radius: 6px;
+                background: i == root.selected ? Theme.hover : transparent;
+                accessible-role: list-item;
+                accessible-label: item.label;
+                accessible-item-selected: i == root.selected;
+                TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.pick(i); }
+                }
+                HorizontalLayout {
+                    padding-left: 8px;
+                    padding-right: 8px;
+                    spacing: 10px;
+                    Text { width: 24px; text: item.icon; font-size: 16px; vertical-alignment: center; horizontal-alignment: center; }
+                    Text { text: item.label; color: Theme.text; vertical-alignment: center; overflow: elide; }
+                    Text { text: item.detail; color: Theme.text-secondary; font-size: 12px; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
+                }
+            }
+        }
+    }
+    if emoji-open: Rectangle {
+        x: 8px;
+        width: 8 * 40px + 16px;
+        height: ceil(emojis.length / 8) * 40px + 16px;
+        y: -self.height - 4px;
+        border-radius: 10px;
+        background: Theme.background;
+        border-width: 1px;
+        border-color: Theme.line;
+        drop-shadow-blur: 12px;
+        drop-shadow-color: #00000030;
+        for e[i] in emojis: Rectangle {
+            x: 8px + mod(i, 8) * 40px;
+            y: 8px + floor(i / 8) * 40px;
+            width: 40px;
+            height: 40px;
+            border-radius: 6px;
+            background: e-touch.has-hover ? Theme.hover : transparent;
+            accessible-role: button;
+            accessible-label: e;
+            e-touch := TouchArea {
+                mouse-cursor: pointer;
+                clicked => {
+                    root.insert(e, input.cursor-position-byte-offset);
+                    root.emoji-open = false;
+                }
+            }
+            Text { text: e; font-size: 20px; horizontal-alignment: center; vertical-alignment: center; }
+        }
+    }
+    if link-open: Rectangle {
+        x: 8px;
+        width: min(380px, parent.width - 16px);
+        height: link-layout.preferred-height;
+        y: -self.height - 4px;
+        border-radius: 10px;
+        background: Theme.background;
+        border-width: 1px;
+        border-color: Theme.line;
+        drop-shadow-blur: 12px;
+        drop-shadow-color: #00000030;
+        accessible-role: groupbox;
+        accessible-label: "Add a link";
+        link-layout := VerticalLayout {
+            padding: 14px;
+            spacing: 10px;
+            Text { text: "Add a link"; font-size: 15px; font-weight: 600; color: Theme.text; }
+            Field { label: "Text"; text <=> root.link.text; }
+            Field { label: "Address"; text <=> root.link.url; accepted => { link-ok.clicked(); } }
+            if root.link-invalid: Text { text: "Enter a web address (https://…)"; color: Theme.error; font-size: 12px; }
+            HorizontalLayout {
+                alignment: end;
+                spacing: 8px;
+                TextButton { label: "Cancel"; clicked => { root.link-open = false; input.focus(); } }
+                link-ok := PrimaryButton {
+                    width: 72px;
+                    label: "Save";
+                    clicked => {
+                        let change = root.link-apply(input.text, root.link.from, root.link.to, root.link.text, root.link.url);
+                        if change.ok {
+                            root.link-open = false;
+                            root.take(change);
+                        } else {
+                            root.link-invalid = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // The typing bar of the web (ds/Composer, its default « new » style): a card on the
+    // wallpaper, the text on top and a row of tools under it; at the end of the row the
+    // microphone while there is nothing to send, Send once there is
+    VerticalLayout {
+        padding: 16px;
+        padding-top: 8px;
+        Rectangle {
+            border-radius: 14px;
+            border-width: 1px;
+            border-color: Theme.line;
+            background: Theme.background;
+            VerticalLayout {
+                if staged.length > 0: HorizontalLayout {
+                    height: 40px;
+                    padding-left: 16px;
+                    padding-right: 16px;
+                    padding-top: 6px;
+                    spacing: 6px;
+                    alignment: start;
+                    for name[i] in staged: Rectangle {
+                        height: 30px;
+                        width: min(220px, staged-label.preferred-width + 44px);
+                        border-radius: 15px;
+                        background: Theme.panel;
+                        accessible-role: list-item;
+                        accessible-label: "File to send: " + name;
+                        HorizontalLayout {
+                            padding-left: 10px;
+                            padding-right: 4px;
+                            spacing: 4px;
+                            VerticalLayout { alignment: center; Icon { source: Icons.attach; fallback: "📎"; size: 12px; } }
+                            staged-label := Text { text: name; color: Theme.text; font-size: 12px; vertical-alignment: center; overflow: elide; }
+                            Rectangle {
+                                width: 22px;
+                                accessible-role: button;
+                                accessible-label: "Remove " + name;
+                                accessible-action-default => { root.unstage(i); }
+                                TouchArea { mouse-cursor: pointer; clicked => { root.unstage(i); } }
+                                Icon { source: Icons.close; fallback: "×"; size: 12px; }
+                            }
+                        }
+                    }
+                }
+                if hint != "": HorizontalLayout {
+                    height: 30px;
+                    padding-left: 16px;
+                    padding-right: 8px;
+                    spacing: 8px;
+                    Text { text: hint; color: Theme.text-secondary; font-size: 12px; overflow: elide; vertical-alignment: center; horizontal-stretch: 1; }
+                    TextButton { label: "Cancel"; clicked => { root.cancel(); } }
+                }
+                Rectangle {
+                    background: transparent;
+                    scope := FocusScope {
+                        capture-key-pressed(event) => {
+                            if root.suggestions.length > 0 {
+                                if event.text == Key.UpArrow {
+                                    root.selected = max(0, root.selected - 1);
+                                    return accept;
+                                }
+                                if event.text == Key.DownArrow {
+                                    root.selected = min(root.suggestions.length - 1, root.selected + 1);
+                                    return accept;
+                                }
+                                if event.text == Key.Tab || (event.text == Key.Return && !event.modifiers.shift) {
+                                    root.pick(root.selected);
+                                    return accept;
+                                }
+                                if event.text == Key.Escape {
+                                    root.dismiss();
+                                    return accept;
+                                }
+                            }
+                            if event.text == Key.Escape && root.emoji-open {
+                                root.emoji-open = false;
+                                return accept;
+                            }
+                            if event.text == Key.Escape && root.link-open {
+                                root.link-open = false;
+                                return accept;
+                            }
+                            // The shortcuts of Slack, Cmd on macOS and Ctrl elsewhere
+                            if event.modifiers.control && !event.modifiers.alt {
+                                if !event.modifiers.shift && (event.text == "b" || event.text == "B") { root.format("bold"); return accept; }
+                                if !event.modifiers.shift && (event.text == "i" || event.text == "I") { root.format("italic"); return accept; }
+                                if !event.modifiers.shift && (event.text == "u" || event.text == "U") { root.format("underline"); return accept; }
+                                if event.modifiers.shift && (event.text == "x" || event.text == "X") { root.format("strike"); return accept; }
+                                if event.modifiers.shift && (event.text == "c" || event.text == "C") { root.format("code"); return accept; }
+                                if event.modifiers.shift && (event.text == "u" || event.text == "U") { root.open-link(); return accept; }
+                            }
+                            if root.recording && event.text == Key.Escape {
+                                root.stop-recording(false);
+                                return accept;
+                            }
+                            if event.text == Key.Return && !event.modifiers.shift {
+                                if root.recording { root.stop-recording(true); return accept; }
+                                if input.text != "" || root.staged.length > 0 { root.send(input.text); }
+                                return accept;
+                            }
+                            if event.modifiers.control && (event.text == "v" || event.text == "V") {
+                                // A web address pasted over a selection links it
+                                let change = root.paste-link(input.text, root.sel-start, root.sel-end);
+                                if change.ok {
+                                    root.take(change);
+                                    return accept;
+                                }
+                                // Images and files of the clipboard; its text goes in the field
+                                root.paste();
+                                return reject;
+                            }
+                            if event.text == Key.Escape && root.hint != "" {
+                                root.cancel();
+                                return accept;
+                            }
+                            return reject;
+                        }
+                        input := TextInput {
+                            x: 14px;
+                            width: parent.width - 28px;
+                            y: (parent.height - self.height) / 2;
+                            height: min(self.preferred-height, parent.height - 8px);
+                            text <=> root.text;
+                            edited => {
+                                root.typing(self.text != "");
+                                root.edited(self.text, self.cursor-position-byte-offset);
+                            }
+                            color: Theme.text;
+                            wrap: word-wrap;
+                            single-line: false;
+                            enabled: root.enabled;
+                            accessible-label: root.placeholder;
+                            accessible-placeholder-text: root.placeholder;
+                        }
+                    }
+                    if input.text == "": Text {
+                        x: 14px;
+                        text: root.placeholder;
+                        color: Theme.text-secondary;
+                        vertical-alignment: center;
+                    }
+                    if root.recording: Rectangle {
+                        border-radius: 20px;
+                        background: Theme.panel;
+                        accessible-role: groupbox;
+                        accessible-label: "Recording " + root.recording-time;
+                        TouchArea {}
+                        HorizontalLayout {
+                            padding-left: 16px;
+                            padding-right: 8px;
+                            spacing: 10px;
+                            Text { text: "●"; color: Theme.error; vertical-alignment: center; }
+                            Text { text: "Recording " + root.recording-time; color: Theme.text; vertical-alignment: center; horizontal-stretch: 1; }
+                            TextButton { label: "Cancel"; clicked => { root.stop-recording(false); } }
+                        }
+                    }
+                }
+                HorizontalLayout {
+                    height: 40px;
+                    padding-left: 8px;
+                    padding-right: 8px;
+                    padding-top: 2px;
+                    padding-bottom: 6px;
+                    spacing: 2px;
+                    // A narrow row scrolls sideways; the microphone and Send stay in view
+                    tools-scroll := Flickable {
+                        horizontal-stretch: 1;
+                        content-width: max(self.width, tools.preferred-width);
+                        content-height: self.height;
+                        tools := HorizontalLayout {
+                            height: 32px;
+                            spacing: 2px;
+                            alignment: start;
+                            VerticalLayout {
+                                alignment: center;
+                                Rectangle {
+                                    width: 32px;
+                                    height: 32px;
+                                    border-radius: 16px;
+                                    background: attach-touch.has-hover ? Theme.hover : transparent;
+                                    accessible-role: button;
+                                    accessible-label: "Attach a file";
+                                    accessible-action-default => { root.attach(); }
+                                    attach-touch := TouchArea { mouse-cursor: pointer; clicked => { root.attach(); } }
+                                    Icon { source: Icons.plus; fallback: "+"; size: 20px; }
+                                }
+                            }
+                            VerticalLayout {
+                                alignment: center;
+                                Rectangle {
+                                    width: 32px;
+                                    height: 32px;
+                                    border-radius: 16px;
+                                    background: poll-touch.has-hover ? Theme.hover : transparent;
+                                    accessible-role: button;
+                                    accessible-label: "New poll";
+                                    accessible-action-default => { root.poll(); }
+                                    poll-touch := TouchArea { mouse-cursor: pointer; clicked => { root.poll(); } }
+                                    Icon { source: Icons.poll; fallback: "📊"; size: 20px; }
+                                }
+                            }
+                            VerticalLayout {
+                                alignment: center;
+                                Rectangle {
+                                    width: 32px;
+                                    height: 32px;
+                                    border-radius: 16px;
+                                    background: aa-touch.has-hover || root.formats-open ? Theme.hover : transparent;
+                                    accessible-role: button;
+                                    accessible-label: root.formats-open ? "Hide formatting" : "Show formatting";
+                                    accessible-action-default => { root.formats-open = !root.formats-open; }
+                                    aa-touch := TouchArea { mouse-cursor: pointer; clicked => { root.formats-open = !root.formats-open; } }
+                                    Text { text: "Aa"; font-size: 15px; font-weight: Theme.weight-bold; color: Theme.text-secondary; horizontal-alignment: center; vertical-alignment: center; }
+                                }
+                            }
+                            // « Aa » unfolds the formats here, to its right (web FormatToolbar)
+                            if root.formats-open: HorizontalLayout {
+                                spacing: 2px;
+                                accessible-role: groupbox;
+                                accessible-label: "Formatting";
+                                for f in [
+                                    { name: "bold", icon: "B", label: "Bold" },
+                                    { name: "italic", icon: "I", label: "Italic" },
+                                    { name: "underline", icon: "U", label: "Underline" },
+                                    { name: "strike", icon: "S", label: "Strikethrough" },
+                                    { name: "link", icon: "🔗", label: "Link" },
+                                    { name: "ordered_list", icon: "1.", label: "Numbered list" },
+                                    { name: "bullet_list", icon: "•", label: "Bulleted list" },
+                                    { name: "quote", icon: "❝", label: "Quote" },
+                                    { name: "code", icon: "</>", label: "Code" },
+                                    { name: "code_block", icon: "{ }", label: "Code block" },
+                                ]: format-button := Rectangle {
+                                    property <image> symbol: f.name == "link" ? Icons.link : f.name == "bullet_list" ? Icons.bullets : f.name == "quote" ? Icons.quote : @image-url("");
+                                    width: 32px;
+                                    height: 32px;
+                                    border-radius: 16px;
+                                    background: f-touch.has-hover ? Theme.hover : transparent;
+                                    accessible-role: button;
+                                    accessible-label: f.label;
+                                    accessible-action-default => { if f.name == "link" { root.open-link(); } else { root.format(f.name); } }
+                                    f-touch := TouchArea {
+                                        mouse-cursor: pointer;
+                                        clicked => { if f.name == "link" { root.open-link(); } else { root.format(f.name); } }
+                                    }
+                                    if format-button.symbol.width > 0: Icon { source: format-button.symbol; color: Theme.text; }
+                                    if format-button.symbol.width == 0: Text {
+                                        text: f.icon;
+                                        color: Theme.text;
+                                        font-size: 13px;
+                                        font-weight: f.name == "bold" ? 700 : 400;
+                                        font-italic: f.name == "italic";
+                                        horizontal-alignment: center;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                            }
+                            VerticalLayout {
+                                alignment: center;
+                                Rectangle {
+                                    width: 32px;
+                                    height: 32px;
+                                    border-radius: 16px;
+                                    background: emoji-touch.has-hover || root.emoji-open ? Theme.hover : transparent;
+                                    accessible-role: button;
+                                    accessible-label: "Emoji";
+                                    accessible-action-default => { root.emoji-open = !root.emoji-open; }
+                                    emoji-touch := TouchArea { mouse-cursor: pointer; clicked => { root.emoji-open = !root.emoji-open; } }
+                                    Icon { source: Icons.emoji; fallback: "🙂"; size: 20px; }
+                                }
+                            }
+                        }
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        send-button := Rectangle {
+                            property <bool> has-content: root.recording || input.text != "" || root.staged.length > 0;
+                            function press() {
+                                if !root.enabled { return; }
+                                if root.recording {
+                                    root.stop-recording(true);
+                                } else if self.has-content {
+                                    root.send(input.text);
+                                } else {
+                                    root.record();
+                                }
+                            }
+                            width: 32px;
+                            height: 32px;
+                            border-radius: 16px;
+                            background: !self.has-content ? (send-touch.has-hover ? Theme.hover : transparent)
+                                : !root.enabled ? Theme.primary.transparentize(0.7)
+                                : send-touch.has-hover ? Theme.primary-dark : Theme.primary;
+                            accessible-role: button;
+                            accessible-label: self.has-content ? "Send" : "Record a voice message";
+                            accessible-action-default => { send-button.press(); }
+                            send-touch := TouchArea {
+                                mouse-cursor: root.enabled ? pointer : default;
+                                clicked => { send-button.press(); }
+                            }
+                            Icon {
+                                source: send-button.has-content ? Icons.send : Icons.mic;
+                                fallback: send-button.has-content ? "➤" : "🎤";
+                                color: send-button.has-content ? #ffffff : Theme.text-secondary;
+                                size: send-button.has-content ? 18px : 20px;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    public function focus-input() {
+        input.focus();
+    }
+}
+
+
+export component AppWindow inherits Window {
+    title: "Twake Chat";
+    preferred-width: 1180px;
+    preferred-height: 780px;
+    min-width: 720px;
+    min-height: 480px;
+    background: Theme.background;
+    default-font-size: Theme.font-size;
+
+    // Global menu bar on macOS, in the window on Windows and Linux (ADR-013); its
+    // shortcuts are Cmd on macOS and Ctrl elsewhere.
+    MenuBar {
+        Menu {
+            title: "Twake Chat";
+            MenuItem { title: "About Twake Chat"; role: MenuItemRole.about; activated => { root.show-about(); } }
+            MenuItem { title: "Hide Twake Chat"; role: MenuItemRole.hide; }
+            MenuItem { title: "Hide Others"; role: MenuItemRole.hide-others; }
+            MenuItem { title: "Show All"; role: MenuItemRole.show-all; }
+            MenuItem { title: "Quit Twake Chat"; role: MenuItemRole.quit; activated => { root.quit-app(); } }
+        }
+        Menu {
+            title: "Conversation";
+            MenuItem {
+                title: "Go to Conversation…";
+                shortcut: @keys(Control + K);
+                enabled: root.page == 2;
+                activated => { root.open-switcher(); }
+            }
+            MenuItem {
+                title: "Activity";
+                shortcut: @keys(Control + Shift + A);
+                enabled: root.page == 2;
+                activated => { root.open-activity(); }
+            }
+            MenuItem {
+                title: "Search in Conversation…";
+                shortcut: @keys(Control + F);
+                enabled: root.page == 2 && root.current-room-id != "";
+                activated => { root.open-search(); }
+            }
+            MenuItem {
+                title: "Go to Date…";
+                shortcut: @keys(Control + J);
+                enabled: root.page == 2 && root.current-room-id != "";
+                activated => { root.open-date-picker(); }
+            }
+            MenuItem {
+                title: "Jump to the Beginning";
+                enabled: root.page == 2 && root.current-room-id != "";
+                activated => { root.jump-to-beginning(); }
+            }
+            MenuItem {
+                title: "New Room…";
+                shortcut: @keys(Control + N);
+                enabled: root.page == 2;
+                activated => { root.show-create("room"); }
+            }
+            MenuItem {
+                title: "New Direct Message…";
+                enabled: root.page == 2;
+                activated => { root.show-create("direct"); }
+            }
+            MenuItem {
+                title: "Room Info";
+                shortcut: @keys(Control + Shift + I);
+                enabled: root.page == 2 && root.current-room-id != "";
+                activated => { root.open-info(); }
+            }
+            MenuItem {
+                title: "Sign Out";
+                enabled: root.page == 2;
+                activated => { root.sign-out(); }
+            }
+        }
+    }
+
+    // 0 starting, 1 signed out, 2 signed in
+    in property <int> page: 0;
+    in property <bool> busy;
+    in property <string> error;
+    in property <string> notice;
+    in property <string> user-id;
+    in-out property <string> homeserver: "http://localhost:18008";
+    in-out property <string> username;
+    in-out property <string> password;
+
+    in property <[RoomRow]> rooms;
+    in property <string> filter-text;
+    in property <string> current-room-id;
+    in property <string> current-room-name;
+    in property <bool> current-room-encrypted;
+    in property <[Row]> rows;
+    in property <bool> loading-history;
+    in property <bool> history-complete;
+    in property <bool> needs-recovery-key;
+    in-out property <string> recovery-key;
+    // bumped by Rust to scroll the timeline to its newest message
+    in property <int> scroll-to-bottom;
+    // the timeline shows its newest message: new ones keep it there
+    in-out property <bool> at-bottom: true;
+    // the last change of rows added older messages above (set by Rust)
+    in property <bool> history-prepended;
+
+    callback sign-in(string, string, string);
+    callback sign-in-sso(string);
+    callback open-room(string);
+    callback load-older();
+    callback send(string);
+    callback recover(string);
+    callback sign-out();
+    callback link-clicked(string);
+    callback filter-changed(string);
+    callback open-attachment(string, string);
+    callback save-attachment(string, string);
+    // reactions, replies, edits, deletion: (message id, in the thread panel)
+    callback react(string, string, bool);
+    callback reply(string, bool);
+    callback edit(string, bool);
+    callback delete(string, bool);
+    callback open-thread(string);
+    callback close-thread();
+    callback send-in-thread(string);
+    callback cancel-compose(bool);
+    callback attach(bool);
+
+    // What the next send of each composer does, and their texts (set by Rust for edits).
+    in property <string> compose-hint;
+    // Files of the composers, and a drag of files over the window
+    in property <[string]> staged;
+    in property <[string]> thread-staged;
+    in property <bool> drop-hover;
+    callback composer-unstage(bool, int);
+    callback composer-paste(bool);
+    // Image viewer, over the whole window
+    in-out property <bool> viewer-open;
+    in property <image> viewer-image;
+    // a GIF playing in the viewer: its frame in Animations.frames, 1-based (0: none)
+    in property <int> viewer-anim;
+    in property <bool> viewer-ready;
+    in property <string> viewer-name;
+    callback view-image(string, string);
+    callback viewer-save();
+    // PDF viewer, over the whole window (src/pdf.rs)
+    in property <bool> pdf-open;
+    in property <string> pdf-name;
+    in property <[PdfPage]> pdf-pages;
+    // « Loading… », why it cannot be shown, or empty once the pages are there
+    in property <string> pdf-status;
+    // bumped when the pages arrive, so the list says where it is
+    in property <int> pdf-generation;
+    // where the list is: top and height of what shows, width of a page (logical px)
+    callback pdf-scrolled(float, float, float);
+    callback pdf-close();
+    callback pdf-save();
+    callback pdf-external();
+    callback viewer-external();
+    // The Activity, in place of the conversation
+    in-out property <bool> activity-open;
+    in property <[FeedLine]> activity-lines;
+    in property <string> activity-filter: "all";
+    in property <int> activity-count;
+    in-out property <string> activity-query;
+    callback open-activity();
+    callback activity-pick-filter(string);
+    callback activity-search(string);
+    callback activity-choose(int);
+    // Search in the open conversation (Cmd/Ctrl+F)
+    in-out property <bool> search-open;
+    in-out property <string> search-query;
+    in-out property <bool> search-files-only;
+    in property <[SearchHit]> search-hits;
+    in property <string> search-status;
+    in property <bool> search-can-older;
+    in property <string> side-title: "Thread";
+    callback open-search();
+    callback search(string, bool);
+    callback search-older();
+    callback open-hit(string);
+    // Quick switcher (Cmd/Ctrl+K)
+    in-out property <bool> switcher-open;
+    in-out property <string> switcher-query;
+    in property <[Suggestion]> switcher-items;
+    in-out property <int> switcher-selected;
+    callback open-switcher();
+    callback switcher-search(string);
+    callback switcher-choose(int);
+    callback show-about();
+    callback play-audio(string, string, int);
+    // A voice message on its way, in the room's composer or the thread's
+    in-out property <bool> recording;
+    in-out property <bool> recording-in-thread;
+    in-out property <string> recording-time;
+    callback record-voice(bool);
+    callback stop-voice(bool);
+    callback seek-audio(string, float);
+    // The formats of the composers (twake_domain::text_format)
+    in-out property <bool> formats-open;
+    callback text-format(string, string, int, int) -> TextChange;
+    callback paste-link(string, int, int) -> TextChange;
+    callback link-target(string, int, int) -> LinkTarget;
+    callback link-apply(string, int, int, string, string) -> TextChange;
+    // « Go to a date »: a local day; the side panel shows its first message under
+    // jump-title.
+    callback jump-to-date(int, int, int);
+    callback jump-to-beginning();
+    in-out property <string> jump-title;
+    in property <Date> today;
+    callback open-date-picker();
+    public function show-date-picker() { date-picker.show(); }
+    callback quit-app();
+    in-out property <string> compose-text;
+    in property <[Suggestion]> suggestions;
+    in-out property <int> suggest-selected;
+    in property <[Suggestion]> thread-suggestions;
+    in-out property <int> thread-suggest-selected;
+    in property <[string]> emojis;
+    in property <int> caret-pos;
+    in property <int> caret-serial;
+    in property <int> thread-caret-pos;
+    in property <int> thread-caret-serial;
+    callback composer-edited(bool, string, int);
+    callback suggestion-pick(bool, int);
+    callback suggestion-dismiss(bool);
+    callback composer-insert(bool, string, int);
+    in property <string> thread-compose-hint;
+    in-out property <string> thread-compose-text;
+    in property <bool> thread-open;
+    // Calls (M5): the people in the call of the open room (0: none), the call of this
+    // device and the room it is in
+    in property <int> call-people;
+    in property <bool> in-call;
+    // In a call of a channel, its chat goes to a thread of its own (web `CallThreadBand`,
+    // D105): there is one, and it shows in place of the channel
+    in property <bool> call-thread;
+    in property <bool> call-thread-shown;
+    callback call-thread-toggle();
+    in property <bool> call-sharing;
+    callback call-toggle-screen();
+    in property <string> call-room-id;
+    in property <string> call-room-name;
+    in property <string> call-status;
+    in property <bool> call-encrypted;
+    in property <bool> call-microphone;
+    in property <bool> call-camera;
+    in property <[CallTileRow]> call-tiles;
+    property <bool> call-here: root.in-call && root.call-room-id == root.current-room-id;
+    callback start-call(bool);
+    callback leave-call();
+    callback call-toggle-microphone();
+    callback call-toggle-camera();
+    callback go-to-call();
+    pure callback call-tile-width(int, length, length) -> length;
+    // A call that rings for the user (web `IncomingCallBanner`): « … is calling you »
+    in property <string> ring-text;
+    in property <bool> ring-video;
+    callback ring-answer();
+    callback ring-decline();
+    in property <[Row]> thread-rows;
+    in property <int> thread-scroll-to-bottom;
+
+    // Spaces and filters of the room list
+    in property <[SpaceItem]> spaces;
+    in property <string> current-space;
+    in property <string> room-filter: "all";
+    callback pick-space(string);
+    callback pick-filter(string);
+
+    // Polls and pins
+    callback vote(string, string, bool);
+    callback end-poll(string, bool);
+    callback pin(string, bool);
+    callback save-message(string, bool);
+    callback open-pinned();
+    in property <int> pinned-count;
+    // the side panel shows the pinned messages, not a thread
+    in property <bool> side-pinned;
+    // the poll dialog is open (for the thread composer when `poll-in-thread`)
+    in property <bool> poll-open;
+    in property <bool> poll-in-thread;
+    in-out property <string> poll-question;
+    in-out property <string> poll-answers;
+    in-out property <bool> poll-multiple;
+    callback show-poll(bool);
+    callback create-poll(string, string, bool);
+    callback cancel-poll();
+
+    // "bob is typing…" under the conversation
+    in property <string> typing-text;
+    callback typing(bool);
+
+    // Room info pane
+    in property <bool> info-open;
+    in property <RoomInfoData> info;
+    in property <[MemberRow]> info-members;
+    in-out property <string> info-invite-text;
+    callback open-info();
+    callback close-info();
+    callback info-rename(string);
+    callback info-set-topic(string);
+    callback info-encrypt();
+    callback info-invite(string);
+    callback member-remove(string);
+    callback member-ban(string);
+    callback member-set-role(string, string);
+    callback leave-room();
+    callback accept-invite(string);
+    callback decline-invite(string);
+
+    // New room / direct message dialog: "", "room" or "direct"
+    in property <string> create-mode;
+    callback show-create(string);
+    callback cancel-create();
+    callback create-room(string, string, string, bool);
+    callback open-direct(string);
+
+    // Confirmation of an action that cannot be undone ("" hides it)
+    in property <string> confirm-message;
+    in property <bool> confirm-with-reason;
+    in-out property <string> confirm-reason;
+    in property <string> confirm-label;
+    callback confirm-yes();
+    callback confirm-no();
+
+    if page == 0: Rectangle {
+        background: Theme.panel;
+        Text { text: "Twake Chat"; font-size: 22px; color: Theme.text-secondary; }
+    }
+
+    if page == 1: SignIn {
+        homeserver <=> root.homeserver;
+        username <=> root.username;
+        password <=> root.password;
+        busy: root.busy;
+        error: root.error;
+        sign-in => { root.sign-in(root.homeserver, root.username, root.password); }
+        sign-in-sso => { root.sign-in-sso(root.homeserver); }
+    }
+
+    if page == 2: VerticalLayout {
+        // App bar
+        Rectangle {
+            height: 52px;
+            background: Theme.background;
+            Rectangle { y: parent.height - 1px; height: 1px; background: Theme.line; }
+            HorizontalLayout {
+                padding-left: 16px;
+                padding-right: 12px;
+                spacing: 12px;
+                Text {
+                    text: "Twake Chat";
+                    font-size: 18px;
+                    font-weight: Theme.weight-bold;
+                    color: Theme.text;
+                    vertical-alignment: center;
+                }
+                Rectangle { horizontal-stretch: 1; }
+                Text { text: root.user-id; color: Theme.text-secondary; vertical-alignment: center; font-size: 12px; }
+                VerticalLayout {
+                    alignment: center;
+                    TextButton { label: "Sign out"; clicked => { root.sign-out(); } }
+                }
+            }
+        }
+        if root.needs-recovery-key: Rectangle {
+            background: Theme.warning-bg;
+            height: 56px;
+            HorizontalLayout {
+                padding-left: 16px;
+                padding-right: 16px;
+                spacing: 12px;
+                Text {
+                    text: "Enter your recovery key to read your encrypted history on this device.";
+                    color: Theme.text;
+                    vertical-alignment: center;
+                    overflow: elide;
+                    horizontal-stretch: 1;
+                }
+                Rectangle {
+                    width: 320px;
+                    height: 36px;
+                    y: 10px;
+                    border-radius: 8px;
+                    background: Theme.background;
+                    border-width: 1px;
+                    border-color: Theme.line;
+                    TextInput {
+                        x: 10px;
+                        width: parent.width - 20px;
+                        text <=> root.recovery-key;
+                        color: Theme.text;
+                        vertical-alignment: center;
+                        single-line: true;
+                        input-type: InputType.password;
+                        accessible-label: "Recovery key";
+                        accepted => { root.recover(root.recovery-key); }
+                    }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    TextButton { label: "Unlock"; clicked => { root.recover(root.recovery-key); } }
+                }
+            }
+        }
+        HorizontalLayout {
+            // Space rail (web: the spaces of Twake Space): all rooms, then each space.
+            Rectangle {
+                width: 64px;
+                background: Theme.panel;
+                VerticalLayout {
+                    padding-top: 8px;
+                    spacing: 6px;
+                    alignment: start;
+                    HorizontalLayout {
+                        alignment: center;
+                        SpaceButton {
+                            label: "Activity";
+                            initials: "🔔";
+                            symbol: Icons.bell;
+                            tint: root.activity-open ? Theme.primary : #8a94a6;
+                            selected: root.activity-open;
+                            clicked => { root.open-activity(); }
+                        }
+                    }
+                    HorizontalLayout {
+                        alignment: center;
+                        SpaceButton { label: "All chats"; initials: "∗"; symbol: Icons.chats; tint: Theme.primary; selected: !root.activity-open && root.current-space == ""; clicked => { root.pick-space(""); } }
+                    }
+                    for space in root.spaces: HorizontalLayout {
+                        alignment: center;
+                        SpaceButton {
+                            label: space.name;
+                            initials: space.initials;
+                            tint: space.tint;
+                            picture: space.avatar;
+                            has-picture: space.has-avatar;
+                            selected: root.current-space == space.id;
+                            clicked => { root.pick-space(space.id); }
+                        }
+                    }
+                }
+            }
+            // Room list
+            Rectangle {
+                width: 340px;
+                background: Theme.background;
+                Rectangle { x: parent.width - 1px; width: 1px; background: Theme.line; }
+                VerticalLayout {
+                    padding: 8px;
+                    spacing: 6px;
+                    HorizontalLayout {
+                        spacing: 4px;
+                        Text { text: "Chats"; font-size: Theme.font-h4; font-weight: Theme.weight-bold; color: Theme.text; vertical-alignment: center; horizontal-stretch: 1; }
+                        TextButton { label: "+ Room"; clicked => { root.show-create("room"); } }
+                        TextButton { label: "+ Direct"; clicked => { root.show-create("direct"); } }
+                    }
+                    Rectangle {
+                        height: 38px;
+                        border-radius: 19px;
+                        background: Theme.panel;
+                        search := TextInput {
+                            x: 14px;
+                            width: parent.width - 28px;
+                            color: Theme.text;
+                            vertical-alignment: center;
+                            single-line: true;
+                            accessible-label: "Search rooms";
+                            edited => { root.filter-changed(self.text); }
+                        }
+                        if search.text == "": Text {
+                            x: 14px;
+                            text: "Search";
+                            color: Theme.text-secondary;
+                            vertical-alignment: center;
+                        }
+                    }
+                    HorizontalLayout {
+                        spacing: 6px;
+                        alignment: start;
+                        Chip { label: "All"; selected: root.room-filter == "all"; clicked => { root.pick-filter("all"); } }
+                        Chip { label: "Unread"; selected: root.room-filter == "unread"; clicked => { root.pick-filter("unread"); } }
+                        Chip { label: "People"; selected: root.room-filter == "people"; clicked => { root.pick-filter("people"); } }
+                        Chip { label: "Rooms"; selected: root.room-filter == "rooms"; clicked => { root.pick-filter("rooms"); } }
+                    }
+                    ListView {
+                        for room in root.rooms: RoomLine {
+                            room: room;
+                            selected: room.id == root.current-room-id;
+                            clicked => { root.open-room(room.id); }
+                            accept => { root.accept-invite(room.id); }
+                            decline => { root.decline-invite(room.id); }
+                        }
+                    }
+                }
+            }
+            // Conversation
+            if root.activity-open: ActivityPane {
+                lines: root.activity-lines;
+                filter: root.activity-filter;
+                query <=> root.activity-query;
+                pick-filter(f) => { root.activity-pick-filter(f); }
+                search(q) => { root.activity-search(q); }
+                open(i) => { root.activity-choose(i); }
+            }
+            if !root.activity-open && root.current-room-id == "": Rectangle {
+                background: Theme.panel;
+                horizontal-stretch: 1;
+                Text { text: "Pick a conversation"; color: Theme.text-secondary; }
+            }
+            if !root.activity-open && root.current-room-id != "": VerticalLayout {
+                horizontal-stretch: 1;
+                Rectangle {
+                    height: 56px;
+                    background: Theme.background;
+                    Rectangle { y: parent.height - 1px; height: 1px; background: Theme.line; }
+                    TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { if root.info-open { root.close-info(); } else { root.open-info(); } }
+                    }
+                    HorizontalLayout {
+                        padding-left: 16px;
+                        spacing: 8px;
+                        Text {
+                            text: root.current-room-name;
+                            font-size: 16px;
+                            font-weight: 600;
+                            color: Theme.text;
+                            vertical-alignment: center;
+                            overflow: elide;
+                        }
+                        if root.current-room-encrypted: VerticalLayout {
+                            alignment: center;
+                            accessible-role: image;
+                            accessible-label: "Encrypted";
+                            Icon { source: Icons.lock; fallback: "🔒"; }
+                        }
+                        Rectangle { horizontal-stretch: 1; }
+                        if root.pinned-count > 0: VerticalLayout {
+                            alignment: center;
+                            TextButton { icon: Icons.pin; fallback: "📌"; label: root.pinned-count; clicked => { root.open-pinned(); } }
+                        }
+                        if !root.call-here && root.call-people > 0: VerticalLayout {
+                            alignment: center;
+                            TextButton {
+                                icon: Icons.phone;
+                                fallback: "📞";
+                                label: "Join the call (" + root.call-people + (root.call-people == 1 ? " person)" : " people)");
+                                clicked => { root.start-call(false); }
+                            }
+                        }
+                        if !root.call-here && root.call-people == 0: VerticalLayout {
+                            alignment: center;
+                            TextButton { icon: Icons.phone; fallback: "📞"; label: "Call"; clicked => { root.start-call(false); } }
+                        }
+                        if !root.call-here && root.call-people == 0: VerticalLayout {
+                            alignment: center;
+                            TextButton { icon: Icons.video; fallback: "🎥"; label: "Video"; clicked => { root.start-call(true); } }
+                        }
+                        Rectangle { width: 8px; }
+                    }
+                }
+                // A call of another room goes on: back to it, or leave it
+                if root.in-call && !root.call-here: Rectangle {
+                    height: 40px;
+                    background: Theme.selected;
+                    HorizontalLayout {
+                        padding-left: 16px;
+                        spacing: 8px;
+                        Text {
+                            text: "In a call in " + root.call-room-name;
+                            color: Theme.text;
+                            vertical-alignment: center;
+                            overflow: elide;
+                            horizontal-stretch: 1;
+                        }
+                        VerticalLayout { alignment: center; TextButton { label: "Back to the call"; clicked => { root.go-to-call(); } } }
+                        VerticalLayout { alignment: center; TextButton { label: "Leave"; clicked => { root.leave-call(); } } }
+                        Rectangle { width: 8px; }
+                    }
+                }
+                // In the call of this room, the call takes the width and the conversation a
+                // column on its right (web `CallLayout`, D8)
+                HorizontalLayout {
+                if root.call-here: CallStage {
+                    horizontal-stretch: 1;
+                    tiles: root.call-tiles;
+                    status: root.call-status;
+                    encrypted: root.call-encrypted;
+                    microphone: root.call-microphone;
+                    camera: root.call-camera;
+                    sharing: root.call-sharing;
+                    tile-width(n, w, h) => { return root.call-tile-width(n, w, h); }
+                    toggle-microphone => { root.call-toggle-microphone(); }
+                    toggle-camera => { root.call-toggle-camera(); }
+                    toggle-screen => { root.call-toggle-screen(); }
+                    leave => { root.leave-call(); }
+                }
+                Rectangle {
+                // The thread of the call takes the place of the channel
+                property <bool> put-away: root.call-here && root.call-thread-shown && root.thread-open;
+                visible: !self.put-away;
+                min-width: root.call-here && !self.put-away ? 380px : 0px;
+                max-width: self.put-away ? 0px : root.call-here ? 380px : 100000px;
+                // The conversation and its composer lie on one wallpaper (web ds/wallpaper.ts)
+                background: Theme.wallpaper;
+                Image { width: 100%; height: 100%; source: Theme.wallpaper-image; image-fit: cover; }
+                VerticalLayout {
+                if root.call-here && root.call-thread && !root.call-thread-shown: HorizontalLayout {
+                    padding: 8px;
+                    alignment: end;
+                    TextButton { label: "Back to the meeting thread"; clicked => { root.call-thread-toggle(); } }
+                }
+                timeline := ListView {
+                    property <int> scroll-request: root.scroll-to-bottom;
+                    property <length> last-content-height;
+                    changed scroll-request => {
+                        self.content-y = min(0px, self.visible-height - self.content-height);
+                    }
+                    // Rows are measured after the model changes: re-anchor once they are.
+                    // At the bottom, stay there; reading history, keep the same messages in
+                    // view when older ones are added above.
+                    changed content-height => {
+                        // At the bottom before this growth (a row measured late, an image
+                        // that arrived): stay there.
+                        if root.at-bottom || self.content-y <= self.visible-height - self.last-content-height + 48px {
+                            self.content-y = min(0px, self.visible-height - self.content-height);
+                        } else if root.history-prepended {
+                            self.content-y -= self.content-height - self.last-content-height;
+                        }
+                        self.last-content-height = self.content-height;
+                    }
+                    changed content-y => {
+                        root.at-bottom = self.content-y <= self.visible-height - self.content-height + 48px;
+                        if self.content-y > -200px && !root.loading-history && !root.history-complete {
+                            root.load-older();
+                        }
+                    }
+                    for r in root.rows: MessageLine {
+                        entry: r;
+                        list-width: timeline.visible-width;
+                        link-clicked(url) => { root.link-clicked(url); }
+                        open-attachment(key, name) => { root.open-attachment(key, name); }
+                            view-image(key, name) => { root.view-image(key, name); }
+                        play-audio(key, mime, ms) => { root.play-audio(key, mime, ms); }
+                        seek-audio(key, at) => { root.seek-audio(key, at); }
+                        save-attachment(key, name) => { root.save-attachment(key, name); }
+                        react(id, key) => { root.react(id, key, false); }
+                        reply(id) => { root.reply(id, false); composer.focus-input(); }
+                        edit(id) => { root.edit(id, false); composer.focus-input(); }
+                        delete(id) => { root.delete(id, false); }
+                        open-thread(id) => { root.open-thread(id); }
+                        vote(id, answer) => { root.vote(id, answer, false); }
+                        end-poll(id) => { root.end-poll(id, false); }
+                        pin(id, on) => { root.pin(id, on); }
+                        save-message(id, on) => { root.save-message(id, on); }
+                    }
+                }
+                if root.typing-text != "": HorizontalLayout {
+                    padding-left: 20px;
+                    height: 18px;
+                    Text {
+                        text: root.typing-text;
+                        color: Theme.text-secondary;
+                        font-size: 12px;
+                        font-italic: true;
+                    }
+                }
+                composer := Composer {
+                    enabled: true;
+                    typing(on) => { root.typing(on); }
+                    hint: root.compose-hint;
+                    text <=> root.compose-text;
+                    send(text) => { root.send(text); }
+                    suggestions: root.suggestions;
+                    selected <=> root.suggest-selected;
+                    emojis: root.emojis;
+                    caret-pos: root.caret-pos;
+                    caret-serial: root.caret-serial;
+                    formats-open <=> root.formats-open;
+                    recording: root.recording && !root.recording-in-thread;
+                    recording-time: root.recording-time;
+                    record => { root.record-voice(false); }
+                    stop-recording(sent) => { root.stop-voice(sent); }
+                    text-format(t, n, a, b) => { return root.text-format(t, n, a, b); }
+                    paste-link(t, a, b) => { return root.paste-link(t, a, b); }
+                    link-target(t, a, b) => { return root.link-target(t, a, b); }
+                    link-apply(t, a, b, l, u) => { return root.link-apply(t, a, b, l, u); }
+                    edited(text, caret) => { root.composer-edited(false, text, caret); }
+                    pick(i) => { root.suggestion-pick(false, i); }
+                    dismiss => { root.suggestion-dismiss(false); }
+                    insert(text, caret) => { root.composer-insert(false, text, caret); }
+                    staged: root.staged;
+                    unstage(i) => { root.composer-unstage(false, i); }
+                    paste => { root.composer-paste(false); }
+                    cancel => { root.cancel-compose(false); }
+                    attach => { root.attach(false); }
+                    poll => { root.show-poll(false); }
+                }
+                }
+                }
+                }
+            }
+            if !root.activity-open && root.current-room-id != "" && root.info-open: InfoPane {
+                width: 360px;
+                info: root.info;
+                members: root.info-members;
+                invite-text <=> root.info-invite-text;
+                close => { root.close-info(); }
+                rename(name) => { root.info-rename(name); }
+                set-topic(topic) => { root.info-set-topic(topic); }
+                encrypt => { root.info-encrypt(); }
+                invite(user) => { root.info-invite(user); }
+                remove(user) => { root.member-remove(user); }
+                ban(user) => { root.member-ban(user); }
+                set-role(user, role) => { root.member-set-role(user, role); }
+                leave => { root.leave-room(); }
+            }
+            if !root.activity-open && root.current-room-id != "" && root.search-open && !root.thread-open && !root.info-open: SearchPane {
+                width: 380px;
+                hits: root.search-hits;
+                status: root.search-status;
+                can-search-older: root.search-can-older;
+                query <=> root.search-query;
+                files-only <=> root.search-files-only;
+                search(text, files) => { root.search(text, files); }
+                search-older => { root.search-older(); }
+                open-hit(id) => { root.open-hit(id); }
+                close => { root.search-open = false; }
+            }
+            // The thread of a message, beside the conversation (web: Discord-like threads).
+            if !root.activity-open && root.current-room-id != "" && root.thread-open && !root.info-open: Rectangle {
+                width: 380px;
+                background: Theme.background;
+                Rectangle { x: 0; width: 1px; background: Theme.line; }
+                VerticalLayout {
+                    Rectangle {
+                        height: 56px;
+                        Rectangle { y: parent.height - 1px; height: 1px; background: Theme.line; }
+                        HorizontalLayout {
+                            padding-left: 16px;
+                            padding-right: 8px;
+                            Text { text: root.side-title; font-size: 16px; font-weight: 600; color: Theme.text; vertical-alignment: center; horizontal-stretch: 1; }
+                            VerticalLayout {
+                                alignment: center;
+                                if !(root.call-here && root.call-thread-shown): TextButton { label: "Close"; clicked => { root.close-thread(); } }
+                                if root.call-here && root.call-thread-shown: TextButton { label: "Show the channel"; clicked => { root.call-thread-toggle(); } }
+                            }
+                        }
+                    }
+                    thread-list := ListView {
+                        property <int> scroll-request: root.thread-scroll-to-bottom;
+                        changed scroll-request => {
+                            self.content-y = min(0px, self.visible-height - self.content-height);
+                        }
+                        changed content-height => {
+                            self.content-y = min(0px, self.visible-height - self.content-height);
+                        }
+                        for r in root.thread-rows: MessageLine {
+                            entry: r;
+                            in-thread: true;
+                            list-width: thread-list.visible-width;
+                            link-clicked(url) => { root.link-clicked(url); }
+                            open-attachment(key, name) => { root.open-attachment(key, name); }
+                            view-image(key, name) => { root.view-image(key, name); }
+                        play-audio(key, mime, ms) => { root.play-audio(key, mime, ms); }
+                        seek-audio(key, at) => { root.seek-audio(key, at); }
+                            save-attachment(key, name) => { root.save-attachment(key, name); }
+                            react(id, key) => { root.react(id, key, true); }
+                            reply(id) => { root.reply(id, true); thread-composer.focus-input(); }
+                            edit(id) => { root.edit(id, true); thread-composer.focus-input(); }
+                            delete(id) => { root.delete(id, true); }
+                            vote(id, answer) => { root.vote(id, answer, true); }
+                            end-poll(id) => { root.end-poll(id, true); }
+                            pin(id, on) => { root.pin(id, on); }
+                        save-message(id, on) => { root.save-message(id, on); }
+                        }
+                    }
+                    thread-composer := Composer {
+                        visible: !root.side-pinned;
+                        max-height: root.side-pinned ? 0px : 400px;
+                        enabled: true;
+                        placeholder: "Reply in thread";
+                        hint: root.thread-compose-hint;
+                        text <=> root.thread-compose-text;
+                        send(text) => { root.send-in-thread(text); }
+                        suggestions: root.thread-suggestions;
+                        selected <=> root.thread-suggest-selected;
+                        emojis: root.emojis;
+                        caret-pos: root.thread-caret-pos;
+                        caret-serial: root.thread-caret-serial;
+                        formats-open <=> root.formats-open;
+                        recording: root.recording && root.recording-in-thread;
+                        recording-time: root.recording-time;
+                        record => { root.record-voice(true); }
+                        stop-recording(sent) => { root.stop-voice(sent); }
+                        text-format(t, n, a, b) => { return root.text-format(t, n, a, b); }
+                        paste-link(t, a, b) => { return root.paste-link(t, a, b); }
+                        link-target(t, a, b) => { return root.link-target(t, a, b); }
+                        link-apply(t, a, b, l, u) => { return root.link-apply(t, a, b, l, u); }
+                        edited(text, caret) => { root.composer-edited(true, text, caret); }
+                        pick(i) => { root.suggestion-pick(true, i); }
+                        dismiss => { root.suggestion-dismiss(true); }
+                        insert(text, caret) => { root.composer-insert(true, text, caret); }
+                        staged: root.thread-staged;
+                        unstage(i) => { root.composer-unstage(true, i); }
+                        paste => { root.composer-paste(true); }
+                        cancel => { root.cancel-compose(true); }
+                        attach => { root.attach(true); }
+                        poll => { root.show-poll(true); }
+                    }
+                }
+            }
+        }
+        if root.notice != "": Rectangle {
+            height: 32px;
+            background: Theme.panel;
+            Text { text: root.notice; color: Theme.text-secondary; font-size: 12px; }
+        }
+    }
+
+    if root.create-mode != "": CreateDialog {
+        width: root.width;
+        height: root.height;
+        mode: root.create-mode;
+        create-room(name, topic, people, encrypted) => { root.create-room(name, topic, people, encrypted); }
+        open-direct(user) => { root.open-direct(user); }
+        cancel => { root.cancel-create(); }
+    }
+
+    if root.drop-hover && root.current-room-id != "": Rectangle {
+        background: Theme.primary.transparentize(0.8);
+        border-width: 3px;
+        border-color: Theme.primary;
+        Rectangle {
+            width: 280px;
+            height: 64px;
+            border-radius: 12px;
+            background: Theme.background;
+            Text { text: "Drop to add the files"; color: Theme.text; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+        }
+    }
+
+    if root.viewer-open: Rectangle {
+        background: #000000f2;
+        accessible-role: groupbox;
+        accessible-label: "Image: " + root.viewer-name;
+        TouchArea { clicked => { root.viewer-open = false; } }
+        FocusScope {
+            init => { self.focus(); }
+            key-pressed(event) => {
+                if event.text == Key.Escape {
+                    root.viewer-open = false;
+                    return accept;
+                }
+                return reject;
+            }
+        }
+        if root.viewer-ready || root.viewer-anim > 0: Image {
+            x: 32px;
+            y: 64px;
+            width: parent.width - 64px;
+            height: parent.height - 96px;
+            source: root.viewer-anim > 0 ? Animations.frames[root.viewer-anim - 1] : root.viewer-image;
+            image-fit: contain;
+            accessible-role: image;
+            accessible-label: root.viewer-name;
+        }
+        if !root.viewer-ready && root.viewer-anim == 0: Text {
+            text: "Loading…";
+            color: white;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+        Rectangle {
+            y: 0;
+            height: 56px;
+            background: #000000;
+        }
+        HorizontalLayout {
+            y: 0;
+            height: 56px;
+            padding-left: 24px;
+            padding-right: 16px;
+            spacing: 16px;
+            Text { text: root.viewer-name; color: white; font-weight: 600; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
+            TextButton { label: "Save"; clicked => { root.viewer-save(); } }
+            TextButton { label: "Open in app"; clicked => { root.viewer-external(); } }
+            TextButton { label: "Close"; clicked => { root.viewer-open = false; } }
+        }
+    }
+
+    // Over everything, at the top: a call rings
+    if root.ring-text != "": Rectangle {
+        x: (root.width - self.width) / 2;
+        y: 72px;
+        width: min(root.width - 32px, 520px);
+        height: 72px;
+        border-radius: 16px;
+        background: #18181b;
+        drop-shadow-blur: 16px;
+        drop-shadow-color: #00000060;
+        accessible-role: groupbox;
+        accessible-label: root.ring-text;
+        HorizontalLayout {
+            padding-left: 20px;
+            padding-right: 12px;
+            spacing: 12px;
+            Text {
+                text: (root.ring-video ? "🎥 " : "📞 ") + root.ring-text;
+                color: #ffffff;
+                font-size: 15px;
+                font-weight: 600;
+                vertical-alignment: center;
+                overflow: elide;
+                horizontal-stretch: 1;
+            }
+            VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    width: decline-text.preferred-width + 28px;
+                    height: 40px;
+                    border-radius: 20px;
+                    background: decline-touch.has-hover ? Theme.error.darker(0.15) : Theme.error;
+                    accessible-role: button;
+                    accessible-label: "Decline";
+                    accessible-action-default => { root.ring-decline(); }
+                    decline-touch := TouchArea { mouse-cursor: pointer; clicked => { root.ring-decline(); } }
+                    decline-text := Text { text: "Decline"; color: #ffffff; font-weight: 600; }
+                }
+            }
+            VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    width: answer-text.preferred-width + 28px;
+                    height: 40px;
+                    border-radius: 20px;
+                    background: answer-touch.has-hover ? Theme.success.darker(0.15) : Theme.success;
+                    accessible-role: button;
+                    accessible-label: "Answer";
+                    accessible-action-default => { root.ring-answer(); }
+                    answer-touch := TouchArea { mouse-cursor: pointer; clicked => { root.ring-answer(); } }
+                    answer-text := Text { text: "Answer"; color: #ffffff; font-weight: 600; }
+                }
+            }
+        }
+    }
+
+    if root.pdf-open: Rectangle {
+        background: #000000f2;
+        accessible-role: groupbox;
+        accessible-label: "Document: " + root.pdf-name;
+        TouchArea {}
+        FocusScope {
+            init => { self.focus(); }
+            key-pressed(event) => {
+                if event.text == Key.Escape {
+                    root.pdf-close();
+                    return accept;
+                }
+                return reject;
+            }
+        }
+        pdf-list := ListView {
+            y: 56px;
+            height: parent.height - 56px;
+            property <length> page-width: max(0px, min(self.visible-width - 48px, 860px));
+            property <int> generation: root.pdf-generation;
+            function report() {
+                root.pdf-scrolled(-self.content-y / 1px, self.visible-height / 1px, self.page-width / 1px);
+            }
+            changed content-y => { self.report(); }
+            changed visible-height => { self.report(); }
+            changed page-width => { self.report(); }
+            changed generation => { self.report(); }
+            for page[index] in root.pdf-pages: Rectangle {
+                height: pdf-list.page-width * page.ratio + 16px;
+                Rectangle {
+                    x: (parent.width - pdf-list.page-width) / 2;
+                    y: 16px;
+                    width: pdf-list.page-width;
+                    height: pdf-list.page-width * page.ratio;
+                    background: white;
+                    accessible-role: image;
+                    accessible-label: "Page " + (index + 1);
+                    if page.ready: Image {
+                        width: parent.width;
+                        height: parent.height;
+                        source: page.image;
+                        image-fit: fill;
+                    }
+                }
+            }
+        }
+        if root.pdf-status != "": Text {
+            y: 56px;
+            height: parent.height - 56px;
+            text: root.pdf-status;
+            color: white;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+        Rectangle {
+            y: 0;
+            height: 56px;
+            background: #000000;
+        }
+        HorizontalLayout {
+            y: 0;
+            height: 56px;
+            padding-left: 24px;
+            padding-right: 16px;
+            spacing: 16px;
+            Text { text: root.pdf-name; color: white; font-weight: 600; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
+            TextButton { label: "Save"; clicked => { root.pdf-save(); } }
+            TextButton { label: "Open in app"; clicked => { root.pdf-external(); } }
+            TextButton { label: "Close"; clicked => { root.pdf-close(); } }
+        }
+    }
+
+    if root.switcher-open: Switcher {
+        width: root.width;
+        height: root.height;
+        items: root.switcher-items;
+        selected <=> root.switcher-selected;
+        query <=> root.switcher-query;
+        search(text) => { root.switcher-search(text); }
+        choose(i) => { root.switcher-choose(i); }
+        cancel => { root.switcher-open = false; }
+    }
+
+    if root.poll-open: PollDialog {
+        width: root.width;
+        height: root.height;
+        question <=> root.poll-question;
+        answers <=> root.poll-answers;
+        multiple <=> root.poll-multiple;
+        create(q, a, m) => { root.create-poll(q, a, m); }
+        cancel => { root.cancel-poll(); }
+    }
+
+    if root.confirm-message != "": ConfirmDialog {
+        width: root.width;
+        height: root.height;
+        message: root.confirm-message;
+        action-label: root.confirm-label;
+        with-reason: root.confirm-with-reason;
+        reason <=> root.confirm-reason;
+        confirm => { root.confirm-yes(); }
+        cancel => { root.confirm-no(); }
+    }
+
+    date-picker := DatePickerPopup {
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2;
+        title: "Go to date";
+        date: root.today;
+        accepted(date) => {
+            self.close();
+            root.jump-to-date(date.year, date.month, date.day);
+        }
+        canceled => { self.close(); }
+    }
+}
