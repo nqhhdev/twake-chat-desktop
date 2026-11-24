@@ -1,0 +1,182 @@
+// The call of a room (web `CallStage`, `CallView`): the grid of the people, each tile as
+// large as fits (16:9), and the controls under it.
+import { Theme } from "theme.slint";
+import { Avatar, Icon, Icons } from "parts.slint";
+
+export struct CallTileRow {
+    identity: string,
+    screen: bool,
+    name: string,
+    initials: string,
+    tint: color,
+    local: bool,
+    has-video: bool,
+    muted: bool,
+    speaking: bool,
+    frame: image,
+    ready: bool,
+}
+
+component CallButton inherits Rectangle {
+    in property <string> icon;
+    // The icon of the OS; `icon` is its emoji where the OS has none
+    in property <image> symbol;
+    in property <string> label;
+    in property <bool> off;
+    in property <bool> danger;
+    // On while pressed (sharing), where the others are on unless off
+    in property <bool> latch;
+    in property <bool> pressed;
+    callback clicked();
+    width: danger ? t.preferred-width + 32px : 48px;
+    height: 48px;
+    border-radius: 24px;
+    background: danger ? #d93025 : off ? #ffffff : pressed ? Theme.primary : touch.has-hover ? #4a4a50 : #3a3a40;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-checked: latch ? pressed : !off;
+    accessible-action-default => { clicked(); }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    t := Text {
+        text: danger ? label : "";
+        color: #ffffff;
+        font-size: 14px;
+        font-weight: 600;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    if !root.danger: Icon {
+        source: root.symbol;
+        fallback: root.icon;
+        color: root.off ? #1a1a1c : #ffffff;
+        size: 22px;
+    }
+}
+
+component CallTileView inherits Rectangle {
+    in property <CallTileRow> tile;
+    border-radius: 12px;
+    background: #2a2a2e;
+    clip: true;
+    if tile.has-video && tile.ready: Image {
+        width: parent.width;
+        height: parent.height;
+        source: tile.frame;
+        image-fit: contain;
+    }
+    if !(tile.has-video && tile.ready): Avatar {
+        size: min(parent.height * 0.4, 96px);
+        initials: tile.initials;
+        tint: tile.tint;
+    }
+    // The name, and the microphone off
+    Rectangle {
+        x: 8px;
+        y: parent.height - self.height - 8px;
+        width: label.preferred-width + 16px;
+        height: 24px;
+        border-radius: 6px;
+        background: #000000a0;
+        label := Text {
+            text: (tile.muted ? "🔇 " : "") + tile.name;
+            color: #ffffff;
+            font-size: 12px;
+            vertical-alignment: center;
+        }
+    }
+    // Who speaks: a ring
+    if tile.speaking: Rectangle {
+        border-radius: 12px;
+        border-width: 3px;
+        border-color: Theme.primary;
+    }
+}
+
+export component CallStage inherits Rectangle {
+    in property <[CallTileRow]> tiles;
+    // "Connecting…", or why the call failed; "" while in it
+    in property <string> status;
+    in property <bool> encrypted;
+    in property <bool> microphone;
+    in property <bool> camera;
+    in property <bool> sharing;
+    // The width of a tile that fits them all (web `tileWidth`), computed in Rust
+    pure callback tile-width(int, length, length) -> length;
+    callback toggle-microphone();
+    callback toggle-camera();
+    callback toggle-screen();
+    callback leave();
+    background: #18181b;
+    accessible-role: groupbox;
+    accessible-label: "Call";
+
+    property <length> gap: 8px;
+    property <length> grid-width: self.width - 32px;
+    property <length> grid-height: self.height - 112px;
+    property <length> tw: tile-width(tiles.length, grid-width, grid-height);
+    property <length> th: tw * 9 / 16;
+    property <int> columns: max(1, min(tiles.length, floor((grid-width + gap) / max(1px, tw + gap))));
+    property <int> rows: max(1, ceil(tiles.length / columns));
+
+    for tile[i] in tiles: CallTileView {
+        // Rows centred, the last one too
+        property <int> line: floor(i / columns);
+        property <int> in-line: line == rows - 1 ? tiles.length - line * columns : columns;
+        x: 16px + (grid-width - in-line * tw - (in-line - 1) * gap) / 2 + mod(i, columns) * (tw + gap);
+        y: 16px + (grid-height - rows * th - (rows - 1) * gap) / 2 + line * (th + gap);
+        width: tw;
+        height: th;
+        tile: tile;
+    }
+    // Above the grid once someone is in it, else in its middle
+    if status != "": Text {
+        y: tiles.length > 0 ? 4px : 16px + root.grid-height / 2 - 10px;
+        width: root.width;
+        text: status;
+        color: #ffffff;
+        horizontal-alignment: center;
+        wrap: word-wrap;
+    }
+    HorizontalLayout {
+        y: root.height - 72px;
+        height: 48px;
+        alignment: center;
+        spacing: 12px;
+        if root.encrypted: VerticalLayout {
+            alignment: center;
+            accessible-role: image;
+            accessible-label: "Encrypted call";
+            Icon { source: Icons.lock; fallback: "🔒"; color: #ffffff; }
+        }
+        CallButton {
+            icon: root.microphone ? "🎤" : "🔇";
+            symbol: root.microphone ? Icons.mic : Icons.mic-off;
+            label: "Microphone";
+            off: !root.microphone;
+            clicked => { root.toggle-microphone(); }
+        }
+        CallButton {
+            icon: "📷";
+            symbol: Icons.video;
+            label: "Camera";
+            off: !root.camera;
+            clicked => { root.toggle-camera(); }
+        }
+        CallButton {
+            icon: "🖥️";
+            symbol: Icons.screen;
+            label: "Share the screen";
+            latch: true;
+            pressed: root.sharing;
+            clicked => { root.toggle-screen(); }
+        }
+        CallButton {
+            label: "Leave the call";
+            danger: true;
+            clicked => { root.leave(); }
+        }
+    }
+}
