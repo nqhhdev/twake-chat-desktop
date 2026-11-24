@@ -1,0 +1,40 @@
+[package]
+name = "twake-desktop"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[[bin]]
+name = "twake-chat"
+path = "src/main.rs"
+
+[dependencies]
+twake-core.workspace = true
+twake-domain.workspace = true
+slint = { version = "1.19", features = ["unstable-winit-030"] }
+arboard = "3"
+open = "5"
+rfd = "0.15"
+notify-rust = "4"
+png = "0.18"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+# Audio (ADR-016): rodio plays through cpal, which also records; symphonia reads the
+# containers and codecs, libopus (built from source with cmake) decodes and encodes Opus
+rodio = { version = "0.20", default-features = false }
+symphonia = { version = "0.5", default-features = false, features = ["mp3", "aac", "isomp4", "ogg", "mkv", "flac", "wav", "vorbis", "pcm", "adpcm"] }
+opus = "0.3"
+ogg = "0.9"
+
+[build-dependencies]
+slint-build = "1.19"
+
+# The icons of the OS (src/icons.rs): SF Symbols from AppKit, read back as TIFF
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSImage", "NSFontDescriptor", "objc2-core-foundation"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSString", "NSData"] }
+tiff = "0.11"
+
+# Wayland sessions read the clipboard through the data-control protocol (X11 is the default)
+[target.'cfg(target_os = "linux")'.dependencies]
+arboard = { version = "3", features = ["wayland-data-control"] }

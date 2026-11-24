@@ -1,0 +1,50 @@
+// The tokens of twake-mui 19.10 (lib/makePalette, makeTypography, radius) on the
+// palette of twake-css 1.2.1, light and dark, following the OS. The web's own
+// rules (src/ds) on top: own bubbles are the primary mixed at 12% into the paper,
+// the conversation lies on the wallpaper of the Figma mockups (ds/wallpaper.ts).
+import { Palette } from "std-widgets.slint";
+
+export global Theme {
+    out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
+    // background.paper: panes, menus, the bubbles of others
+    out property <color> background: dark ? #4E5052 : #ffffff;
+    // background.default: what lies around the panes
+    out property <color> panel: dark ? #2C3039 : #F3F6F9;
+    // divider
+    out property <color> line: dark ? #ffffff29 : #4242441f;
+    // text.primary, text.secondary
+    out property <color> text: dark ? #ffffff : #424244e6;
+    out property <color> text-secondary: dark ? #ffffffa3 : #424244a3;
+    // primary.main, primary.dark, primary.contrastText
+    out property <color> primary: dark ? #7bbdff : #0a84ff;
+    out property <color> primary-dark: dark ? #46a2ff : #006bd8;
+    out property <color> on-primary: dark ? #424244e6 : #ffffff;
+    out property <color> bubble-own: dark ? #535d67 : #e2f0ff;
+    out property <color> bubble-other: background;
+    // action.selected, action.hover
+    out property <color> selected: dark ? #ffffff29 : #42424414;
+    out property <color> hover: dark ? #ffffff14 : #4242440a;
+    // error.main, the warning at 12%
+    out property <color> error: dark ? #ff7a87 : #ff3347;
+    out property <color> warning-bg: dark ? #ffca281f : #ff8f001f;
+    // success.main (answer a call)
+    out property <color> success: dark ? #66e475 : #00c853;
+    // The wallpaper's colour under the conversation (ds/wallpaper.ts)
+    out property <color> wallpaper: dark ? #2c3448 : #dee4fc;
+    out property <image> wallpaper-image: dark ? @image-url("images/chat-bg-dark.jpg") : @image-url("images/chat-bg-light.jpg");
+    // radius (sm, md, lg, pill); a bubble is 16 px (ds/MessageBubble)
+    out property <length> radius-sm: 4px;
+    out property <length> radius-md: 8px;
+    out property <length> radius-lg: 12px;
+    out property <length> radius-pill: 100px;
+    out property <length> radius: 16px;
+    // makeTypography: body2/body3 14, body1 16, caption 12, overline 11, h5 16, h4 22
+    out property <length> font-size: 14px;
+    out property <length> font-caption: 12px;
+    out property <length> font-overline: 11px;
+    out property <length> font-body1: 16px;
+    out property <length> font-h5: 16px;
+    out property <length> font-h4: 22px;
+    out property <int> weight-medium: 500;
+    out property <int> weight-bold: 600;
+}
