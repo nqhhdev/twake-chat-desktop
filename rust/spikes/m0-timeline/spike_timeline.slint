@@ -1,0 +1,73 @@
+// M0 spike (ADR-002): a timeline of rich-text bubbles in a virtualised list.
+// Throwaway: proves StyledText + ListView before the real UI is built on them.
+import { ListView } from "std-widgets.slint";
+
+export struct SpikeMessage {
+    sender: string,
+    body: styled-text,
+    time: string,
+    own: bool,
+}
+
+component Bubble inherits Rectangle {
+    in property <SpikeMessage> msg;
+    callback link-clicked(string);
+    height: inner.preferred-height + 16px;
+    inner := HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        padding-top: 4px;
+        padding-bottom: 4px;
+        alignment: msg.own ? end : start;
+        Rectangle {
+            max-width: 520px;
+            background: msg.own ? #dbe7ff : #f2f3f5;
+            border-radius: 14px;
+            VerticalLayout {
+                padding: 10px;
+                spacing: 4px;
+                if !msg.own: Text {
+                    text: msg.sender;
+                    font-weight: 600;
+                    color: #0a84ff;
+                    font-size: 13px;
+                }
+                StyledText {
+                    text: msg.body;
+                    selectable: true;
+                    link-color: #0a84ff;
+                    link-clicked(url) => { root.link-clicked(url); }
+                }
+                Text {
+                    text: msg.time;
+                    font-size: 11px;
+                    color: #8a8f98;
+                    horizontal-alignment: right;
+                }
+            }
+        }
+    }
+}
+
+export component SpikeWindow inherits Window {
+    title: "Twake Chat — M0 timeline spike";
+    preferred-width: 900px;
+    preferred-height: 700px;
+    background: white;
+    in property <[SpikeMessage]> messages;
+    in property <string> stats;
+    callback link-clicked(string);
+    VerticalLayout {
+        Rectangle {
+            height: 32px;
+            background: #fafafa;
+            Text { text: root.stats; x: 12px; color: #555; }
+        }
+        ListView {
+            for m in root.messages: Bubble {
+                msg: m;
+                link-clicked(url) => { root.link-clicked(url); }
+            }
+        }
+    }
+}
