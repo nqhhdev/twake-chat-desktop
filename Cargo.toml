@@ -1,7 +1,7 @@
 [workspace]
 resolver = "3"
 exclude = ["rust/units/domain-rs"]
-members = ["crates/twake-domain"]
+members = ["crates/twake-domain", "crates/twake-call"]
 
 [workspace.package]
 edition = "2024"
@@ -12,3 +12,5 @@ version = "0.1.0"
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+thiserror = "2"
+tracing = "0.1"

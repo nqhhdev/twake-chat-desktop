@@ -1,0 +1,5 @@
+[env]
+# libopus bundled by audiopus_sys declares a CMake minimum older than CMake 4 accepts
+CMAKE_POLICY_VERSION_MINIMUM = "3.5"
+# libwebrtc of the LiveKit SDK, fetched by dev/fetch-webrtc.sh (this Mac's build: ADR-018)
+LK_CUSTOM_WEBRTC = { value = "vendor/webrtc/mac-arm64-release", relative = true }

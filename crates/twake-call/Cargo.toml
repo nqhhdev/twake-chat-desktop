@@ -1,0 +1,16 @@
+[package]
+name = "twake-call"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+tracing.workspace = true
+thiserror.workspace = true
+# The media of calls (M5): LiveKit over libwebrtc, prebuilt in vendor/webrtc (ADR-018)
+livekit = "0.12.0"
+tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+# The camera (AVFoundation, Media Foundation, V4L2): livekit takes frames, not devices
+nokhwa = { version = "0.10", default-features = false, features = ["input-native"] }
+futures-util = "0.3.34"
