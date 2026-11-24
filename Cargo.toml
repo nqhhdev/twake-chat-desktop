@@ -1,0 +1,14 @@
+[workspace]
+resolver = "3"
+exclude = ["rust/units/domain-rs"]
+members = ["crates/twake-domain"]
+
+[workspace.package]
+edition = "2024"
+license = "AGPL-3.0-only"
+rust-version = "1.97"
+version = "0.1.0"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
