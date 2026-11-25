@@ -18,6 +18,7 @@ mod pdf;
 mod previews;
 mod search;
 mod selection;
+mod settings;
 mod shared;
 mod staged;
 mod switcher;
@@ -382,6 +383,7 @@ fn main() -> Result<(), slint::PlatformError> {
     call::install(&window);
     shared::install(&window);
     forward::install(&window);
+    settings::install(&window);
     {
         let weak = window.as_weak();
         window.on_composer_unstage(move |thread, index| {
@@ -1169,6 +1171,8 @@ fn apply(window: &AppWindow, event: Event) {
         Event::Ringing(ringing) => call::ringing(window, ringing),
         Event::CallFrame { identity, picture } => call::frame(&identity, &picture),
         Event::Autoplay(enabled) => {
+            // Never chosen: on, as the web when the system asks for no reduced motion
+            window.set_autoplay(enabled != Some(false));
             if gifs::set_autoplay(enabled) {
                 redraw_messages(window);
                 viewer::refresh_animation(window);
@@ -1308,6 +1312,7 @@ fn apply(window: &AppWindow, event: Event) {
         Event::PublicRooms(rooms) => directory::loaded(window, rooms),
         Event::Connection { online } => window.set_offline(!online),
         Event::Verification(phase) => show_verification(window, phase),
+        Event::ComposerStyle(style) => window.set_composer_style(style.into()),
         Event::SpaceChoices { room_id, choices } => {
             if STATE.with_borrow(|s| s.current_room == room_id) {
                 show_space_choices(window, &choices);

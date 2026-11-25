@@ -1,0 +1,88 @@
+// Settings (web `SettingsScreen`): Appearance so far, as the web's `AppearanceSettings`.
+import { CheckBox } from "std-widgets.slint";
+import { Theme } from "theme.slint";
+import { TextButton } from "parts.slint";
+
+// A choice among a few (a round mark), as the web's radio groups
+component Choice inherits Rectangle {
+    in property <string> label;
+    in property <bool> checked;
+    callback clicked();
+    height: 30px;
+    accessible-role: checkbox;
+    accessible-checked: checked;
+    accessible-label: label;
+    accessible-action-default => { clicked(); }
+    TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    HorizontalLayout {
+        spacing: 10px;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 18px;
+                height: 18px;
+                border-radius: 9px;
+                border-width: root.checked ? 5px : 1.5px;
+                border-color: root.checked ? Theme.primary : Theme.text-secondary;
+            }
+        }
+        Text { text: root.label; color: Theme.text; vertical-alignment: center; }
+    }
+}
+
+component Group inherits VerticalLayout {
+    in property <string> title;
+    spacing: 4px;
+    Text { text: root.title; color: Theme.text-secondary; font-size: 12px; font-weight: 600; }
+    @children
+}
+
+export component SettingsScreen inherits Rectangle {
+    // "system", "light" or "dark" (web `ThemeMode`), kept on this device
+    in property <string> theme-mode;
+    in property <bool> autoplay;
+    // "new" or "classic" (web `ComposerStyle`, D681), kept in the account
+    in property <string> composer-style;
+    callback set-theme(string);
+    callback set-autoplay(bool);
+    callback set-composer(string);
+    callback close();
+    background: #00000066;
+    TouchArea { clicked => { root.close(); } }
+    Rectangle {
+        width: min(560px, root.width - 40px);
+        height: min(root.height - 40px, box.preferred-height);
+        border-radius: 16px;
+        background: Theme.background;
+        drop-shadow-blur: 20px;
+        drop-shadow-color: #00000040;
+        accessible-role: groupbox;
+        accessible-label: "Settings";
+        TouchArea {}
+        box := VerticalLayout {
+            padding: 24px;
+            spacing: 18px;
+            HorizontalLayout {
+                Text { text: "Settings"; font-size: 20px; font-weight: Theme.weight-bold; color: Theme.text; horizontal-stretch: 1; vertical-alignment: center; }
+                TextButton { label: "Close"; clicked => { root.close(); } }
+            }
+            Text { text: "Appearance"; font-size: 16px; font-weight: 600; color: Theme.text; }
+            Group {
+                title: "Theme";
+                Choice { label: "As the system"; checked: root.theme-mode == "system"; clicked => { root.set-theme("system"); } }
+                Choice { label: "Light"; checked: root.theme-mode == "light"; clicked => { root.set-theme("light"); } }
+                Choice { label: "Dark"; checked: root.theme-mode == "dark"; clicked => { root.set-theme("dark"); } }
+            }
+            Group {
+                title: "Composer";
+                Choice { label: "New: the tools in one row under the text"; checked: root.composer-style != "classic"; clicked => { root.set-composer("new"); } }
+                Choice { label: "Classic: the formats bar always over the text"; checked: root.composer-style == "classic"; clicked => { root.set-composer("classic"); } }
+            }
+            CheckBox {
+                text: "Autoplay animated images";
+                checked: root.autoplay;
+                toggled => { root.set-autoplay(self.checked); }
+            }
+        }
+    }
+}

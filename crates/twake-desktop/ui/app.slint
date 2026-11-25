@@ -1,5 +1,5 @@
 // Twake Chat desktop: sign-in, room list and conversation (M1).
-import { ListView, ScrollView, DatePickerPopup, Date } from "std-widgets.slint";
+import { ListView, ScrollView, DatePickerPopup, Date, Palette } from "std-widgets.slint";
 import { Theme } from "theme.slint";
 import { Avatar, Badge, PrimaryButton, TextButton, Field, Suggestion, TextChange, LinkTarget, PdfPage, Icon, Icons } from "parts.slint";
 import { Switcher } from "switcher.slint";
@@ -9,6 +9,7 @@ import { Row, ReactionChip, PollAnswerRow, MessageLine, SelectionButton, AudioSt
 export { AudioState, Animations }
 export { Icons }
 import { ForwardDialog, ForwardRow, MemberRow, SpaceChoiceRow, SpaceDialog, VerifyDialog, VerifyEmoji, VersionRow, VersionsDialog, RoomInfoData, InfoPane, SharedFileRow, SharedLinkRow, SharedMediaRow, ConfirmDialog, CreateDialog, PollDialog } from "info.slint";
+import { SettingsScreen } from "settings.slint";
 import { CallPopOut, CallStage, CallTileRow, CallWindow, CallWindowRect, DeviceRow, DeviceSection } from "call.slint";
 export { CallPopOut }
 export { Row, ReactionChip, PollAnswerRow, MemberRow, RoomInfoData, Suggestion, SearchHit, FeedLine, CallTileRow, CallWindowRect, DeviceRow, DeviceSection, SharedFileRow, SharedLinkRow, SharedMediaRow, ForwardRow, VersionRow, SpaceChoiceRow, VerifyEmoji }
@@ -217,6 +218,8 @@ component Composer inherits Rectangle {
     callback record();
     callback stop-recording(bool);
     // The formats bar (web `FormatToolbar`): Markdown written around the selection
+    // The classic composer keeps the formats bar shown (web `ComposerStyle`, D681)
+    in property <bool> classic;
     in-out property <bool> formats-open;
     callback text-format(string, string, int, int) -> TextChange;
     callback paste-link(string, int, int) -> TextChange;
@@ -566,7 +569,7 @@ component Composer inherits Rectangle {
                                 }
                             }
                             // « Aa » unfolds the formats here, to its right (web FormatToolbar)
-                            if root.formats-open: HorizontalLayout {
+                            if root.formats-open || root.classic: HorizontalLayout {
                                 spacing: 2px;
                                 accessible-role: groupbox;
                                 accessible-label: "Formatting";
@@ -682,6 +685,7 @@ export component AppWindow inherits Window {
         Menu {
             title: "Twake Chat";
             MenuItem { title: "About Twake Chat"; role: MenuItemRole.about; activated => { root.show-about(); } }
+            MenuItem { title: "Settings…"; role: MenuItemRole.preferences; enabled: root.page == 2; activated => { root.open-settings(); } }
             MenuItem { title: "Hide Twake Chat"; role: MenuItemRole.hide; }
             MenuItem { title: "Hide Others"; role: MenuItemRole.hide-others; }
             MenuItem { title: "Show All"; role: MenuItemRole.show-all; }
@@ -768,6 +772,22 @@ export component AppWindow inherits Window {
     in property <bool> loading-history;
     in property <bool> history-complete;
     in property <bool> needs-recovery-key;
+    // Settings (web `SettingsScreen`)
+    in-out property <bool> settings-open;
+    in property <string> theme-mode: "system";
+    in property <bool> autoplay: true;
+    in property <string> composer-style: "new";
+    callback open-settings();
+    callback set-theme(string);
+    callback set-autoplay(bool);
+    callback set-composer(string);
+    // The theme chosen: « As the system » leaves the OS deciding
+    changed theme-mode => { root.apply-theme(); }
+    init => { root.apply-theme(); }
+    function apply-theme() {
+        Palette.color-scheme = root.theme-mode == "dark" ? ColorScheme.dark
+            : root.theme-mode == "light" ? ColorScheme.light : ColorScheme.unknown;
+    }
     // Verifying one's devices (web `DeviceVerificationDialog`): "" when none is shown
     in property <string> verify-phase;
     in property <[VerifyEmoji]> verify-emojis;
@@ -1511,6 +1531,7 @@ export component AppWindow inherits Window {
                     caret-pos: root.caret-pos;
                     caret-serial: root.caret-serial;
                     formats-open <=> root.formats-open;
+                    classic: root.composer-style == "classic";
                     recording: root.recording && !root.recording-in-thread;
                     recording-time: root.recording-time;
                     record => { root.record-voice(false); }
@@ -1690,6 +1711,18 @@ export component AppWindow inherits Window {
         versions: root.versions;
         title: root.versions-title;
         close => { root.versions-open = false; }
+    }
+
+    if root.settings-open: SettingsScreen {
+        width: root.width;
+        height: root.height;
+        theme-mode: root.theme-mode;
+        autoplay: root.autoplay;
+        composer-style: root.composer-style;
+        set-theme(mode) => { root.set-theme(mode); }
+        set-autoplay(on) => { root.set-autoplay(on); }
+        set-composer(style) => { root.set-composer(style); }
+        close => { root.settings-open = false; }
     }
 
     if root.verify-phase != "": VerifyDialog {

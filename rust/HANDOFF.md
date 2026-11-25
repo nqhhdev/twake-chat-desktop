@@ -132,6 +132,14 @@ M6, first part (2026-11-25):
   emojis with their names (or the three numbers when the other device shows none), « They
   match » / « They differ »; « Device verified » or « Verification stopped ». One at a time;
   the requests of other people are not heard. Not tried in a run (it needs two devices).
+- Settings (2026-11-25, M7, first part), as the web's `AppearanceSettings`: « Settings… »
+  in the app menu (macOS' preferences place) opens Appearance: the theme (as the system,
+  light, dark; kept in `display.json` of the data folder, as the web keeps it in the
+  browser, applied with Slint's `Palette.color-scheme`); the composer (new, or classic:
+  the formats bar always shown; kept in the account data, shared with the web); « Autoplay
+  animated images » (account data, as before only read). Not like the web yet: the classic
+  composer keeps the new one's layout with its bar shown (the web puts the Send button
+  beside the field); the rest of Appearance and the other sections. Not opened in a run.
 - Forward (2026-11-25), as the web's `ForwardDialog` and `saveForward`: « Forward » in the
   menu opens « Forward to… », a search (accents and case ignored) over the other
   conversations, labelled with their space, 50 at most; tick one or more, Forward, and the
