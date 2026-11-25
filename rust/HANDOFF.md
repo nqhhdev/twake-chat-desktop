@@ -116,6 +116,13 @@ M3:
   room is never encrypted, a Broadcast on approval is listed. Not yet: creating inside a
   space, the contacts of the Create page (M6); a voice room opens as any room (no voice room
   behaviour in the app yet). Not tried in a run.
+- Offline and failed sends (2026-11-25, M7), as the web's `OfflineBanner` and
+  `message-failed`: the sync service runs in its offline mode, so a failed sync waits for
+  the server (checking `/versions`) and comes back by itself; meanwhile a warning band says
+  « You are offline. The chat will update when the connection is back. ». A message that
+  failed says « Not sent. » with Retry (the send queue unwedged) and Discard (its local
+  echo aborted). Not yet: a file going up shows no progress nor Cancel. Not tried in a run
+  (it needs the server cut off).
 - Forward (2026-11-25), as the web's `ForwardDialog` and `saveForward`: « Forward » in the
   menu opens « Forward to… », a search (accents and case ignored) over the other
   conversations, labelled with their space, 50 at most; tick one or more, Forward, and the

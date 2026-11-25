@@ -262,6 +262,9 @@ export component MessageLine inherits Rectangle {
     // Who read it (web `message-seen`), not in a direct message
     callback seen(string);
     in property <bool> direct;
+    // A message of the user's that failed to go: again, or dropped
+    callback retry-send(string);
+    callback discard-send(string);
     // Ticking messages (web selection mode): a tick at each one, a click ticks or unticks
     in property <bool> selecting;
     callback select(string);
@@ -581,7 +584,30 @@ export component MessageLine inherits Rectangle {
                                     accessible-role: image;
                                     accessible-label: entry.status == "read" ? "Read" : "Sent";
                                 }
-                                if entry.status == "failed": Text { text: "Not sent"; color: Theme.error; font-size: 11px; }
+                                // Not sent: send it again or drop it (web `message-failed`)
+                                if entry.status == "failed": Text { text: "Not sent."; color: Theme.error; font-size: 11px; vertical-alignment: center; accessible-role: text; }
+                                if entry.status == "failed": Text {
+                                    text: "Retry";
+                                    color: Theme.primary;
+                                    font-size: 11px;
+                                    font-weight: 600;
+                                    vertical-alignment: center;
+                                    accessible-role: button;
+                                    accessible-label: "Retry";
+                                    accessible-action-default => { root.retry-send(entry.id); }
+                                    TouchArea { mouse-cursor: pointer; clicked => { root.retry-send(entry.id); } }
+                                }
+                                if entry.status == "failed": Text {
+                                    text: "Discard";
+                                    color: Theme.error;
+                                    font-size: 11px;
+                                    font-weight: 600;
+                                    vertical-alignment: center;
+                                    accessible-role: button;
+                                    accessible-label: "Discard";
+                                    accessible-action-default => { root.discard-send(entry.id); }
+                                    TouchArea { mouse-cursor: pointer; clicked => { root.discard-send(entry.id); } }
+                                }
                             }
                         }
                     }

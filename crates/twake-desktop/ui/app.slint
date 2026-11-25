@@ -984,6 +984,10 @@ export component AppWindow inherits Window {
     in property <bool> selection-unpin;
     in property <bool> selection-can-delete;
     callback select-message(string);
+    callback retry-send(string);
+    callback discard-send(string);
+    // The server cannot be reached (web `OfflineBanner`)
+    in property <bool> offline;
     callback selection-close();
     callback selection-forward();
     callback selection-download();
@@ -1092,6 +1096,14 @@ export component AppWindow inherits Window {
     }
 
     if page == 2: VerticalLayout {
+        // Rare and worrying: a warning band above everything while the server is out of reach
+        if root.offline: Rectangle {
+            height: 32px;
+            background: Theme.warning-bg;
+            accessible-role: text;
+            accessible-label: "You are offline. The chat will update when the connection is back.";
+            Text { text: "You are offline. The chat will update when the connection is back."; color: Theme.text; font-size: 13px; }
+        }
         // App bar
         Rectangle {
             height: 52px;
@@ -1457,6 +1469,8 @@ export component AppWindow inherits Window {
                         forward(id) => { root.forward-message(id); }
                         versions(id) => { root.show-versions(id); }
                         select(id) => { root.select-message(id); }
+                        retry-send(id) => { root.retry-send(id); }
+                        discard-send(id) => { root.discard-send(id); }
                         seen(id) => { root.show-seen(id); }
                         direct: root.current-room-direct;
                     }
@@ -1599,6 +1613,8 @@ export component AppWindow inherits Window {
                         forward(id) => { root.forward-message(id); }
                         versions(id) => { root.show-versions(id); }
                         select(id) => { root.select-message(id); }
+                        retry-send(id) => { root.retry-send(id); }
+                        discard-send(id) => { root.discard-send(id); }
                         seen(id) => { root.show-seen(id); }
                         direct: root.current-room-direct;
                         }
