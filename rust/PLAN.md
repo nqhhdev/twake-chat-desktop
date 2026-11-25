@@ -27,7 +27,7 @@ Inventory source: `reference/twake-space-chat/src/ui` (screens) and `src/applica
 | Pinned messages | `PinnedBar`, `PinnedMessages` | |
 | Polls: create, vote, end | `PollDialog`, `PollMessage` | |
 | Message details: versions, forward, copy link, select several | `MessageVersionsDialog`, `ForwardRoomRow`, `MessageSelectionBar` | Done: the message menu as the web (quick reactions, reply, « ⋯ »), copy message, copy link (matrix.to, ADR-020), download file, forward to several conversations, edit history, select several (forward, download, copy, pin, delete; `isSelectable` recorded). Left: delete others' messages as a moderator |
-| Typing indicators, read receipts per person, presence | `useStatus`, `StatusDialog` | |
+| Typing indicators, read receipts per person, presence | `useStatus`, `StatusDialog` | Done: typing; ticks on one's own messages (sent ✓, read ✓✓) and « N Seen » / « Seen by » per message, from each member's read receipt. Left: the « avatars » and « names » styles under messages (M7 setting), presence |
 
 ## M4: Search, activity, composer
 

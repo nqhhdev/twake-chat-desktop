@@ -606,6 +606,8 @@ export struct VersionRow {
 // « Edit history » of a message, newest first (web `MessageVersionsDialog`)
 export component VersionsDialog inherits Rectangle {
     in property <[VersionRow]> versions;
+    // The same list shows who read a message (« Seen by », web `message-seen`)
+    in property <string> title: "Edit history";
     callback close();
     background: #00000066;
     TouchArea { clicked => { root.close(); } }
@@ -621,7 +623,7 @@ export component VersionsDialog inherits Rectangle {
             padding: 20px;
             spacing: 12px;
             HorizontalLayout {
-                Text { text: "Edit history"; font-size: 18px; font-weight: Theme.weight-bold; color: Theme.text; horizontal-stretch: 1; vertical-alignment: center; }
+                Text { text: root.title; font-size: 18px; font-weight: Theme.weight-bold; color: Theme.text; horizontal-stretch: 1; vertical-alignment: center; }
                 TextButton { label: "Close"; clicked => { root.close(); } }
             }
             ScrollView {

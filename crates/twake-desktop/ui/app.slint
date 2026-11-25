@@ -971,6 +971,9 @@ export component AppWindow inherits Window {
     callback copy-link(string);
     callback forward-message(string);
     callback show-versions(string);
+    callback show-seen(string);
+    in property <bool> current-room-direct;
+    in property <string> versions-title: "Edit history";
     // Ticking messages to act on several (web `MessageSelectionBar`, D183)
     in property <bool> selecting;
     in property <string> selection-text;
@@ -1423,6 +1426,8 @@ export component AppWindow inherits Window {
                         forward(id) => { root.forward-message(id); }
                         versions(id) => { root.show-versions(id); }
                         select(id) => { root.select-message(id); }
+                        seen(id) => { root.show-seen(id); }
+                        direct: root.current-room-direct;
                     }
                 }
                 if root.typing-text != "": HorizontalLayout {
@@ -1560,6 +1565,8 @@ export component AppWindow inherits Window {
                         forward(id) => { root.forward-message(id); }
                         versions(id) => { root.show-versions(id); }
                         select(id) => { root.select-message(id); }
+                        seen(id) => { root.show-seen(id); }
+                        direct: root.current-room-direct;
                         }
                     }
                     thread-composer := Composer {
@@ -1617,6 +1624,7 @@ export component AppWindow inherits Window {
         width: root.width;
         height: root.height;
         versions: root.versions;
+        title: root.versions-title;
         close => { root.versions-open = false; }
     }
 

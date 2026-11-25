@@ -931,6 +931,12 @@ fn main() -> Result<(), slint::PlatformError> {
                 selection::delete(&w);
             }
         });
+        let weak = window.as_weak();
+        window.on_show_seen(move |id| {
+            if let Some(w) = weak.upgrade() {
+                show_seen(&w, &id);
+            }
+        });
         window.on_show_versions(|id| {
             send(Command::MessageVersions {
                 event_id: id.to_string(),
@@ -1065,6 +1071,13 @@ fn apply(window: &AppWindow, event: Event) {
             if STATE.with_borrow(|s| s.current_room == room_id) {
                 window.set_current_room_name(name.into());
                 window.set_current_room_encrypted(is_encrypted);
+                // A direct message says nothing of who read what (web `!isDirect`)
+                let direct = STATE.with_borrow(|s| {
+                    s.rooms
+                        .iter()
+                        .any(|r| r.id == room_id && r.kind == twake_domain::RoomKind::Direct)
+                });
+                window.set_current_room_direct(direct);
             }
         }
         Event::Timeline {
@@ -1670,6 +1683,39 @@ fn show_versions(window: &AppWindow, versions: &[twake_core::MessageVersion]) {
         })
         .collect();
     window.set_versions(ModelRc::from(Rc::new(VecModel::from(rows))));
+    window.set_versions_title("Edit history".into());
+    window.set_versions_open(true);
+}
+
+/// « Seen by »: the others who read the message, the latest reader first, each with the
+/// time of their receipt (web `message-seen`).
+fn show_seen(window: &AppWindow, id: &str) {
+    let mut readers = STATE.with_borrow(|s| {
+        view::readers_by_message(&s.entries)
+            .remove(id)
+            .unwrap_or_default()
+    });
+    readers.sort_by_key(|r| std::cmp::Reverse(r.read_at));
+    let now = chrono::Utc::now().timestamp_millis();
+    let rows: Vec<VersionRow> = readers
+        .iter()
+        .map(|r| VersionRow {
+            text: r.name.as_str().into(),
+            info: r
+                .read_at
+                .map(|at| {
+                    format!(
+                        "{} {}",
+                        twake_domain::format::room_list_time(at, now),
+                        twake_domain::format::message_time(at)
+                    )
+                })
+                .unwrap_or_default()
+                .into(),
+        })
+        .collect();
+    window.set_versions(ModelRc::from(Rc::new(VecModel::from(rows))));
+    window.set_versions_title("Seen by".into());
     window.set_versions_open(true);
 }
 
