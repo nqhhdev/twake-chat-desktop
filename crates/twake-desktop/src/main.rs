@@ -10,6 +10,7 @@ mod composer;
 mod deleted;
 mod dev;
 mod formats;
+mod forward;
 mod gifs;
 mod icons;
 mod pdf;
@@ -374,6 +375,7 @@ fn main() -> Result<(), slint::PlatformError> {
     gifs::install(&window);
     call::install(&window);
     shared::install(&window);
+    forward::install(&window);
     {
         let weak = window.as_weak();
         window.on_composer_unstage(move |thread, index| {
@@ -877,6 +879,36 @@ fn main() -> Result<(), slint::PlatformError> {
             }
         });
         let weak = window.as_weak();
+        window.on_forward_message(move |id| {
+            if let Some(w) = weak.upgrade() {
+                forward::open(&w, &id);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_forward_filter_edited(move |_| {
+            if let Some(w) = weak.upgrade() {
+                forward::filter_edited(&w);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_forward_toggle(move |id| {
+            if let Some(w) = weak.upgrade() {
+                forward::toggle(&w, &id);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_forward_send(move || {
+            if let Some(w) = weak.upgrade() {
+                forward::send_forward(&w);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_forward_cancel(move || {
+            if let Some(w) = weak.upgrade() {
+                forward::cancel(&w);
+            }
+        });
+        let weak = window.as_weak();
         window.on_copy_link(move |id| {
             if let Some(w) = weak.upgrade() {
                 let link = twake_domain::permalink::message_permalink(&current_room(), &id);
@@ -1187,6 +1219,7 @@ fn apply(window: &AppWindow, event: Event) {
                     .show();
             });
         }
+        Event::Forwarded { to_rooms } => forward::forwarded(window, &to_rooms),
         Event::DeletedChats(deleted) => {
             STATE.with_borrow_mut(|s| s.deleted = deleted);
             show_rooms(window);

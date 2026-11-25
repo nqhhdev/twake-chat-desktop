@@ -62,8 +62,17 @@ M3:
 - Message menu (2026-11-25), as the web's `MessageToolbar`: hovering a message shows the
   quick reactions, Reply and « ⋯ », which opens the rest in the web's sections (Reply, Copy
   message, Pin, Download file · Reply in thread, Edit · Copy link, Save · Report, Delete).
-  Copy link copies a matrix.to link (ADR-020). Not yet in it: Forward, Versions, Select,
-  Translate and the assistant. Not opened in a run.
+  Copy link copies a matrix.to link (ADR-020). Not yet in it: Versions, Select, Translate
+  and the assistant. Not opened in a run.
+- Forward (2026-11-25), as the web's `ForwardDialog` and `saveForward`: « Forward » in the
+  menu opens « Forward to… », a search (accents and case ignored) over the other
+  conversations, labelled with their space, 50 at most; tick one or more, Forward, and the
+  notice says « Forwarded to … » in the order picked. The engine sends the message as shown
+  (its latest edit), from the room's or the open thread's timeline, without its reply,
+  mentions, bot command or the app's own marks (`toForwardedContent`, unit tested; an
+  encrypted file keeps its key). Not like the web yet: rooms that were replaced or whose
+  person left are not left out (the room list does not know it), GIFs go even to a room
+  that has them off (M6). Not tried in a run.
 
 M4, first part (2026-11-20):
 

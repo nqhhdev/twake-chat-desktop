@@ -509,3 +509,90 @@ export component PollDialog inherits Rectangle {
         }
     }
 }
+
+// A conversation the message may go to (web `ForwardRoomRow`): the whole line ticks it
+export struct ForwardRow {
+    id: string,
+    name: string,
+    picked: bool,
+}
+
+// « Forward to… » (web `ForwardDialog`): a search, the conversations with a tick each, and
+// Forward once one is ticked.
+export component ForwardDialog inherits Rectangle {
+    in property <[ForwardRow]> rows;
+    in-out property <string> filter;
+    callback filter-edited(string);
+    callback toggle(string);
+    callback send();
+    callback cancel();
+    // One conversation ticked at least: Forward may go
+    in property <bool> has-picked;
+    background: #00000066;
+    TouchArea { clicked => { root.cancel(); } }
+    Rectangle {
+        width: 420px;
+        height: min(root.height - 80px, 560px);
+        border-radius: 16px;
+        background: Theme.background;
+        drop-shadow-blur: 20px;
+        drop-shadow-color: #00000040;
+        TouchArea {}
+        VerticalLayout {
+            padding: 20px;
+            spacing: 12px;
+            Text { text: "Forward to…"; font-size: 18px; font-weight: Theme.weight-bold; color: Theme.text; }
+            Field {
+                label: "Search";
+                text <=> root.filter;
+                // Typing narrows the list, read again in Rust
+                changed text => { root.filter-edited(self.text); }
+            }
+            ListView {
+                vertical-stretch: 1;
+                for row in root.rows: Rectangle {
+                    height: 40px;
+                    border-radius: 8px;
+                    background: row.picked ? Theme.selected : row-touch.has-hover ? Theme.hover : transparent;
+                    accessible-role: checkbox;
+                    accessible-checked: row.picked;
+                    accessible-label: row.name;
+                    accessible-action-default => { root.toggle(row.id); }
+                    row-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.toggle(row.id); }
+                    }
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        spacing: 10px;
+                        VerticalLayout {
+                            alignment: center;
+                            Rectangle {
+                                width: 18px;
+                                height: 18px;
+                                border-radius: 4px;
+                                border-width: row.picked ? 0 : 1.5px;
+                                border-color: Theme.text-secondary;
+                                background: row.picked ? Theme.primary : transparent;
+                                if row.picked: Text { text: "✓"; color: Theme.on-primary; font-size: 12px; horizontal-alignment: center; vertical-alignment: center; }
+                            }
+                        }
+                        Text { text: row.name; color: Theme.text; vertical-alignment: center; overflow: elide; }
+                    }
+                }
+            }
+            HorizontalLayout {
+                alignment: end;
+                spacing: 8px;
+                TextButton { label: "Cancel"; clicked => { root.cancel(); } }
+                PrimaryButton {
+                    width: 120px;
+                    label: "Forward";
+                    enabled: root.has-picked;
+                    clicked => { root.send(); }
+                }
+            }
+        }
+    }
+}

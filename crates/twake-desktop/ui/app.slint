@@ -8,10 +8,10 @@ import { FeedLine, ActivityPane } from "activity.slint";
 import { Row, ReactionChip, PollAnswerRow, MessageLine, AudioState, Animations } from "timeline.slint";
 export { AudioState, Animations }
 export { Icons }
-import { MemberRow, RoomInfoData, InfoPane, SharedFileRow, SharedLinkRow, SharedMediaRow, ConfirmDialog, CreateDialog, PollDialog } from "info.slint";
+import { ForwardDialog, ForwardRow, MemberRow, RoomInfoData, InfoPane, SharedFileRow, SharedLinkRow, SharedMediaRow, ConfirmDialog, CreateDialog, PollDialog } from "info.slint";
 import { CallPopOut, CallStage, CallTileRow, CallWindow, CallWindowRect, DeviceRow, DeviceSection } from "call.slint";
 export { CallPopOut }
-export { Row, ReactionChip, PollAnswerRow, MemberRow, RoomInfoData, Suggestion, SearchHit, FeedLine, CallTileRow, CallWindowRect, DeviceRow, DeviceSection, SharedFileRow, SharedLinkRow, SharedMediaRow }
+export { Row, ReactionChip, PollAnswerRow, MemberRow, RoomInfoData, Suggestion, SearchHit, FeedLine, CallTileRow, CallWindowRect, DeviceRow, DeviceSection, SharedFileRow, SharedLinkRow, SharedMediaRow, ForwardRow }
 
 export struct SpaceItem {
     id: string,
@@ -969,6 +969,16 @@ export component AppWindow inherits Window {
     callback report-message(string);
     callback copy-message(string);
     callback copy-link(string);
+    callback forward-message(string);
+    // « Forward to… » (web `ForwardDialog`)
+    in property <bool> forward-open;
+    in property <[ForwardRow]> forward-rows;
+    in property <bool> forward-has-picked;
+    in-out property <string> forward-filter;
+    callback forward-filter-edited(string);
+    callback forward-toggle(string);
+    callback forward-send();
+    callback forward-cancel();
     callback report-room();
     callback block-user();
     callback open-pinned();
@@ -1370,6 +1380,7 @@ export component AppWindow inherits Window {
                         report(id) => { root.report-message(id); }
                         copy-message(text) => { root.copy-message(text); }
                         copy-link(id) => { root.copy-link(id); }
+                        forward(id) => { root.forward-message(id); }
                     }
                 }
                 if root.typing-text != "": HorizontalLayout {
@@ -1504,6 +1515,7 @@ export component AppWindow inherits Window {
                         report(id) => { root.report-message(id); }
                         copy-message(text) => { root.copy-message(text); }
                         copy-link(id) => { root.copy-link(id); }
+                        forward(id) => { root.forward-message(id); }
                         }
                     }
                     thread-composer := Composer {
@@ -1555,6 +1567,18 @@ export component AppWindow inherits Window {
                 }
             }
         }
+    }
+
+    if root.forward-open: ForwardDialog {
+        width: root.width;
+        height: root.height;
+        rows: root.forward-rows;
+        has-picked: root.forward-has-picked;
+        filter <=> root.forward-filter;
+        filter-edited(text) => { root.forward-filter-edited(text); }
+        toggle(id) => { root.forward-toggle(id); }
+        send => { root.forward-send(); }
+        cancel => { root.forward-cancel(); }
     }
 
     if root.create-mode != "": CreateDialog {

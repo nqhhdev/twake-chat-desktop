@@ -10,6 +10,7 @@ mod calls;
 mod compose;
 mod deleted_chats;
 mod engine;
+mod forward;
 mod media;
 mod pdf;
 mod room_admin;
