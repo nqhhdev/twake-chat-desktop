@@ -4,6 +4,11 @@ import { Suggestion } from "parts.slint";
 
 export component Switcher inherits Rectangle {
     in property <[Suggestion]> items;
+    // The same spotlight browses the public groups (web `PublicRoomsDialog`)
+    in property <string> label: "Go to conversation";
+    in property <string> placeholder: "Go to conversation…";
+    // Said when nothing is listed (« Loading… », « No public group to join. »), "" for nothing
+    in property <string> empty-text;
     in-out property <int> selected;
     in-out property <string> query;
     callback search(string);
@@ -15,13 +20,13 @@ export component Switcher inherits Rectangle {
         y: 96px;
         x: (parent.width - self.width) / 2;
         width: min(560px, parent.width - 32px);
-        height: 64px + min(root.items.length, 8) * 48px + 8px;
+        height: 64px + (root.items.length == 0 && root.empty-text != "" ? 48px : min(root.items.length, 8) * 48px) + 8px;
         border-radius: 12px;
         background: Theme.background;
         drop-shadow-blur: 24px;
         drop-shadow-color: #00000040;
         accessible-role: groupbox;
-        accessible-label: "Go to conversation";
+        accessible-label: root.label;
         TouchArea { }
         scope := FocusScope {
             capture-key-pressed(event) => {
@@ -58,15 +63,24 @@ export component Switcher inherits Rectangle {
                         color: Theme.text;
                         single-line: true;
                         text <=> root.query;
-                        accessible-label: "Conversation name";
+                        accessible-label: root.placeholder;
                         edited => { root.search(self.text); }
                         init => { self.focus(); }
                     }
                     if input.text == "": Text {
                         x: 16px;
-                        text: "Go to conversation…";
+                        text: root.placeholder;
                         color: Theme.text-secondary;
                         font-size: 16px;
+                        vertical-alignment: center;
+                    }
+                }
+                if root.items.length == 0 && root.empty-text != "": HorizontalLayout {
+                    padding-left: 16px;
+                    Text {
+                        height: 48px;
+                        text: root.empty-text;
+                        color: Theme.text-secondary;
                         vertical-alignment: center;
                     }
                 }

@@ -91,8 +91,12 @@ M3:
   On request », « Public », « Space members »; not in a direct message); its Edit view offers
   « Who can join » and « In directory », the rule sent before the listing; an encrypted room
   is never offered Public nor the listing unless it has them (D187); a space's rule is told,
-  never replaced. The public web page (D388) and the public rooms directory are still to do.
-  Not tried in a run.
+  never replaced. The public web page (D388) is still to do. Not tried in a run.
+- Public groups (2026-11-25), as the web's `PublicRoomsDialog` (D42): 🪐 in the search field
+  of the room list opens the spotlight of the homeserver's directory (read whole, 100 a page,
+  1000 at most): the rooms not joined, found by name (accents and case ignored), « Join · N
+  members » or « Ask to join · … » for a room on request; Enter or a press joins and opens
+  it, or sends the request (« Request sent »). Not tried in a run.
 - Forward (2026-11-25), as the web's `ForwardDialog` and `saveForward`: « Forward » in the
   menu opens « Forward to… », a search (accents and case ignored) over the other
   conversations, labelled with their space, 50 at most; tick one or more, Forward, and the

@@ -9,6 +9,7 @@ mod call;
 mod composer;
 mod deleted;
 mod dev;
+mod directory;
 mod formats;
 mod forward;
 mod gifs;
@@ -932,6 +933,24 @@ fn main() -> Result<(), slint::PlatformError> {
             }
         });
         let weak = window.as_weak();
+        window.on_directory_open(move || {
+            if let Some(w) = weak.upgrade() {
+                directory::open(&w);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_directory_search(move |_| {
+            if let Some(w) = weak.upgrade() {
+                directory::search(&w);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_directory_choose(move |i| {
+            if let Some(w) = weak.upgrade() {
+                directory::choose(&w, usize::try_from(i).unwrap_or(0));
+            }
+        });
+        let weak = window.as_weak();
         window.on_show_seen(move |id| {
             if let Some(w) = weak.upgrade() {
                 show_seen(&w, &id);
@@ -1286,6 +1305,7 @@ fn apply(window: &AppWindow, event: Event) {
         }
         Event::Forwarded { to_rooms } => forward::forwarded(window, &to_rooms),
         Event::MessageVersions { versions, .. } => show_versions(window, &versions),
+        Event::PublicRooms(rooms) => directory::loaded(window, rooms),
         Event::DeletedChats(deleted) => {
             STATE.with_borrow_mut(|s| s.deleted = deleted);
             show_rooms(window);

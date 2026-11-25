@@ -1003,6 +1003,15 @@ export component AppWindow inherits Window {
     callback forward-send();
     callback forward-cancel();
     callback report-room();
+    // The public directory (web `PublicRoomsDialog`, D42)
+    in-out property <bool> directory-shown;
+    in property <[Suggestion]> directory-items;
+    in property <string> directory-empty;
+    in-out property <int> directory-selected;
+    in-out property <string> directory-query;
+    callback directory-open();
+    callback directory-search(string);
+    callback directory-choose(int);
     callback info-set-join-rule(string);
     callback info-set-listed(bool);
     callback block-user();
@@ -1210,6 +1219,19 @@ export component AppWindow inherits Window {
                             text: "Search";
                             color: Theme.text-secondary;
                             vertical-alignment: center;
+                        }
+                        // The public groups not joined yet (web `browse-public-rooms`, D206)
+                        Rectangle {
+                            x: parent.width - self.width - 6px;
+                            width: 28px;
+                            height: 28px;
+                            border-radius: 14px;
+                            background: browse-touch.has-hover ? Theme.hover : transparent;
+                            accessible-role: button;
+                            accessible-label: "Browse public groups";
+                            accessible-action-default => { root.directory-open(); }
+                            browse-touch := TouchArea { mouse-cursor: pointer; clicked => { root.directory-open(); } }
+                            Text { text: "🪐"; font-size: 14px; horizontal-alignment: center; vertical-alignment: center; }
                         }
                     }
                     HorizontalLayout {
@@ -1841,6 +1863,20 @@ export component AppWindow inherits Window {
             TextButton { label: "Open in app"; clicked => { root.pdf-external(); } }
             TextButton { label: "Close"; clicked => { root.pdf-close(); } }
         }
+    }
+
+    if root.directory-shown: Switcher {
+        width: root.width;
+        height: root.height;
+        label: "Public groups";
+        placeholder: "Search public groups";
+        empty-text: root.directory-empty;
+        items: root.directory-items;
+        selected <=> root.directory-selected;
+        query <=> root.directory-query;
+        search(text) => { root.directory-search(text); }
+        choose(i) => { root.directory-choose(i); }
+        cancel => { root.directory-shown = false; }
     }
 
     if root.switcher-open: Switcher {
