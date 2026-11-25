@@ -271,6 +271,13 @@ pub enum RoomAction {
     Join,
     /// Leave the room, or decline an invitation.
     Leave,
+    /// Report the room to the server's administrators, with a reason (web `reportRoom`).
+    Report(Option<String>),
+    /// Report a message of the room, with a reason (web `reportMessage`).
+    ReportMessage(String, Option<String>),
+    /// Block a person: their messages no longer come (`m.ignored_user_list`, web
+    /// `ignorePerson`).
+    Block(String),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1422,11 +1429,28 @@ async fn room_action(room: matrix_sdk::Room, action: RoomAction, emit: Emit) {
             "Joined".into(),
         ),
         RoomAction::Leave => (admin::leave(&room).await, "Left the room".into()),
+        RoomAction::Report(reason) => (
+            admin::report_room(&room, reason.clone()).await,
+            "Room reported".into(),
+        ),
+        RoomAction::ReportMessage(event_id, reason) => (
+            admin::report_message(&room, event_id, reason.clone()).await,
+            "Message reported".into(),
+        ),
+        // Nothing said when it worked (web)
+        RoomAction::Block(user) => (admin::block(&room, user).await, String::new()),
     };
     match result {
         Ok(()) => {
-            emit(Event::Notice(done));
-            if matches!(action, RoomAction::Leave) {
+            if !done.is_empty() {
+                emit(Event::Notice(done));
+            }
+            if matches!(
+                action,
+                RoomAction::Report(_) | RoomAction::ReportMessage(..) | RoomAction::Block(_)
+            ) {
+                // Nothing of the room changed
+            } else if matches!(action, RoomAction::Leave) {
                 emit(Event::RoomLeft { room_id });
             } else if matches!(action, RoomAction::Join) {
                 emit(Event::RoomCreated { room_id });
