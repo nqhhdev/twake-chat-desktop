@@ -748,6 +748,12 @@ export component AppWindow inherits Window {
     in property <bool> busy;
     in property <string> error;
     in property <string> notice;
+    // The notice's one action (« Undo » of a deleted chat), "" for none
+    in property <string> notice-action;
+    callback notice-acted();
+    // « You deleted the earlier messages on … », "" when the chat was never deleted
+    in property <string> deleted-before;
+    callback delete-chat();
     in property <string> user-id;
     in-out property <string> homeserver: "http://localhost:18008";
     in-out property <string> username;
@@ -1308,6 +1314,11 @@ export component AppWindow inherits Window {
                     alignment: end;
                     TextButton { label: "Back to the meeting thread"; clicked => { root.call-thread-toggle(); } }
                 }
+                if root.deleted-before != "": HorizontalLayout {
+                    padding: 8px;
+                    alignment: center;
+                    Text { text: root.deleted-before; color: Theme.text-secondary; font-size: 13px; }
+                }
                 timeline := ListView {
                     property <int> scroll-request: root.scroll-to-bottom;
                     property <length> last-content-height;
@@ -1420,6 +1431,7 @@ export component AppWindow inherits Window {
                 ban(user) => { root.member-ban(user); }
                 set-role(user, role) => { root.member-set-role(user, role); }
                 leave => { root.leave-room(); }
+                delete-chat => { root.delete-chat(); }
             }
             if !root.activity-open && root.current-room-id != "" && root.search-open && !root.thread-open && !root.info-open: SearchPane {
                 width: 380px;
@@ -1520,7 +1532,15 @@ export component AppWindow inherits Window {
         if root.notice != "": Rectangle {
             height: 32px;
             background: Theme.panel;
-            Text { text: root.notice; color: Theme.text-secondary; font-size: 12px; }
+            HorizontalLayout {
+                alignment: center;
+                spacing: 12px;
+                Text { text: root.notice; color: Theme.text-secondary; font-size: 12px; vertical-alignment: center; }
+                if root.notice-action != "": VerticalLayout {
+                    alignment: center;
+                    TextButton { label: root.notice-action; clicked => { root.notice-acted(); } }
+                }
+            }
         }
     }
 

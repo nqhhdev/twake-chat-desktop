@@ -7,6 +7,7 @@ mod activity;
 mod audio;
 mod call;
 mod composer;
+mod deleted;
 mod dev;
 mod formats;
 mod gifs;
@@ -63,6 +64,9 @@ struct UiState {
     members_model: Rc<VecModel<MemberRow>>,
     /// The command a confirmation dialog runs on « yes ».
     pending: Option<Command>,
+    /// The chats deleted for the user alone (D186), and the one « Undo » brings back.
+    deleted: twake_domain::deleted_chats::DeletedChats,
+    undo_room: Option<String>,
     /// Spaces, the one the room list shows ("" for all) and its filter chip.
     spaces: Vec<twake_domain::SpaceSummary>,
     spaces_model: Rc<VecModel<SpaceItem>>,
@@ -105,6 +109,8 @@ impl Default for UiState {
             details: None,
             members_model: Rc::new(VecModel::default()),
             pending: None,
+            deleted: Default::default(),
+            undo_room: None,
             spaces: Vec::new(),
             spaces_model: Rc::new(VecModel::default()),
             current_space: String::new(),
@@ -334,6 +340,11 @@ fn main() -> Result<(), slint::PlatformError> {
                 s.details = None;
             });
             if let Some(w) = weak.upgrade() {
+                if !w.get_notice_action().is_empty() {
+                    STATE.with_borrow_mut(|s| s.undo_room = None);
+                    w.set_notice("".into());
+                    w.set_notice_action("".into());
+                }
                 w.set_current_room_id(room_id.clone());
                 w.set_history_complete(false);
                 w.set_history_prepended(false);
@@ -1159,6 +1170,11 @@ fn apply(window: &AppWindow, event: Event) {
                     .show();
             });
         }
+        Event::DeletedChats(deleted) => {
+            STATE.with_borrow_mut(|s| s.deleted = deleted);
+            show_rooms(window);
+            redraw_messages(window);
+        }
         Event::Notice(text) => {
             DEV.with_borrow(|d| d.stat(&format!("notice: {text}")));
             window.set_notice(text.into());
@@ -1251,11 +1267,17 @@ fn show_rooms(window: &AppWindow) {
             pictures,
             asked,
             rooms_model,
+            deleted,
             ..
         } = s;
         let mut find = lookup(pictures, asked, &mut requests);
         let rows: Vec<RoomRow> = rooms
             .iter()
+            // A deleted chat stays out of the list until something newer (web `isChatHidden`)
+            .filter(|r| {
+                let last = r.last_activity.unwrap_or(0) as f64;
+                !twake_domain::deleted_chats::is_chat_hidden(deleted, &r.id, last)
+            })
             .filter(|r| filter.is_empty() || r.name.to_lowercase().contains(&filter))
             .filter(|r| space.as_ref().is_none_or(|ids| ids.contains(&r.id)))
             .filter(|r| match chip.as_str() {
@@ -1274,6 +1296,15 @@ fn show_rooms(window: &AppWindow) {
 }
 
 fn show_timeline(window: &AppWindow, entries: &[TimelineEntry]) {
+    // A chat deleted for the user: its history up to then is hidden (web `withoutDeleted`)
+    let (entries, notice) = STATE.with_borrow(|s| {
+        (
+            deleted::visible(entries, &s.current_room, &s.deleted),
+            deleted::notice(&s.current_room, &s.deleted),
+        )
+    });
+    let entries = &entries[..];
+    window.set_deleted_before(notice.into());
     let now = chrono::Utc::now().timestamp_millis();
     let encrypted = window.get_current_room_encrypted();
     let mut requests = Vec::new();
@@ -1621,6 +1652,46 @@ fn wire_room_info(window: &AppWindow) {
             )
         });
     });
+    let w = with.clone();
+    window.on_notice_acted(move || {
+        // « Undo »: the chat and its history come back (web `undeleteChat`)
+        if let Some(room_id) = STATE.with_borrow_mut(|s| s.undo_room.take()) {
+            send(Command::DeleteChat {
+                room_id,
+                before_ts: None,
+            });
+        }
+        w(&|win| {
+            win.set_notice("".into());
+            win.set_notice_action("".into());
+        });
+    });
+    let w = with.clone();
+    window.on_delete_chat(move || {
+        let room_id = current_room();
+        // The clock of the server may run ahead of this one (web `deleteChat`)
+        let last = STATE.with_borrow(|s| {
+            s.rooms
+                .iter()
+                .find(|r| r.id == room_id)
+                .and_then(|r| r.last_activity)
+                .unwrap_or(0)
+        });
+        let before_ts = chrono::Utc::now().timestamp_millis().max(last) as f64;
+        w(&|win| {
+            ask(
+                win,
+                "Delete this chat?\n\nIt disappears from your list and its history is hidden for \
+                 you; the other members keep it. You stay a member, so it comes back at the next \
+                 message. To stop receiving it, leave the chat instead.",
+                "Delete chat",
+                Command::DeleteChat {
+                    room_id: room_id.clone(),
+                    before_ts: Some(before_ts),
+                },
+            )
+        });
+    });
     window.on_accept_invite(|room_id| {
         send(Command::Room {
             room_id: room_id.to_string(),
@@ -1664,6 +1735,20 @@ fn wire_room_info(window: &AppWindow) {
             reason.set((!text.is_empty()).then_some(text));
         });
         if let Some(command) = STATE.with_borrow_mut(|s| s.pending.take()) {
+            // A deleted chat says so, with Undo, and is read (web `announceDeletedChat`)
+            if let Command::DeleteChat {
+                room_id,
+                before_ts: Some(_),
+            } = &command
+            {
+                let room_id = room_id.clone();
+                STATE.with_borrow_mut(|s| s.undo_room = Some(room_id));
+                w(&|win| {
+                    win.set_notice("Chat deleted".into());
+                    win.set_notice_action("Undo".into());
+                });
+                send(Command::MarkRead);
+            }
             send(with_reason(command, reason.take()));
         }
         w(&|win| win.set_confirm_message("".into()));

@@ -75,8 +75,11 @@ pub fn results(
         return;
     }
     let now = chrono::Utc::now().timestamp_millis();
+    let deleted = STATE.with_borrow(|s| s.deleted.clone());
     let hits: Vec<SearchHit> = results
         .iter()
+        // What the user deleted is not found again (web `isAfterDeletion`)
+        .filter(|r| twake_domain::deleted_chats::is_after_deletion(&deleted, room_id, r.sent_at))
         .map(|r| {
             let at = r.sent_at as i64;
             SearchHit {
