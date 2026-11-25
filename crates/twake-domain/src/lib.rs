@@ -20,6 +20,7 @@ pub mod room_management;
 pub mod room_preview;
 pub mod saved;
 pub mod search;
+pub mod shared_content;
 pub mod text_format;
 pub mod web_links;
 

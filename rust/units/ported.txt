@@ -57,6 +57,7 @@ resizeWindow
 parseCallWindow
 placeCall
 isCallFloating
+computeSharedContent
 toCallLine
 ringAsks
 isRinging

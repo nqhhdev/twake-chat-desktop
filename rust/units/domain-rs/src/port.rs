@@ -2231,8 +2231,45 @@ pub fn extract_links(text: String) -> Result<Vec<String>, String> {
 pub fn compute_shared_content(
     messages: Vec<serde_json::Value>,
 ) -> Result<serde_json::Value, String> {
-    let _ = &messages;
-    unimplemented!("port `computeSharedContent` from src/domain/sharedContent.ts")
+    use serde_json::{Value, json};
+    let typed_messages: Vec<twake_domain::Message> = typed(Value::Array(messages.clone()))?;
+    let content = twake_domain::shared_content::compute_shared_content(&typed_messages);
+    // The web returns the fields as it was given them: read back from the raw message
+    let raw = |message: &twake_domain::Message| -> &Value {
+        let index = typed_messages
+            .iter()
+            .position(|m| std::ptr::eq(m, message))
+            .expect("a message of the list");
+        &messages[index]
+    };
+    let field = |m: &Value, key: &str| m.get(key).cloned().unwrap_or_else(crate::js::undefined);
+    let item = |message: &twake_domain::Message| {
+        let m = raw(message);
+        json!({
+            "messageId": field(m, "id"),
+            "attachment": field(m, "attachment"),
+            "senderName": field(m, "senderName"),
+            "sentAt": field(m, "sentAt"),
+        })
+    };
+    let links: Vec<Value> = content
+        .links
+        .iter()
+        .map(|link| {
+            let m = raw(link.message);
+            json!({
+                "messageId": field(m, "id"),
+                "url": link.url,
+                "senderName": field(m, "senderName"),
+                "sentAt": field(m, "sentAt"),
+            })
+        })
+        .collect();
+    Ok(json!({
+        "media": content.media.iter().map(|m| item(m)).collect::<Vec<_>>(),
+        "links": links,
+        "files": content.files.iter().map(|m| item(m)).collect::<Vec<_>>(),
+    }))
 }
 
 /// Port of `roomBadgeCount` (`src/domain/spaceBadges.ts:16`).
