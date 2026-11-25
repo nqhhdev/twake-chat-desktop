@@ -135,6 +135,41 @@ component ActionButton inherits Rectangle {
     Icon { source: root.symbol; fallback: root.label; size: 16px; }
 }
 
+// A line of a message's menu (web `MessageToolbarMenuItem`): its icon and words; red when
+// it takes the message away
+component MenuLine inherits Rectangle {
+    in property <string> label;
+    in property <image> symbol;
+    in property <string> fallback;
+    in property <bool> danger;
+    callback clicked();
+    height: 34px;
+    border-radius: 6px;
+    background: touch.has-hover ? Theme.hover : transparent;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-action-default => { clicked(); }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 10px;
+        VerticalLayout {
+            alignment: center;
+            Icon { source: root.symbol; fallback: root.fallback; color: root.danger ? Theme.error : Theme.text; size: 16px; }
+        }
+        Text { text: root.label; color: root.danger ? Theme.error : Theme.text; vertical-alignment: center; }
+    }
+}
+
+component MenuDivider inherits Rectangle {
+    height: 9px;
+    Rectangle { y: 4px; height: 1px; background: Theme.line; }
+}
+
 component Chip inherits Rectangle {
     in property <ReactionChip> chip;
     callback clicked();
@@ -182,6 +217,10 @@ export component MessageLine inherits Rectangle {
     callback save-message(string, bool);
     // Someone else's message, to the server's administrators (web `message-report`)
     callback report(string);
+    // The text of the message, and the link to it, to the clipboard (web `message-copy`,
+    // `message-copy-link`)
+    callback copy-message(string);
+    callback copy-link(string);
     height: layout.preferred-height;
 
     hover := TouchArea {
@@ -539,8 +578,41 @@ export component MessageLine inherits Rectangle {
         }
     }
 
-    // Hover actions (mouse only), over the top of the bubble: quick reactions, reply,
-    // thread, and edit / delete on one's own messages.
+    // The message's menu (web `message-more`), in sections: what happens in the chat, the
+    // thread and the edit, the message itself, what takes it away last
+    property <length> menu-width: 230px;
+    more := PopupWindow {
+        x: entry.own ? 16px : root.width - root.menu-width - 16px;
+        y: 38px;
+        width: root.menu-width;
+        Rectangle {
+            border-radius: 10px;
+            background: Theme.background;
+            border-width: 1px;
+            border-color: Theme.line;
+            drop-shadow-blur: 12px;
+            drop-shadow-color: #00000030;
+            VerticalLayout {
+                padding: 6px;
+                MenuLine { label: "Reply"; symbol: Icons.reply; fallback: "↩"; clicked => { root.reply(entry.id); } }
+                if entry.plain != "": MenuLine { label: "Copy message"; fallback: "⧉"; clicked => { root.copy-message(entry.plain); } }
+                if entry.can-pin: MenuLine { label: entry.pinned ? "Unpin" : "Pin"; symbol: Icons.pin; fallback: "📌"; clicked => { root.pin(entry.id, !entry.pinned); } }
+                if entry.attachment-kind != "": MenuLine { label: "Download file"; fallback: "⬇"; clicked => { root.save-attachment(entry.attachment-key, entry.attachment-name); } }
+                if !root.in-thread || entry.can-edit: MenuDivider { }
+                if !root.in-thread: MenuLine { label: "Reply in thread"; symbol: Icons.thread; fallback: "💬"; clicked => { root.open-thread(entry.id); } }
+                if entry.can-edit: MenuLine { label: "Edit"; symbol: Icons.edit; fallback: "✎"; clicked => { root.edit(entry.id); } }
+                MenuDivider { }
+                MenuLine { label: "Copy link"; symbol: Icons.link; fallback: "🔗"; clicked => { root.copy-link(entry.id); } }
+                MenuLine { label: entry.saved ? "Remove from saved" : "Save for later"; symbol: Icons.bookmark; fallback: "🔖"; clicked => { root.save-message(entry.id, !entry.saved); } }
+                if !entry.own || entry.can-delete: MenuDivider { }
+                if !entry.own: MenuLine { label: "Report"; symbol: Icons.flag; fallback: "⚑"; clicked => { root.report(entry.id); } }
+                if entry.can-delete: MenuLine { label: "Delete"; symbol: Icons.delete; fallback: "🗑"; danger: true; clicked => { root.delete(entry.id); } }
+            }
+        }
+    }
+
+    // Hover actions (mouse only), over the top of the bubble: the quick reactions, reply,
+    // and the menu of the rest (web `MessageToolbar`, mockup 4)
     if entry.kind == 0 && entry.can-act && hover.has-hover: Rectangle {
         x: entry.own ? 16px : root.width - self.width - 16px;
         y: 0px;
@@ -561,12 +633,7 @@ export component MessageLine inherits Rectangle {
                 clicked => { root.react(entry.id, key); }
             }
             ActionButton { label: "↩"; symbol: Icons.reply; tip: "Reply"; clicked => { root.reply(entry.id); } }
-            if !root.in-thread: ActionButton { label: "💬"; symbol: Icons.thread; tip: "Reply in thread"; clicked => { root.open-thread(entry.id); } }
-            if entry.can-pin: ActionButton { label: "📌"; symbol: Icons.pin; tip: entry.pinned ? "Unpin" : "Pin"; clicked => { root.pin(entry.id, !entry.pinned); } }
-            if entry.can-act: ActionButton { label: "🔖"; symbol: Icons.bookmark; tip: entry.saved ? "Remove from saved" : "Save for later"; clicked => { root.save-message(entry.id, !entry.saved); } }
-            if entry.can-edit: ActionButton { label: "✎"; symbol: Icons.edit; tip: "Edit"; clicked => { root.edit(entry.id); } }
-            if entry.can-act && !entry.own: ActionButton { label: "⚑"; symbol: Icons.flag; tip: "Report"; clicked => { root.report(entry.id); } }
-            if entry.can-delete: ActionButton { label: "🗑"; symbol: Icons.delete; tip: "Delete"; clicked => { root.delete(entry.id); } }
+            ActionButton { label: "⋯"; tip: "More"; clicked => { more.show(); } }
         }
     }
 }

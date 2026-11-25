@@ -867,6 +867,23 @@ fn main() -> Result<(), slint::PlatformError> {
     }
     window.on_viewer_save(viewer::save);
     window.on_viewer_external(viewer::open_external);
+    {
+        // The text of a message, or the link to it, to the clipboard (web `copyText`,
+        // `copyLink`); the link is matrix.to's, the app having no address of its own (ADR-020)
+        let weak = window.as_weak();
+        window.on_copy_message(move |text| {
+            if let Some(w) = weak.upgrade() {
+                copy_to_clipboard(&w, &text, "Message copied");
+            }
+        });
+        let weak = window.as_weak();
+        window.on_copy_link(move |id| {
+            if let Some(w) = weak.upgrade() {
+                let link = twake_domain::permalink::message_permalink(&current_room(), &id);
+                copy_to_clipboard(&w, &link, "Link copied");
+            }
+        });
+    }
     window.on_save_attachment(|key, name| {
         send(Command::SaveAttachment {
             key: key.to_string(),
@@ -1518,6 +1535,17 @@ fn with_reason(command: Command, reason: Option<String>) -> Command {
         },
         other => other,
     }
+}
+
+/// Puts `text` on the system's clipboard and says `done`, or that it could not.
+fn copy_to_clipboard(window: &AppWindow, text: &str, done: &str) {
+    let copied = arboard::Clipboard::new().and_then(|mut c| c.set_text(text));
+    let notice = if copied.is_ok() {
+        done.to_string()
+    } else {
+        "The system refused to copy.".to_string()
+    };
+    window.set_notice(notice.into());
 }
 
 fn current_room() -> String {

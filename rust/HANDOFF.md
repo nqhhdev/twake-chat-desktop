@@ -54,11 +54,16 @@ M3:
   yet: that line is pinned above the timeline, the web shows it at the head of the
   history; the room list has no menu of its own to delete from. Not tried in a run.
 - Report and block (2026-11-25), as the web's header and message menus: « Report room »
-  (« Report » in a direct message) at the foot of the room info, « ⚑ Report » on someone
-  else's message; both ask with the web's words and an optional reason, then say « Room
+  (« Report » in a direct message) at the foot of the room info, « Report » in the menu of
+  someone else's message; both ask with the web's words and an optional reason, then say « Room
   reported » / « Message reported ». « Block user » in a direct message asks, then ignores
   the person (`m.ignored_user_list`: the server stops sending their events); nothing said
   after, as the web. Unblocking comes with the settings (M7). Not tried in a run.
+- Message menu (2026-11-25), as the web's `MessageToolbar`: hovering a message shows the
+  quick reactions, Reply and « ⋯ », which opens the rest in the web's sections (Reply, Copy
+  message, Pin, Download file · Reply in thread, Edit · Copy link, Save · Report, Delete).
+  Copy link copies a matrix.to link (ADR-020). Not yet in it: Forward, Versions, Select,
+  Translate and the assistant. Not opened in a run.
 
 M4, first part (2026-11-20):
 

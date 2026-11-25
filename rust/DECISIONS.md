@@ -247,3 +247,18 @@ and no page storage.
 **Consequences.** The pop-out is a plain window of the OS: the system decides where it opens and
 the user moves it with the system's title bar, not with the domain's rules. Whether
 `always-on-top` holds over full-screen apps depends on each OS.
+
+## ADR-020: « Copy link » of a message copies a matrix.to link
+
+**Context.** The web copies a link to itself, `{its address}/rooms/{room}?event={message}`
+(`messageLink`, D157): anyone who follows it lands in Twake Chat on the web. An app has no
+address of its own, and the deployment's web address is only known with the client
+configuration of M6.
+
+**Decision.** « Copy link » copies `https://matrix.to/#/{room}/{message}` (`message_permalink`
+in `twake_domain::permalink`, beside the ported `roomPermalink` and `userPermalink`): any
+Matrix client opens it, and the web's own `parsePermalink` reads it back.
+
+**Consequences.** A link copied from the app opens matrix.to's chooser in a browser rather
+than the web app straight away. Once M6 reads the web's address from the client configuration,
+the app may copy the web's link instead, as the web does.
