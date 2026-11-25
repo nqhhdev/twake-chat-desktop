@@ -39,6 +39,8 @@ export struct RoomInfoData {
     access-line: string,
     join-rule: string,
     listed: bool,
+    // May go to a space (web `canMoveToSpace`)
+    can-move: bool,
 }
 
 // A choice of « Who can join »: a round mark, checked or not
@@ -184,6 +186,8 @@ export component InfoPane inherits Rectangle {
     // « Who can join » and « In directory » (web `RoomAccessSettings`, D516)
     callback set-join-rule(string);
     callback set-listed(bool);
+    // « Move to a Space » (web `MoveToSpaceDialog`)
+    callback move-to-space();
     // For the user alone, without leaving (web `menu-delete-chat`, D186)
     callback delete-chat();
     // To the server's administrators (web `menu-report`); a person, in a direct message
@@ -403,6 +407,7 @@ export component InfoPane inherits Rectangle {
             padding: 12px;
             alignment: center;
             spacing: 8px;
+            if info.can-move: TextButton { label: "Move to a Space"; clicked => { root.move-to-space(); } }
             TextButton { label: info.direct ? "Report" : "Report room"; clicked => { root.report(); } }
             if info.direct: TextButton { label: "Block user"; clicked => { root.block(); } }
         }
@@ -700,6 +705,66 @@ export component VersionsDialog inherits Rectangle {
                         Text { text: version.text; color: Theme.text; wrap: word-wrap; }
                         Text { text: version.info; color: Theme.text-secondary; font-size: 12px; }
                     }
+                }
+            }
+        }
+    }
+}
+
+// A space a room may go to (web `SpaceChoice`); "" is « No space »
+export struct SpaceChoiceRow {
+    id: string,
+    name: string,
+    depth: int,
+    current: bool,
+}
+
+// « Move to a Space » (web `MoveToSpaceDialog`): no space, then the spaces where the user
+// may add rooms, sub-spaces under their space; the one the room is in checked.
+export component SpaceDialog inherits Rectangle {
+    in property <[SpaceChoiceRow]> choices;
+    callback pick(string);
+    callback cancel();
+    background: #00000066;
+    TouchArea { clicked => { root.cancel(); } }
+    Rectangle {
+        width: 420px;
+        height: min(root.height - 80px, box.preferred-height);
+        border-radius: 16px;
+        background: Theme.background;
+        drop-shadow-blur: 20px;
+        drop-shadow-color: #00000040;
+        TouchArea {}
+        box := VerticalLayout {
+            padding: 20px;
+            spacing: 8px;
+            HorizontalLayout {
+                Text { text: "Move to a Space"; font-size: 18px; font-weight: Theme.weight-bold; color: Theme.text; horizontal-stretch: 1; vertical-alignment: center; }
+                TextButton { label: "Cancel"; clicked => { root.cancel(); } }
+            }
+            for choice in root.choices: Rectangle {
+                height: 40px;
+                border-radius: 8px;
+                background: choice-touch.has-hover ? Theme.hover : transparent;
+                accessible-role: checkbox;
+                accessible-checked: choice.current;
+                accessible-label: choice.name;
+                accessible-action-default => { root.pick(choice.id); }
+                choice-touch := TouchArea { mouse-cursor: pointer; clicked => { root.pick(choice.id); } }
+                HorizontalLayout {
+                    padding-left: 8px + choice.depth * 20px;
+                    spacing: 10px;
+                    VerticalLayout {
+                        alignment: center;
+                        Rectangle {
+                            width: 18px;
+                            height: 18px;
+                            border-radius: 9px;
+                            border-width: choice.current ? 5px : 1.5px;
+                            border-color: choice.current ? Theme.primary : Theme.text-secondary;
+                        }
+                    }
+                    Text { text: choice.name; color: Theme.text; vertical-alignment: center; overflow: elide; }
                 }
             }
         }

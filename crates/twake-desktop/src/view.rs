@@ -422,6 +422,13 @@ pub fn room_info(
         }
         .into(),
         listed: details.is_listed,
+        // A room shown here is no space, and no room is managed by Twake Space in the app
+        can_move: twake_domain::space_choices::can_move_to_space(
+            details.kind == RoomKind::Direct,
+            false,
+            false,
+            details.permissions.can_edit_settings,
+        ),
     }
 }
 

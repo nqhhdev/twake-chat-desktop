@@ -97,6 +97,15 @@ M3:
   1000 at most): the rooms not joined, found by name (accents and case ignored), « Join · N
   members » or « Ask to join · … » for a room on request; Enter or a press joins and opens
   it, or sends the request (« Request sent »). Not tried in a run.
+- Move to a Space (2026-11-25), as the web's `MoveToSpaceDialog` and `moveRoomToSpace`: in
+  the room info of a room the user may edit (not a direct message), « Move to a Space »
+  lists « No space » and the spaces where the user may add rooms, sub-spaces under their
+  space (`buildSpaceChoices`, unit tested), the current one checked. Moving reads the links
+  from both ends (`m.space.parent` of the room, `m.space.child` of the joined spaces), refuses
+  before writing what the user may not do, writes what is missing, makes a restricted room's
+  rule follow its new space (invite or knock when none is left), then removes every other
+  link (best effort for a space the app has not joined). `canMoveToSpace` has no recorded
+  case of its typed shape: unit tested, not in `ported.txt`. Not tried in a run.
 - Forward (2026-11-25), as the web's `ForwardDialog` and `saveForward`: « Forward » in the
   menu opens « Forward to… », a search (accents and case ignored) over the other
   conversations, labelled with their space, 50 at most; tick one or more, Forward, and the

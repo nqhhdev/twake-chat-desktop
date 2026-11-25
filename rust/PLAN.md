@@ -21,7 +21,7 @@ Inventory source: `reference/twake-space-chat/src/ui` (screens) and `src/applica
 | Leave, delete chat (hide history for oneself), block user, report | `RoomHeaderMenu`, `BlockAction`, `ReasonDialog` | Done: leave, delete chat for oneself (`app.twake.chat.deleted_chats`; `deletedChats.ts` recorded), Undo, report the room or a message with a reason, block the person of a direct message (`m.ignored_user_list`). Left: unblock (with the M7 settings) |
 | Create room, direct message, broadcast, page | `CreateRoomScreen`, `CreatePage` | |
 | Invites list, accept / decline | `InvitesSection` | |
-| Spaces: channels, General room, move to space | `SpaceChannels`, `SpaceLanding`, `MoveToSpaceDialog` | |
+| Spaces: channels, General room, move to space | `SpaceChannels`, `SpaceLanding`, `MoveToSpaceDialog` | Done: « Move to a Space » (`spaceLinks.ts` ported: links read from both ends, the missing ones written, a restricted room following its space, the others removed; `buildSpaceChoices`). Left: the space's channels and landing, its General room |
 | Folders of rooms, archive | `FolderPage`, `FolderSettings`, `ArchiveSettings` | account data; moved to M7 (settings) |
 | Contacts screen, person card, profile, edit own profile | `ContactsScreen`, `PersonCard`, `ProfilePanel`, `EditOwnProfileDialog` | moved to M6 with the ToM address book |
 | Pinned messages | `PinnedBar`, `PinnedMessages` | |

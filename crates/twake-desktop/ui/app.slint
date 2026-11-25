@@ -8,10 +8,10 @@ import { FeedLine, ActivityPane } from "activity.slint";
 import { Row, ReactionChip, PollAnswerRow, MessageLine, SelectionButton, AudioState, Animations } from "timeline.slint";
 export { AudioState, Animations }
 export { Icons }
-import { ForwardDialog, ForwardRow, MemberRow, VersionRow, VersionsDialog, RoomInfoData, InfoPane, SharedFileRow, SharedLinkRow, SharedMediaRow, ConfirmDialog, CreateDialog, PollDialog } from "info.slint";
+import { ForwardDialog, ForwardRow, MemberRow, SpaceChoiceRow, SpaceDialog, VersionRow, VersionsDialog, RoomInfoData, InfoPane, SharedFileRow, SharedLinkRow, SharedMediaRow, ConfirmDialog, CreateDialog, PollDialog } from "info.slint";
 import { CallPopOut, CallStage, CallTileRow, CallWindow, CallWindowRect, DeviceRow, DeviceSection } from "call.slint";
 export { CallPopOut }
-export { Row, ReactionChip, PollAnswerRow, MemberRow, RoomInfoData, Suggestion, SearchHit, FeedLine, CallTileRow, CallWindowRect, DeviceRow, DeviceSection, SharedFileRow, SharedLinkRow, SharedMediaRow, ForwardRow, VersionRow }
+export { Row, ReactionChip, PollAnswerRow, MemberRow, RoomInfoData, Suggestion, SearchHit, FeedLine, CallTileRow, CallWindowRect, DeviceRow, DeviceSection, SharedFileRow, SharedLinkRow, SharedMediaRow, ForwardRow, VersionRow, SpaceChoiceRow }
 
 export struct SpaceItem {
     id: string,
@@ -1014,6 +1014,11 @@ export component AppWindow inherits Window {
     callback directory-choose(int);
     callback info-set-join-rule(string);
     callback info-set-listed(bool);
+    callback info-move-to-space();
+    // « Move to a Space » open with these choices
+    in-out property <bool> space-dialog-open;
+    in property <[SpaceChoiceRow]> space-choices;
+    callback space-pick(string);
     callback block-user();
     callback open-pinned();
     in property <int> pinned-count;
@@ -1525,6 +1530,7 @@ export component AppWindow inherits Window {
                 report => { root.report-room(); }
                 set-join-rule(rule) => { root.info-set-join-rule(rule); }
                 set-listed(listed) => { root.info-set-listed(listed); }
+                move-to-space => { root.info-move-to-space(); }
                 block => { root.block-user(); }
             }
             if !root.activity-open && root.current-room-id != "" && root.search-open && !root.thread-open && !root.info-open: SearchPane {
@@ -1652,6 +1658,14 @@ export component AppWindow inherits Window {
         versions: root.versions;
         title: root.versions-title;
         close => { root.versions-open = false; }
+    }
+
+    if root.space-dialog-open: SpaceDialog {
+        width: root.width;
+        height: root.height;
+        choices: root.space-choices;
+        pick(id) => { root.space-pick(id); }
+        cancel => { root.space-dialog-open = false; }
     }
 
     if root.forward-open: ForwardDialog {
