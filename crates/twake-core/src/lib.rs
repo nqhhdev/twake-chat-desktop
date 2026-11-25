@@ -23,3 +23,4 @@ pub use calls::{CallDeviceList, CallStatus, CallTile, DeviceKind, IncomingCall};
 pub use engine::{Command, EncryptionStatus, Engine, Event, RoomAction, SavedEntry, SessionState};
 pub use media::{Picture, mxc_key};
 pub use pdf::available as pdf_available;
+pub use session::data_dir;

@@ -6,14 +6,16 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use slint::{Model, VecModel};
+use slint::{ComponentHandle, Model, VecModel};
 use twake_core::{
     CallDeviceList, CallStatus, CallTile, Command, DeviceKind, IncomingCall, Picture,
 };
 use twake_domain::TimelineEntry;
 
 use crate::view::{initials, tint};
-use crate::{AppWindow, CallTileRow, DeviceRow, DeviceSection, STATE, send};
+use twake_domain::call_window::{self as cw, CallPlacement, WindowRect, WindowViewport};
+
+use crate::{AppWindow, CallTileRow, CallWindowRect, DeviceRow, DeviceSection, STATE, send};
 
 /// Room between tiles (as in call.slint, web `TILE_GAP`).
 const TILE_GAP: f32 = 8.0;
@@ -39,6 +41,10 @@ struct CallUi {
     call_thread: Option<String>,
     channel_shown_for: Option<String>,
     thread_opened_for: Option<String>,
+    /// Where the call shows: in its room or in its window (web `callPlacement`, D571).
+    placement: CallPlacement,
+    /// Where the window of the call was left, kept for the next call.
+    window_rect: Option<WindowRect>,
 }
 
 thread_local! {
@@ -62,8 +68,138 @@ pub fn tile_width(count: i32, width: f32, height: f32) -> f32 {
 pub fn install(window: &AppWindow) {
     let tiles = Rc::new(VecModel::<CallTileRow>::default());
     window.set_call_tiles(slint::ModelRc::from(tiles.clone()));
-    CALL.with_borrow_mut(|c| c.tiles = Some(tiles));
+    let kept = std::fs::read_to_string(window_file()).ok();
+    CALL.with_borrow_mut(|c| {
+        c.tiles = Some(tiles);
+        c.window_rect = cw::parse_call_window(kept.as_deref());
+    });
     window.on_call_tile_width(tile_width);
+    // The window of the call follows the domain's rules (web `FloatingCall`)
+    let weak = window.as_weak();
+    window.on_call_window_moved(move |from, dx, dy| {
+        let Some(w) = weak.upgrade() else { return from };
+        to_slint(cw::move_window(
+            to_domain(from),
+            f64::from(dx),
+            f64::from(dy),
+            area(&w),
+        ))
+    });
+    let weak = window.as_weak();
+    window.on_call_window_resized(move |from, edge, dx, dy| {
+        let Some(w) = weak.upgrade() else { return from };
+        let (dx, dy) = (f64::from(dx), f64::from(dy));
+        to_slint(cw::resize_window(to_domain(from), &edge, dx, dy, area(&w)))
+    });
+    let weak = window.as_weak();
+    window.on_call_window_cornered(move |from, corner| {
+        let Some(w) = weak.upgrade() else { return from };
+        to_slint(cw::place_in_corner(to_domain(from), &corner, area(&w)))
+    });
+    // Whole in the app, as it is resized (web: on `resize`)
+    let weak = window.as_weak();
+    window.on_call_window_fitted(move |rect| {
+        let Some(w) = weak.upgrade() else { return rect };
+        to_slint(cw::fit_window(to_domain(rect), area(&w)))
+    });
+    let weak = window.as_weak();
+    window.on_call_window_chosen(move |rect| {
+        if let Some(w) = weak.upgrade() {
+            choose_window(&w, to_domain(rect));
+        }
+    });
+}
+
+/// The file the window of the call is kept in (web `localStorage`).
+fn window_file() -> std::path::PathBuf {
+    twake_core::data_dir().join("call-window.json")
+}
+
+fn to_domain(rect: CallWindowRect) -> WindowRect {
+    WindowRect {
+        x: f64::from(rect.x),
+        y: f64::from(rect.y),
+        width: f64::from(rect.width),
+        height: f64::from(rect.height),
+    }
+}
+
+#[allow(clippy::cast_possible_truncation)]
+fn to_slint(rect: WindowRect) -> CallWindowRect {
+    CallWindowRect {
+        x: rect.x as f32,
+        y: rect.y as f32,
+        width: rect.width as f32,
+        height: rect.height as f32,
+    }
+}
+
+/// The app's window, in logical pixels: the window of the call stays whole in it.
+fn area(window: &AppWindow) -> WindowViewport {
+    let w = window.window();
+    let size = w.size().to_logical(w.scale_factor());
+    WindowViewport {
+        width: f64::from(size.width),
+        height: f64::from(size.height),
+    }
+}
+
+/// The user moved or resized the window: it stays so, for this call and the next.
+fn choose_window(window: &AppWindow, rect: WindowRect) {
+    CALL.with_borrow_mut(|c| c.window_rect = Some(rect));
+    window.set_call_window(to_slint(rect));
+    // No folder or no disk: the place lasts as long as the app (web). The numbers are
+    // finite: fitted to the app's window
+    let text = format!(
+        r#"{{"x":{},"y":{},"width":{},"height":{}}}"#,
+        rect.x, rect.y, rect.width, rect.height
+    );
+    let file = window_file();
+    if let Some(folder) = file.parent() {
+        let _ = std::fs::create_dir_all(folder);
+    }
+    let _ = std::fs::write(file, text);
+}
+
+/// What the screen shows now: leaving the room of the call detaches it, coming back does
+/// not put it back (web `notePlacement`, `placeCall`).
+pub fn note_placement(window: &AppWindow) {
+    let shown = STATE.with_borrow(|s| s.current_room.clone());
+    let shown = (!shown.is_empty()).then_some(shown);
+    let floating = CALL.with_borrow_mut(|c| {
+        c.placement = cw::place_call(&c.placement, shown.as_deref(), c.room.as_deref());
+        cw::is_call_floating(&c.placement, c.room.as_deref())
+    });
+    set_floating(window, floating);
+}
+
+fn set_floating(window: &AppWindow, floating: bool) {
+    if floating {
+        // Where it was left, or its first place (web `readWindow`)
+        let rect = CALL
+            .with_borrow(|c| c.window_rect)
+            .unwrap_or_else(|| cw::default_call_window(area(window)));
+        window.set_call_window(to_slint(cw::fit_window(rect, area(window))));
+    }
+    window.set_call_floating(floating);
+}
+
+/// « Detach the call »: it floats while its room stays shown (web `detachCall`).
+pub fn detach(window: &AppWindow) {
+    CALL.with_borrow_mut(|c| c.placement.detached_room_id = c.room.clone());
+    set_floating(window, true);
+}
+
+/// « Full screen », « Expand »: the call back in its room, shown (web `expandCall`).
+pub fn expand(window: &AppWindow) {
+    let room = CALL.with_borrow_mut(|c| {
+        c.placement.detached_room_id = None;
+        c.room.clone()
+    });
+    if let Some(room) = room {
+        window.invoke_open_room(room.into());
+    }
+    note_placement(window);
 }
 
 /// The people of the call of a room changed.
@@ -117,6 +253,7 @@ pub fn start(window: &AppWindow, video: bool) {
     window.set_call_microphone(true);
     window.set_call_camera(video);
     window.set_in_call(true);
+    note_placement(window);
     // The chat of a call started in a channel goes to a thread of its own (D105)
     let is_direct = STATE.with_borrow(|s| {
         s.rooms
@@ -187,6 +324,7 @@ fn clear(window: &AppWindow) {
     window.set_in_call(false);
     window.set_call_room_id("".into());
     window.set_call_status("".into());
+    note_placement(window);
 }
 
 pub fn leave(window: &AppWindow) {
@@ -351,12 +489,6 @@ pub fn toggle_thread(window: &AppWindow) {
         window.invoke_close_thread();
     }
     refresh_thread(window);
-}
-
-pub fn go_to_call(window: &AppWindow) {
-    if let Some(room) = CALL.with_borrow(|c| c.room.clone()) {
-        window.invoke_open_room(room.into());
-    }
 }
 
 /// The calls that ring changed (web `useRingingRoom`).

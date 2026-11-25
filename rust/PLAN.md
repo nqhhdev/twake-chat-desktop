@@ -52,7 +52,7 @@ Inventory source: `reference/twake-space-chat/src/ui` (screens) and `src/applica
 | Incoming call, ringing, call line in the timeline, call thread | `CallInvite`, `CallLine`, `CallThreadBand` | Done: ring (MSC4075) and decline (MSC4310) in the clear, banner with Answer and Decline, « Call declined », call line (`app.twake.chat.call`); call thread (« Meeting started at … » root, « Show the channel » / « Back to the meeting thread »); `toCallLine`, `ringAsks`, `isRinging`, `findCallThread`, `splitsCallChat` recorded. Left: OS notification and sound of a ring, the line as a bubble |
 | Raised hands, captions, recording through Meet | `MeetingDialog`, `ScheduleMeeting` | side-service + Meet API |
 | Background blur | `@livekit/track-processors` | later in M5: needs a segmentation model on the CPU/GPU |
-| Picture in picture / always-on-top call window | `CallWindow` | a second native window |
+| Picture in picture / always-on-top call window | `CallWindow` | Done: the window over the app (`FloatingCall`: leave the room or detach, drag, resize, corners, kept place; `callWindow.ts` recorded, 8 functions). Left: pop out into a second native window, always on top |
 
 ## M6: Twake platform
 
@@ -105,4 +105,4 @@ the signing secrets from the user.
 ## Domain ports alongside (ADR-011)
 
 Each milestone ports the `src/domain` functions it uses and adds them to
-`rust/units/ported.txt`; CI replays their recorded cases. 55 of 222 done.
+`rust/units/ported.txt`; CI replays their recorded cases. 63 of 222 done.

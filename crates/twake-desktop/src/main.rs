@@ -345,6 +345,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 audio::stop(&w);
                 gifs::clear();
                 call::refresh_header(&w);
+                call::note_placement(&w);
                 w.set_activity_open(false);
                 search::reset(&w);
             }
@@ -799,9 +800,15 @@ fn main() -> Result<(), slint::PlatformError> {
             }
         });
         let weak = window.as_weak();
-        window.on_go_to_call(move || {
+        window.on_call_detach(move || {
             if let Some(w) = weak.upgrade() {
-                call::go_to_call(&w);
+                call::detach(&w);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_call_expand(move || {
+            if let Some(w) = weak.upgrade() {
+                call::expand(&w);
             }
         });
         let weak = window.as_weak();
@@ -1121,6 +1128,7 @@ fn apply(window: &AppWindow, event: Event) {
                 window.set_info_open(false);
                 window.set_current_room_id("".into());
                 close_thread(window);
+                call::note_placement(window);
             }
         }
         Event::Notify {
