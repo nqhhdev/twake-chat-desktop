@@ -73,7 +73,7 @@ Inventory source: `reference/twake-space-chat/src/ui` (screens) and `src/applica
 | Feature | Notes |
 | --- | --- |
 | Settings: appearance (theme, accent, text size, composer style, bubble alignment), notifications (per room levels, do not disturb, keywords), devices, archive, contacts visibility | `SettingsScreen` and its parts |
-| Offline banner, retry of failed sends, outgoing queue | `OfflineBanner`, `OutgoingList` |
+| Offline banner, retry of failed sends, outgoing queue | Done: the offline band (the sync service's offline mode), « Not sent. » with Retry and Discard. Left: the outgoing files' progress and cancel |
 | Localisation: the web's languages (`src/locales`) | Fluent or gettext; same keys |
 | Accessibility: screen readers (VoiceOver, Narrator, Orca), keyboard navigation everywhere, high contrast | AccessKit through Slint |
 

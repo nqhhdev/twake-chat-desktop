@@ -1306,6 +1306,7 @@ fn apply(window: &AppWindow, event: Event) {
         Event::Forwarded { to_rooms } => forward::forwarded(window, &to_rooms),
         Event::MessageVersions { versions, .. } => show_versions(window, &versions),
         Event::PublicRooms(rooms) => directory::loaded(window, rooms),
+        Event::Connection { online } => window.set_offline(!online),
         Event::SpaceChoices { room_id, choices } => {
             if STATE.with_borrow(|s| s.current_room == room_id) {
                 show_space_choices(window, &choices);
@@ -2067,6 +2068,8 @@ fn wire_room_info(window: &AppWindow) {
     window.on_show_create(move |mode| w(&|win| win.set_create_mode(mode.clone())));
     let w = with.clone();
     window.on_cancel_create(move || w(&|win| win.set_create_mode("".into())));
+    window.on_retry_send(|id| send(Command::RetrySend { id: id.to_string() }));
+    window.on_discard_send(|id| send(Command::DiscardSend { id: id.to_string() }));
     window.on_create_room(
         |kind, name, topic, people, public, encrypted, access, reactions, slug| {
             use twake_domain::room_management::{NewPage, NewRoom, NewRoomKind, PageAccess};

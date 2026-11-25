@@ -128,6 +128,15 @@ pub enum Command {
         /// Values from 0 to 1.
         waveform: Vec<f32>,
     },
+    /// Send a message that failed again (web `retryMessage`); `id`: its transaction id, as
+    /// the timeline gives a local echo.
+    RetrySend {
+        id: String,
+    },
+    /// Drop a message that failed (web `discardMessage`).
+    DiscardSend {
+        id: String,
+    },
     /// The spaces a room may go to ([`Event::SpaceChoices`]).
     SpaceChoices {
         room_id: String,
@@ -377,6 +386,10 @@ pub enum Event {
     },
     /// The saved messages, newest first, after each change.
     Saved(Vec<SavedEntry>),
+    /// The server is reachable, or not (web `OfflineBanner`): the sync service's offline mode.
+    Connection {
+        online: bool,
+    },
     /// The spaces a room may go to, depth first ([`Command::SpaceChoices`]).
     SpaceChoices {
         room_id: String,
@@ -817,6 +830,32 @@ async fn run(mut commands: mpsc::UnboundedReceiver<Command>, emit: Emit) {
                         let _ = tokio::fs::remove_file(&path).await;
                         if let Err(e) = sent {
                             emit(Event::Error(format!("voice message not sent: {e}")));
+                        }
+                    });
+                }
+            }
+            Command::RetrySend { id } => {
+                if let Some(open) = &state.open {
+                    let timelines = open_timelines(open);
+                    let emit = emit.clone();
+                    tokio::spawn(async move {
+                        if let Some(handle) = send_handle(&timelines, &id).await
+                            && let Err(e) = handle.unwedge().await
+                        {
+                            emit(Event::Error(format!("not sent again: {e}")));
+                        }
+                    });
+                }
+            }
+            Command::DiscardSend { id } => {
+                if let Some(open) = &state.open {
+                    let timelines = open_timelines(open);
+                    let emit = emit.clone();
+                    tokio::spawn(async move {
+                        if let Some(handle) = send_handle(&timelines, &id).await
+                            && let Err(e) = handle.abort().await
+                        {
+                            emit(Event::Error(format!("not discarded: {e}")));
                         }
                     });
                 }
@@ -1283,7 +1322,12 @@ async fn start_session(state: &mut State, client: Client, emit: &Emit) {
     if let Err(e) = client.event_cache().subscribe() {
         emit(Event::Error(format!("event cache: {e}")));
     }
-    let sync = match SyncService::builder(client.clone()).build().await {
+    // Offline mode: a sync that fails waits for the server and comes back by itself
+    let sync = match SyncService::builder(client.clone())
+        .with_offline_mode()
+        .build()
+        .await
+    {
         Ok(sync) => sync,
         Err(e) => {
             emit(Event::Error(format!("sync: {e}")));
@@ -1291,6 +1335,21 @@ async fn start_session(state: &mut State, client: Client, emit: &Emit) {
         }
     };
     sync.start().await;
+    // Whether the server is reachable (web `OfflineBanner`)
+    let states = sync.state();
+    let connection_emit = emit.clone();
+    state.tasks.push(tokio::spawn(async move {
+        use matrix_sdk_ui::sync_service::State;
+        let mut states = states;
+        let mut online = true;
+        while let Some(now) = states.next().await {
+            let next = !matches!(now, State::Offline | State::Error(_));
+            if next != online {
+                online = next;
+                connection_emit(Event::Connection { online });
+            }
+        }
+    }));
     let service = sync.room_list_service();
     state.tasks.push(tokio::spawn(rooms::run(
         client.clone(),
@@ -1528,6 +1587,32 @@ async fn watch_tokens(client: Client) {
             session::on_tokens_refreshed(&client);
         }
     }
+}
+
+/// The timelines of the open room and of its open thread.
+fn open_timelines(open: &OpenRoom) -> Vec<Arc<Timeline>> {
+    let mut timelines = vec![open.timeline.clone()];
+    timelines.extend(open.thread.as_ref().map(|t| t.timeline.clone()));
+    timelines
+}
+
+/// The send handle of the local echo `transaction_id` in one of `timelines`.
+async fn send_handle(
+    timelines: &[Arc<Timeline>],
+    transaction_id: &str,
+) -> Option<matrix_sdk::send_queue::SendHandle> {
+    for timeline in timelines {
+        for item in timeline.items().await {
+            if let Some(event) = item.as_event()
+                && event
+                    .transaction_id()
+                    .is_some_and(|t| t.as_str() == transaction_id)
+            {
+                return event.local_echo_send_handle();
+            }
+        }
+    }
+    None
 }
 
 /// The pinned list of `room` with `event_ids` added (in order, at its end) or taken off.
