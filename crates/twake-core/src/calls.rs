@@ -76,6 +76,35 @@ pub enum CallStatus {
     Left,
 }
 
+pub use twake_call::DeviceKind;
+
+/// The devices of one kind for a device menu (web `CallDeviceList`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CallDeviceList {
+    pub kind: DeviceKind,
+    /// (id, name), the system's default first; a name may be empty.
+    pub devices: Vec<(String, String)>,
+    /// The one in use; None without any device (web `currentDeviceId`).
+    pub active_id: Option<String>,
+}
+
+fn device_list(kind: DeviceKind, list: twake_call::DeviceList) -> CallDeviceList {
+    let devices: Vec<twake_domain::call::MediaDevice> = list
+        .devices
+        .iter()
+        .map(|(id, label)| twake_domain::call::MediaDevice {
+            id: id.clone(),
+            label: label.clone(),
+        })
+        .collect();
+    let active_id = twake_domain::call::current_device_id(&devices, list.picked.as_deref());
+    CallDeviceList {
+        kind,
+        devices: list.devices,
+        active_id,
+    }
+}
+
 /// A person of the call grid (web `CallTile`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CallTile {
@@ -525,6 +554,8 @@ pub(crate) enum CallCommand {
     Microphone(bool),
     Camera(bool),
     Screen(bool),
+    Devices(Vec<DeviceKind>),
+    SwitchDevice(DeviceKind, String),
     Leave,
 }
 
@@ -706,6 +737,18 @@ async fn run(
                     });
                 }
                 Some(CallCommand::Screen(false)) => call.media.stop_screen().await,
+                Some(CallCommand::Devices(kinds)) => {
+                    let mut lists = Vec::new();
+                    for kind in kinds {
+                        lists.push(device_list(kind, call.media.devices(kind).await));
+                    }
+                    emit(Event::CallDevices(lists));
+                }
+                Some(CallCommand::SwitchDevice(kind, id)) => {
+                    if let Err(e) = call.media.switch_device(kind, id).await {
+                        emit(Event::Error(format!("device: {e}")));
+                    }
+                }
                 Some(CallCommand::Leave) | None => break,
             },
             Some(screen) = screens.recv() => match screen {

@@ -169,6 +169,10 @@ pub enum Command {
     CallCamera(bool),
     /// Share a screen (the system's picker chooses it) or stop sharing it.
     CallScreen(bool),
+    /// The devices of these kinds, read now ([`Event::CallDevices`]).
+    CallDevices(Vec<crate::calls::DeviceKind>),
+    /// Use this device of the call from now on.
+    CallSwitchDevice(crate::calls::DeviceKind, String),
     /// The frames of an animated image (GIF) of `key`, scaled to fit this size in pixels
     /// ([`Event::Animation`]).
     FetchAnimation {
@@ -351,6 +355,8 @@ pub enum Event {
     },
     /// The people of the call grid, the user first.
     CallTiles(Vec<crate::calls::CallTile>),
+    /// The devices of a device menu ([`Command::CallDevices`]).
+    CallDevices(Vec<crate::calls::CallDeviceList>),
     /// A new picture of the video of `identity` (a [`crate::calls::CallTile`]).
     CallFrame {
         identity: String,
@@ -843,6 +849,16 @@ async fn run(mut commands: mpsc::UnboundedReceiver<Command>, emit: Emit) {
             Command::CallScreen(on) => {
                 if let Some(call) = &state.call {
                     call.send(crate::calls::CallCommand::Screen(on));
+                }
+            }
+            Command::CallDevices(kinds) => {
+                if let Some(call) = &state.call {
+                    call.send(crate::calls::CallCommand::Devices(kinds));
+                }
+            }
+            Command::CallSwitchDevice(kind, id) => {
+                if let Some(call) = &state.call {
+                    call.send(crate::calls::CallCommand::SwitchDevice(kind, id));
                 }
             }
             Command::FetchAnimation { key, width, height } => {

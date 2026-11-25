@@ -74,11 +74,29 @@ struct Shared {
     local_screen: bool,
 }
 
+/// What a device menu lists (web `CallDeviceKind`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum DeviceKind {
+    Microphone,
+    Speaker,
+    Camera,
+}
+
+/// The devices of one kind as (id, name), the system's default first, and the one the user
+/// picked in this call, if any.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct DeviceList {
+    pub devices: Vec<(String, String)>,
+    pub picked: Option<String>,
+}
+
 /// A call joined. Dropping it leaves.
 pub struct Media {
     room: Arc<Room>,
     keys: Option<KeyProvider>,
-    _audio: Option<PlatformAudio>,
+    audio: Option<PlatformAudio>,
+    /// The devices the user picked in this call, by kind.
+    picked: HashMap<DeviceKind, String>,
     microphone: Option<(LocalAudioTrack, TrackSid)>,
     camera: Option<(camera::Capture, TrackSid)>,
     screen: Option<(Screen, TrackSid)>,
@@ -130,7 +148,8 @@ impl Media {
         let mut media = Self {
             room,
             keys,
-            _audio: None,
+            audio: None,
+            picked: HashMap::new(),
             microphone: None,
             camera: None,
             screen: None,
@@ -155,7 +174,7 @@ impl Media {
                     Ok(publication) => media.microphone = Some((track, publication.sid())),
                     Err(e) => tracing::warn!("microphone not published: {e}"),
                 }
-                media._audio = Some(audio);
+                media.audio = Some(audio);
             }
             Err(e) => tracing::warn!("no audio devices: {e}"),
         }
@@ -205,8 +224,9 @@ impl Media {
                     frame,
                 });
             });
+            let id = self.picked.get(&DeviceKind::Camera).cloned();
             let (capture, source) =
-                tokio::task::spawn_blocking(move || camera::Capture::start(on_preview))
+                tokio::task::spawn_blocking(move || camera::Capture::start(id, on_preview))
                     .await
                     .map_err(|e| e.to_string())??;
             let track = LocalVideoTrack::create_video_track(
@@ -229,6 +249,66 @@ impl Media {
             s.local_video = self.camera.is_some();
         }
         self.report();
+        Ok(())
+    }
+
+    /// The devices of `kind`, read now: one may have been plugged in since (web
+    /// `fetchDevices`). Without audio devices the microphones and speakers are empty.
+    pub async fn devices(&self, kind: DeviceKind) -> DeviceList {
+        let devices = match kind {
+            DeviceKind::Microphone => self.audio.as_ref().map_or_else(Vec::new, |audio| {
+                audio
+                    .recording_devices()
+                    .map(|d| (d.id.as_str().to_string(), d.name))
+                    .collect()
+            }),
+            DeviceKind::Speaker => self.audio.as_ref().map_or_else(Vec::new, |audio| {
+                audio
+                    .playout_devices()
+                    .map(|d| (d.id.as_str().to_string(), d.name))
+                    .collect()
+            }),
+            // Listing the cameras may wait on the system: off the async threads
+            DeviceKind::Camera => tokio::task::spawn_blocking(camera::cameras)
+                .await
+                .unwrap_or_default(),
+        };
+        DeviceList {
+            devices,
+            picked: self.picked.get(&kind).cloned(),
+        }
+    }
+
+    /// Uses the device `id` of `kind` from now on (web `switchDevice`); an open camera
+    /// reopens on it.
+    pub async fn switch_device(&mut self, kind: DeviceKind, id: String) -> Result<(), String> {
+        let failed = |e: AudioError| format!("media_failed: {e}");
+        match kind {
+            DeviceKind::Microphone => {
+                let audio = self
+                    .audio
+                    .as_ref()
+                    .ok_or("media_failed: no audio devices")?;
+                audio
+                    .switch_recording_device(&RecordingDeviceId::from_unchecked_guid(&id))
+                    .map_err(failed)?;
+            }
+            DeviceKind::Speaker => {
+                let audio = self
+                    .audio
+                    .as_ref()
+                    .ok_or("media_failed: no audio devices")?;
+                audio
+                    .switch_playout_device(&PlayoutDeviceId::from_unchecked_guid(&id))
+                    .map_err(failed)?;
+            }
+            DeviceKind::Camera => {}
+        }
+        self.picked.insert(kind, id);
+        if kind == DeviceKind::Camera && self.camera.is_some() {
+            self.set_camera(false).await?;
+            self.set_camera(true).await?;
+        }
         Ok(())
     }
 

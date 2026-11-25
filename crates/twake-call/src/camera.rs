@@ -33,10 +33,28 @@ impl Drop for Capture {
     }
 }
 
+/// The cameras of the system, as (id, name), in the system's order: the first is its
+/// default.
+pub fn cameras() -> Vec<(String, String)> {
+    nokhwa::query(nokhwa::utils::ApiBackend::Auto)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|info| (info.index().as_string(), info.human_name()))
+        .collect()
+}
+
 impl Capture {
-    /// Opens the first camera (asking the system's permission first) and starts reading.
-    pub fn start(on_preview: OnPreview) -> Result<(Self, NativeVideoSource), String> {
+    /// Opens the camera `id` ([`cameras`]), or the first, asking the system's permission
+    /// first, and starts reading.
+    pub fn start(
+        id: Option<String>,
+        on_preview: OnPreview,
+    ) -> Result<(Self, NativeVideoSource), String> {
         allowed()?;
+        let index = id.map_or(CameraIndex::Index(0), |id| {
+            id.parse()
+                .map_or(CameraIndex::String(id), CameraIndex::Index)
+        });
         let running = Arc::new(AtomicBool::new(true));
         let (opened, told) = mpsc::channel();
         let still = running.clone();
@@ -47,7 +65,7 @@ impl Capture {
                 let format = RequestedFormat::new::<RgbFormat>(RequestedFormatType::Closest(
                     CameraFormat::new_from(1280, 720, FrameFormat::NV12, 30),
                 ));
-                let mut camera = match Camera::new(CameraIndex::Index(0), format)
+                let mut camera = match Camera::new(index, format)
                     .and_then(|mut c| c.open_stream().map(|()| c))
                 {
                     Ok(camera) => camera,
