@@ -1470,7 +1470,10 @@ fn ask(window: &AppWindow, message: &str, label: &str, command: Command) {
         command,
         Command::Delete { .. }
             | Command::Room {
-                action: RoomAction::Remove(..) | RoomAction::Ban(..),
+                action: RoomAction::Remove(..)
+                    | RoomAction::Ban(..)
+                    | RoomAction::Report(_)
+                    | RoomAction::ReportMessage(..),
                 ..
             }
     );
@@ -1498,6 +1501,20 @@ fn with_reason(command: Command, reason: Option<String>) -> Command {
         } => Command::Room {
             room_id,
             action: RoomAction::Ban(user, reason),
+        },
+        Command::Room {
+            room_id,
+            action: RoomAction::Report(_),
+        } => Command::Room {
+            room_id,
+            action: RoomAction::Report(reason),
+        },
+        Command::Room {
+            room_id,
+            action: RoomAction::ReportMessage(id, _),
+        } => Command::Room {
+            room_id,
+            action: RoomAction::ReportMessage(id, reason),
         },
         other => other,
     }
@@ -1664,6 +1681,68 @@ fn wire_room_info(window: &AppWindow) {
         w(&|win| {
             win.set_notice("".into());
             win.set_notice_action("".into());
+        });
+    });
+    let w = with.clone();
+    window.on_report_room(move || {
+        let room_id = current_room();
+        w(&|win| {
+            ask(
+                win,
+                "Report this room\n\nThe administrators of your server receive the room and your \
+                 reason.",
+                "Report",
+                Command::Room {
+                    room_id: room_id.clone(),
+                    action: RoomAction::Report(None),
+                },
+            )
+        });
+    });
+    let w = with.clone();
+    window.on_report_message(move |id| {
+        let room_id = current_room();
+        w(&|win| {
+            ask(
+                win,
+                "Report this message\n\nThe administrators of your server receive the message \
+                 and your reason.",
+                "Report",
+                Command::Room {
+                    room_id: room_id.clone(),
+                    action: RoomAction::ReportMessage(id.to_string(), None),
+                },
+            )
+        });
+    });
+    let w = with.clone();
+    window.on_block_user(move || {
+        // The other person of the direct message (web `peerId`)
+        let peer = STATE.with_borrow(|s| {
+            let details = s.details.as_ref()?;
+            details
+                .members
+                .iter()
+                .find(|m| m.user_id != details.own_user_id)
+                .map(|m| (m.user_id.clone(), m.name.clone()))
+        });
+        let Some((user_id, name)) = peer else {
+            return;
+        };
+        let room_id = current_room();
+        w(&|win| {
+            ask(
+                win,
+                &format!(
+                    "Block {name}?\n\nYou will no longer receive their messages. They won't be \
+                     notified."
+                ),
+                "Block",
+                Command::Room {
+                    room_id: room_id.clone(),
+                    action: RoomAction::Block(user_id.clone()),
+                },
+            )
         });
     });
     let w = with.clone();

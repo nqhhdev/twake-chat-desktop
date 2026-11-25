@@ -18,7 +18,7 @@ Inventory source: `reference/twake-space-chat/src/ui` (screens) and `src/applica
 | Media / Links / Files tabs | `SharedContent` | Done: tabs of the info pane from the loaded messages (`computeSharedContent` recorded). Left: hide GIFs when the room has them off (M6), browse the room's pictures in the viewer |
 | Edit room: rename, topic, picture, encryption switch | `RoomEditPanel`, `RoomSettings` | |
 | Room access, public link, public rooms directory | `RoomAccessSettings`, `PublicRoomsDialog` | |
-| Leave, delete chat (hide history for oneself), block user, report | `RoomHeaderMenu`, `BlockAction`, `ReasonDialog` | Done: leave, delete chat for oneself (`app.twake.chat.deleted_chats`; `deletedChats.ts` recorded), Undo. Left: block, report |
+| Leave, delete chat (hide history for oneself), block user, report | `RoomHeaderMenu`, `BlockAction`, `ReasonDialog` | Done: leave, delete chat for oneself (`app.twake.chat.deleted_chats`; `deletedChats.ts` recorded), Undo, report the room or a message with a reason, block the person of a direct message (`m.ignored_user_list`). Left: unblock (with the M7 settings) |
 | Create room, direct message, broadcast, page | `CreateRoomScreen`, `CreatePage` | |
 | Invites list, accept / decline | `InvitesSection` | |
 | Spaces: channels, General room, move to space | `SpaceChannels`, `SpaceLanding`, `MoveToSpaceDialog` | |
