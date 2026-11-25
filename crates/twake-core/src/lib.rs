@@ -19,6 +19,7 @@ mod rooms;
 mod saved;
 mod search_index;
 mod session;
+mod space_links;
 mod spaces;
 mod timeline;
 mod versions;

@@ -128,6 +128,15 @@ pub enum Command {
         /// Values from 0 to 1.
         waveform: Vec<f32>,
     },
+    /// The spaces a room may go to ([`Event::SpaceChoices`]).
+    SpaceChoices {
+        room_id: String,
+    },
+    /// Put a room in a space, or in none (web `saveRoomSpace`).
+    MoveToSpace {
+        room_id: String,
+        space_id: Option<String>,
+    },
     /// The public directory of the homeserver ([`Event::PublicRooms`]).
     PublicRooms,
     /// Join a room of the directory, or ask to (on request): [`Event::RoomCreated`] once
@@ -372,6 +381,11 @@ pub enum Event {
     },
     /// The saved messages, newest first, after each change.
     Saved(Vec<SavedEntry>),
+    /// The spaces a room may go to, depth first ([`Command::SpaceChoices`]).
+    SpaceChoices {
+        room_id: String,
+        choices: Vec<twake_domain::space_choices::SpaceChoice>,
+    },
     /// The rooms of the public directory.
     PublicRooms(Vec<crate::directory::PublicRoom>),
     /// The versions of a message, oldest first; empty when it could not be read.
@@ -807,6 +821,39 @@ async fn run(mut commands: mpsc::UnboundedReceiver<Command>, emit: Emit) {
                         let _ = tokio::fs::remove_file(&path).await;
                         if let Err(e) = sent {
                             emit(Event::Error(format!("voice message not sent: {e}")));
+                        }
+                    });
+                }
+            }
+            Command::SpaceChoices { room_id } => {
+                if let Some(client) = state.client.clone() {
+                    let emit = emit.clone();
+                    tokio::spawn(async move {
+                        let choices = crate::space_links::space_choices(&client, &room_id).await;
+                        emit(Event::SpaceChoices { room_id, choices });
+                    });
+                }
+            }
+            Command::MoveToSpace { room_id, space_id } => {
+                if let Some(client) = state.client.clone() {
+                    let emit = emit.clone();
+                    tokio::spawn(async move {
+                        let moved = crate::space_links::move_room_to_space(
+                            &client,
+                            &room_id,
+                            space_id.as_deref(),
+                        )
+                        .await;
+                        match moved {
+                            Ok(()) => emit(Event::Notice(
+                                if space_id.is_some() {
+                                    "Moved to the space"
+                                } else {
+                                    "Taken out of its space"
+                                }
+                                .into(),
+                            )),
+                            Err(e) => emit(Event::Error(format!("not moved: {e}"))),
                         }
                     });
                 }
