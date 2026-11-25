@@ -12,7 +12,7 @@ const BOT_COMMAND_KEY: &str = "org.matrix.msc4332.command";
 const TWAKE_KEY_PREFIX: &str = "app.twake.";
 
 /// The quoted lines of a reply's fallback taken off its body (web `stripReplyFallback`).
-fn strip_reply_fallback(body: &str) -> String {
+pub(crate) fn strip_reply_fallback(body: &str) -> String {
     let lines: Vec<&str> = body.split('\n').collect();
     match lines.iter().position(|line| !line.starts_with('>')) {
         Some(quoted) if quoted > 0 && lines[quoted].is_empty() => lines[quoted + 1..].join("\n"),

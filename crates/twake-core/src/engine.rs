@@ -128,6 +128,10 @@ pub enum Command {
         /// Values from 0 to 1.
         waveform: Vec<f32>,
     },
+    /// The edit history of a message of the open room ([`Event::MessageVersions`]).
+    MessageVersions {
+        event_id: String,
+    },
     /// Send a message of the open room again to these rooms ([`Event::Forwarded`]).
     Forward {
         event_id: String,
@@ -354,6 +358,11 @@ pub enum Event {
     },
     /// The saved messages, newest first, after each change.
     Saved(Vec<SavedEntry>),
+    /// The versions of a message, oldest first; empty when it could not be read.
+    MessageVersions {
+        event_id: String,
+        versions: Vec<crate::versions::MessageVersion>,
+    },
     /// A message went to these rooms ([`Command::Forward`]).
     Forwarded {
         to_rooms: Vec<String>,
@@ -783,6 +792,19 @@ async fn run(mut commands: mpsc::UnboundedReceiver<Command>, emit: Emit) {
                         if let Err(e) = sent {
                             emit(Event::Error(format!("voice message not sent: {e}")));
                         }
+                    });
+                }
+            }
+            Command::MessageVersions { event_id } => {
+                if let Some(open) = &state.open {
+                    let room = open.timeline.room().clone();
+                    let mut timelines = vec![open.timeline.clone()];
+                    timelines.extend(open.thread.as_ref().map(|t| t.timeline.clone()));
+                    let emit = emit.clone();
+                    tokio::spawn(async move {
+                        let versions =
+                            crate::versions::versions(&room, &timelines, &event_id).await;
+                        emit(Event::MessageVersions { event_id, versions });
                     });
                 }
             }
