@@ -128,6 +128,11 @@ pub enum Command {
         /// Values from 0 to 1.
         waveform: Vec<f32>,
     },
+    /// Send a message of the open room again to these rooms ([`Event::Forwarded`]).
+    Forward {
+        event_id: String,
+        to_rooms: Vec<String>,
+    },
     /// Delete a chat for the user alone up to `before_ts`, or bring it back with None
     /// ([`Event::DeletedChats`], D186).
     DeleteChat {
@@ -349,6 +354,10 @@ pub enum Event {
     },
     /// The saved messages, newest first, after each change.
     Saved(Vec<SavedEntry>),
+    /// A message went to these rooms ([`Command::Forward`]).
+    Forwarded {
+        to_rooms: Vec<String>,
+    },
     /// The chats deleted for the user alone, after each change (D186).
     DeletedChats(twake_domain::deleted_chats::DeletedChats),
     /// The bytes of a file asked with [`Command::FetchFile`]; None when it failed.
@@ -773,6 +782,22 @@ async fn run(mut commands: mpsc::UnboundedReceiver<Command>, emit: Emit) {
                         let _ = tokio::fs::remove_file(&path).await;
                         if let Err(e) = sent {
                             emit(Event::Error(format!("voice message not sent: {e}")));
+                        }
+                    });
+                }
+            }
+            Command::Forward { event_id, to_rooms } => {
+                if let (Some(client), Some(open)) = (state.client.clone(), &state.open) {
+                    // A reply of the open thread is in the thread's timeline only
+                    let mut timelines = vec![open.timeline.clone()];
+                    timelines.extend(open.thread.as_ref().map(|t| t.timeline.clone()));
+                    let emit = emit.clone();
+                    tokio::spawn(async move {
+                        match crate::forward::forward(&client, &timelines, &event_id, &to_rooms)
+                            .await
+                        {
+                            Ok(to_rooms) => emit(Event::Forwarded { to_rooms }),
+                            Err(e) => emit(Event::Error(format!("not forwarded: {e}"))),
                         }
                     });
                 }
