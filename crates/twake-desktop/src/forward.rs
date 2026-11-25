@@ -16,7 +16,8 @@ const SHOWN: usize = 50;
 
 #[derive(Default)]
 struct Forward {
-    event_id: String,
+    /// The messages that go, in timeline order.
+    event_ids: Vec<String>,
     /// The conversations ticked, in the order picked, with their label.
     picked: Vec<(String, String)>,
     rows: Rc<VecModel<ForwardRow>>,
@@ -70,10 +71,10 @@ fn refresh(window: &AppWindow) {
     });
 }
 
-/// « Forward »: the dialog opens for the message `event_id`, nothing ticked.
-pub fn open(window: &AppWindow, event_id: &str) {
+/// « Forward »: the dialog opens for the messages `event_ids`, nothing ticked.
+pub fn open(window: &AppWindow, event_ids: Vec<String>) {
     FORWARD.with_borrow_mut(|f| {
-        f.event_id = event_id.to_string();
+        f.event_ids = event_ids;
         f.picked.clear();
     });
     window.set_forward_filter("".into());
@@ -102,9 +103,9 @@ pub fn toggle(window: &AppWindow, room_id: &str) {
 }
 
 pub fn send_forward(window: &AppWindow) {
-    let (event_id, to_rooms) = FORWARD.with_borrow(|f| {
+    let (event_ids, to_rooms) = FORWARD.with_borrow(|f| {
         (
-            f.event_id.clone(),
+            f.event_ids.clone(),
             f.picked
                 .iter()
                 .map(|(id, _)| id.clone())
@@ -112,7 +113,10 @@ pub fn send_forward(window: &AppWindow) {
         )
     });
     if !to_rooms.is_empty() {
-        send(Command::Forward { event_id, to_rooms });
+        send(Command::Forward {
+            event_ids,
+            to_rooms,
+        });
     }
     window.set_forward_open(false);
 }

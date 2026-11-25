@@ -26,7 +26,7 @@ Inventory source: `reference/twake-space-chat/src/ui` (screens) and `src/applica
 | Contacts screen, person card, profile, edit own profile | `ContactsScreen`, `PersonCard`, `ProfilePanel`, `EditOwnProfileDialog` | moved to M6 with the ToM address book |
 | Pinned messages | `PinnedBar`, `PinnedMessages` | |
 | Polls: create, vote, end | `PollDialog`, `PollMessage` | |
-| Message details: versions, forward, copy link, select several | `MessageVersionsDialog`, `ForwardRoomRow`, `MessageSelectionBar` | Done: the message menu as the web (quick reactions, reply, « ⋯ »), copy message, copy link (matrix.to, ADR-020), download file, forward to several conversations, edit history. Left: select several |
+| Message details: versions, forward, copy link, select several | `MessageVersionsDialog`, `ForwardRoomRow`, `MessageSelectionBar` | Done: the message menu as the web (quick reactions, reply, « ⋯ »), copy message, copy link (matrix.to, ADR-020), download file, forward to several conversations, edit history, select several (forward, download, copy, pin, delete; `isSelectable` recorded). Left: delete others' messages as a moderator |
 | Typing indicators, read receipts per person, presence | `useStatus`, `StatusDialog` | |
 
 ## M4: Search, activity, composer
@@ -105,4 +105,4 @@ the signing secrets from the user.
 ## Domain ports alongside (ADR-011)
 
 Each milestone ports the `src/domain` functions it uses and adds them to
-`rust/units/ported.txt`; CI replays their recorded cases. 70 of 222 done.
+`rust/units/ported.txt`; CI replays their recorded cases. 71 of 222 done.

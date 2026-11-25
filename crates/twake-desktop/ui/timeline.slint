@@ -89,6 +89,38 @@ export struct Row {
     saved: bool,
     // an animated image playing: its frame in Animations.frames, 1-based (0: none)
     anim: int,
+    // can be ticked to act on several messages (web `isSelectable`), and ticked
+    selectable: bool,
+    selected: bool,
+}
+
+// A button of the bar of the selected messages (web `MessageSelectionBar`): white on dark
+export component SelectionButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> enabled: true;
+    callback clicked();
+    height: 30px;
+    width: t.preferred-width + 20px;
+    border-radius: 15px;
+    background: enabled && touch.has-hover ? #ffffff26 : transparent;
+    opacity: enabled ? 1 : 0.4;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-enabled: enabled;
+    accessible-action-default => { if enabled { clicked(); } }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    t := Text {
+        text: root.label;
+        color: #ffffff;
+        font-size: 13px;
+        font-weight: 600;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
 }
 
 // The frames shown of the animated images (src/gifs.rs): one entry per GIF playing.
@@ -225,11 +257,14 @@ export component MessageLine inherits Rectangle {
     callback forward(string);
     // A corrected message's earlier versions (web `message-versions-open`)
     callback versions(string);
+    // Ticking messages (web selection mode): a tick at each one, a click ticks or unticks
+    in property <bool> selecting;
+    callback select(string);
     height: layout.preferred-height;
 
     hover := TouchArea {
         layout := VerticalLayout {
-            padding-left: 16px;
+            padding-left: root.selecting ? 44px : 16px;
             padding-right: 16px;
             padding-top: entry.head ? 10px : 2px;
             padding-bottom: 2px;
@@ -602,6 +637,7 @@ export component MessageLine inherits Rectangle {
                 if entry.plain != "": MenuLine { label: "Copy message"; fallback: "⧉"; clicked => { root.copy-message(entry.plain); } }
                 if entry.can-pin: MenuLine { label: entry.pinned ? "Unpin" : "Pin"; symbol: Icons.pin; fallback: "📌"; clicked => { root.pin(entry.id, !entry.pinned); } }
                 MenuLine { label: "Forward"; fallback: "↪"; clicked => { root.forward(entry.id); } }
+                if entry.selectable && !root.in-thread: MenuLine { label: "Select"; fallback: "☑"; clicked => { root.select(entry.id); } }
                 if entry.attachment-kind != "": MenuLine { label: "Download file"; fallback: "⬇"; clicked => { root.save-attachment(entry.attachment-key, entry.attachment-name); } }
                 if !root.in-thread || entry.can-edit: MenuDivider { }
                 if !root.in-thread: MenuLine { label: "Reply in thread"; symbol: Icons.thread; fallback: "💬"; clicked => { root.open-thread(entry.id); } }
@@ -619,7 +655,24 @@ export component MessageLine inherits Rectangle {
 
     // Hover actions (mouse only), over the top of the bubble: the quick reactions, reply,
     // and the menu of the rest (web `MessageToolbar`, mockup 4)
-    if entry.kind == 0 && entry.can-act && hover.has-hover: Rectangle {
+    // In selection mode: the tick, and the whole line ticks or unticks the message
+    if root.selecting && entry.kind == 0 && entry.selectable: Rectangle {
+        x: 14px;
+        y: entry.head ? 14px : 6px;
+        width: 20px;
+        height: 20px;
+        border-radius: 4px;
+        border-width: entry.selected ? 0 : 1.5px;
+        border-color: Theme.text-secondary;
+        background: entry.selected ? Theme.primary : Theme.background;
+        if entry.selected: Text { text: "✓"; color: Theme.on-primary; font-size: 13px; horizontal-alignment: center; vertical-alignment: center; }
+    }
+    if root.selecting && entry.kind == 0 && entry.selectable: TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.select(entry.id); }
+    }
+
+    if entry.kind == 0 && entry.can-act && hover.has-hover && !root.selecting: Rectangle {
         x: entry.own ? 16px : root.width - self.width - 16px;
         y: 0px;
         height: 36px;

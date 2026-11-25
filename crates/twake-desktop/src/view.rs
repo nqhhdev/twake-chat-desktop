@@ -321,6 +321,7 @@ fn message_row(m: &Message, head: bool, pictures: Pictures<'_>) -> Row {
             .and_then(|a| a.duration)
             .map_or(0, |d| i32::try_from(d).unwrap_or(i32::MAX)),
         waveform: waveform_bars(m.attachment.as_ref()),
+        selectable: m.id.starts_with('$') && twake_domain::is_selectable(m, false),
         ..Row::default()
     }
 }
