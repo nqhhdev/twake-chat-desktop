@@ -1,8 +1,10 @@
 //! Domain values to the rows the Slint components draw.
 
+use std::collections::HashMap;
+
 use slint::{Color, Image, ModelRc, SharedString, StyledText, VecModel};
 use twake_domain::{
-    Message, MessageNotice, PreviewKind, Reaction, RoomKind, RoomSummary, SendStatus,
+    Message, MessageNotice, PreviewKind, Reaction, ReadReceipt, RoomKind, RoomSummary, SendStatus,
     TimelineEntry,
     attachment::{AttachmentKind, format_size},
     format, rich_text,
@@ -105,16 +107,47 @@ pub fn room_row(room: &RoomSummary, now: i64, pictures: Pictures<'_>) -> RoomRow
 /// A run of messages by one sender within five minutes shares one header.
 const GROUP_GAP_MS: i64 = 5 * 60 * 1000;
 
+/// The others who read each message (by id): their receipt is at it or later (web
+/// `hasUserReadEvent`), its sender left out.
+pub fn readers_by_message(entries: &[TimelineEntry]) -> HashMap<String, Vec<ReadReceipt>> {
+    let mut later: Vec<ReadReceipt> = Vec::new();
+    let mut readers = HashMap::new();
+    for entry in entries.iter().rev() {
+        if let TimelineEntry::Message(m) = entry {
+            for receipt in &m.read_receipts {
+                if !later.iter().any(|r| r.user_id == receipt.user_id) {
+                    later.push(receipt.clone());
+                }
+            }
+            let read: Vec<ReadReceipt> = later
+                .iter()
+                .filter(|r| r.user_id != m.sender_id)
+                .cloned()
+                .collect();
+            readers.insert(m.id.clone(), read);
+        }
+    }
+    readers
+}
+
 pub fn timeline_rows(entries: &[TimelineEntry], now: i64, pictures: Pictures<'_>) -> Vec<Row> {
     let mut rows = Vec::with_capacity(entries.len());
     let mut previous: Option<&Message> = None;
+    let readers = readers_by_message(entries);
     for entry in entries {
         match entry {
             TimelineEntry::Message(m) => {
                 let head = previous.is_none_or(|p| {
                     p.sender_id != m.sender_id || m.sent_at - p.sent_at > GROUP_GAP_MS
                 });
-                rows.push(message_row(m, head, pictures));
+                let mut row = message_row(m, head, pictures);
+                let seen = readers.get(&m.id).map_or(0, Vec::len);
+                row.seen_count = i32::try_from(seen).unwrap_or(i32::MAX);
+                // The ticks of one's own message: on the server, then read (web `ReadTicks`)
+                if m.is_own && row.status.is_empty() && m.id.starts_with('$') {
+                    row.status = if seen > 0 { "read" } else { "sent" }.into();
+                }
+                rows.push(row);
                 previous = Some(m);
             }
             TimelineEntry::Day { at } => {
@@ -486,4 +519,41 @@ pub fn space_item(space: &twake_domain::SpaceSummary, pictures: Pictures<'_>) ->
 /// « Meeting started at 5:07 PM » (web `call.threadRoot`).
 pub fn meeting_started(at: i64) -> String {
     format!("Meeting started at {}", format::message_time(at))
+}
+
+#[cfg(test)]
+mod reader_tests {
+    use super::*;
+
+    fn message(id: &str, sender: &str, read_by: &[&str]) -> TimelineEntry {
+        TimelineEntry::Message(Message {
+            id: id.into(),
+            sender_id: sender.into(),
+            read_receipts: read_by
+                .iter()
+                .map(|u| ReadReceipt {
+                    user_id: (*u).into(),
+                    ..ReadReceipt::default()
+                })
+                .collect(),
+            ..Message::default()
+        })
+    }
+
+    #[test]
+    fn a_receipt_reads_everything_before_it_but_ones_own() {
+        let entries = [
+            message("$1", "@a", &[]),
+            message("$2", "@b", &["@c"]),
+            message("$3", "@c", &["@b"]),
+        ];
+        let readers = readers_by_message(&entries);
+        let ids =
+            |id: &str| -> Vec<String> { readers[id].iter().map(|r| r.user_id.clone()).collect() };
+        // @b read up to $3, @c up to $2: both read $1
+        assert_eq!(ids("$1"), ["@b", "@c"]);
+        // $2 is @b's own: only @c counts
+        assert_eq!(ids("$2"), ["@c"]);
+        assert_eq!(ids("$3"), ["@b"]);
+    }
 }

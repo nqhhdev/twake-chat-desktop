@@ -78,6 +78,14 @@ M3:
   Pin / Unpin all in one update of the pinned list, Delete the user's own after one
   confirmation; ✕ leaves. Not like the web yet: Escape does not leave the mode, a
   moderator cannot delete others' messages (anywhere in the app yet). Not tried in a run.
+- Seen (2026-11-25), as the web's `ReadTicks` and `message-seen` with its default style
+  (« ticks », D470): one's own message shows ✓ once on the server, ✓✓ in the primary colour
+  once someone read it; outside a direct message, its menu says « N Seen », which opens
+  « Seen by » (each reader and the time of their receipt). Each member's receipt comes
+  from the SDK's timeline (moved to the visible message before a reaction or a state, as
+  the web's `lastReadersOf`), the sender of a message left out; their names are read once
+  from the room's members. The web's other styles (avatars, names under messages) come
+  with the M7 settings. Not tried in a run.
 - Forward (2026-11-25), as the web's `ForwardDialog` and `saveForward`: « Forward » in the
   menu opens « Forward to… », a search (accents and case ignored) over the other
   conversations, labelled with their space, 50 at most; tick one or more, Forward, and the

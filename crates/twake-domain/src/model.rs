@@ -126,6 +126,9 @@ pub struct Message {
     /// It opens the thread of a call (web `isCallThreadRoot`, D105).
     #[serde(default)]
     pub is_call_thread_root: bool,
+    /// The others whose read receipt stops here (not the sender, not the user).
+    #[serde(default)]
+    pub read_receipts: Vec<ReadReceipt>,
 }
 
 /// One reaction key on a message.
@@ -202,6 +205,18 @@ pub fn is_selectable(message: &Message, is_call_line: bool) -> bool {
     message.send_status.is_none_or(|s| s == SendStatus::Sent)
         && message.notice != Some(MessageNotice::Deleted)
         && !is_call_line
+}
+
+/// Someone else whose read receipt stops at a message (web `MessageReader`): they read it
+/// and everything before.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReadReceipt {
+    pub user_id: String,
+    pub name: String,
+    pub avatar_url: Option<String>,
+    /// When their receipt was sent (epoch milliseconds); None if unknown.
+    pub read_at: Option<i64>,
 }
 
 /// A top-level space and every room below it.

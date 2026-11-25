@@ -32,8 +32,10 @@ export struct Row {
     // first message of a run by the same sender: shows name and avatar
     head: bool,
     edited: bool,
-    // "sending", "failed" or ""
+    // "sending", "failed", "sent", "read" (one's own, read by someone) or ""
     status: string,
+    // how many others read it (web « N Seen »)
+    seen-count: int,
     // shown instead of the body: deleted, unsupported, cannot decrypt
     notice: string,
     emote: bool,
@@ -257,6 +259,9 @@ export component MessageLine inherits Rectangle {
     callback forward(string);
     // A corrected message's earlier versions (web `message-versions-open`)
     callback versions(string);
+    // Who read it (web `message-seen`), not in a direct message
+    callback seen(string);
+    in property <bool> direct;
     // Ticking messages (web selection mode): a tick at each one, a click ticks or unticks
     in property <bool> selecting;
     callback select(string);
@@ -567,6 +572,15 @@ export component MessageLine inherits Rectangle {
                                 if entry.edited: Text { text: "edited"; color: Theme.text-secondary; font-size: 11px; }
                                 Text { text: entry.time; color: Theme.text-secondary; font-size: 11px; }
                                 if entry.status == "sending": VerticalLayout { alignment: center; Icon { source: Icons.clock; fallback: "◷"; size: 11px; } }
+                                // One tick on the server, two in the primary colour once read (web `ReadTicks`)
+                                if entry.status == "sent" || entry.status == "read": Text {
+                                    text: entry.status == "read" ? "✓✓" : "✓";
+                                    color: entry.status == "read" ? Theme.primary : Theme.text-secondary;
+                                    font-size: 11px;
+                                    vertical-alignment: center;
+                                    accessible-role: image;
+                                    accessible-label: entry.status == "read" ? "Read" : "Sent";
+                                }
                                 if entry.status == "failed": Text { text: "Not sent"; color: Theme.error; font-size: 11px; }
                             }
                         }
@@ -646,6 +660,8 @@ export component MessageLine inherits Rectangle {
                 MenuLine { label: "Copy link"; symbol: Icons.link; fallback: "🔗"; clicked => { root.copy-link(entry.id); } }
                 if entry.edited: MenuLine { label: "Edit history"; fallback: "🕘"; clicked => { root.versions(entry.id); } }
                 MenuLine { label: entry.saved ? "Remove from saved" : "Save for later"; symbol: Icons.bookmark; fallback: "🔖"; clicked => { root.save-message(entry.id, !entry.saved); } }
+                if entry.seen-count > 0 && !root.direct: MenuDivider { }
+                if entry.seen-count > 0 && !root.direct: MenuLine { label: entry.seen-count + " Seen"; fallback: "✓✓"; clicked => { root.seen(entry.id); } }
                 if !entry.own || entry.can-delete: MenuDivider { }
                 if !entry.own: MenuLine { label: "Report"; symbol: Icons.flag; fallback: "⚑"; clicked => { root.report(entry.id); } }
                 if entry.can-delete: MenuLine { label: "Delete"; symbol: Icons.delete; fallback: "🗑"; danger: true; clicked => { root.delete(entry.id); } }
