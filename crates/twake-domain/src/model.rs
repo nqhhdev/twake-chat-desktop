@@ -195,6 +195,15 @@ pub struct RoomDetails {
     pub permissions: crate::room_management::RoomPermissions,
 }
 
+/// A message on the server and not deleted can be ticked to act on several at once (web
+/// `isSelectable`). `is_call_line`: the line a call leaves (web `message.call`), which this
+/// app draws apart from the messages. No send status: someone else's message, on the server.
+pub fn is_selectable(message: &Message, is_call_line: bool) -> bool {
+    message.send_status.is_none_or(|s| s == SendStatus::Sent)
+        && message.notice != Some(MessageNotice::Deleted)
+        && !is_call_line
+}
+
 /// A top-level space and every room below it.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -203,4 +212,26 @@ pub struct SpaceSummary {
     pub name: String,
     pub avatar_url: Option<String>,
     pub rooms: Vec<String>,
+}
+
+#[cfg(test)]
+mod selectable_tests {
+    use super::*;
+
+    #[test]
+    fn ticks_only_messages_on_the_server() {
+        let sent = Message::default();
+        assert!(is_selectable(&sent, false));
+        assert!(!is_selectable(&sent, true));
+        let sending = Message {
+            send_status: Some(SendStatus::Sending),
+            ..Message::default()
+        };
+        assert!(!is_selectable(&sending, false));
+        let deleted = Message {
+            notice: Some(MessageNotice::Deleted),
+            ..Message::default()
+        };
+        assert!(!is_selectable(&deleted, false));
+    }
 }
