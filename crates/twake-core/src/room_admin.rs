@@ -10,7 +10,7 @@ use matrix_sdk::{
     },
 };
 use twake_domain::room_management::{
-    MemberRole, RoomMemberDetail, RoomPermissions, compute_role, level_of_role,
+    JoinRuleChoice, MemberRole, RoomMemberDetail, RoomPermissions, compute_role, level_of_role,
 };
 use twake_domain::{RoomDetails, RoomKind};
 
@@ -90,7 +90,10 @@ pub async fn details(room: &Room) -> Result<RoomDetails, String> {
             .then(a.name.to_lowercase().cmp(&b.name.to_lowercase()))
     });
     let is_direct = room.is_direct().await.unwrap_or(false);
+    let (join_rule, is_listed) = access(room).await;
     Ok(RoomDetails {
+        join_rule,
+        is_listed,
         room_id: room.room_id().to_string(),
         name: room
             .cached_display_name()
@@ -167,6 +170,61 @@ pub async fn set_topic(room: &Room, topic: &str) -> Result<(), String> {
 
 pub async fn encrypt(room: &Room) -> Result<(), String> {
     room.enable_encryption().await.map_err(|e| e.to_string())
+}
+
+/// Who may join, and whether the directory lists the room (web `readRoomAccess`): a room
+/// with no rule is invite-only (the SDK's default), `private` reads as invite, a directory
+/// that cannot be read counts as not listing it.
+async fn access(room: &Room) -> (JoinRuleChoice, bool) {
+    use matrix_sdk::ruma::api::client::directory::get_room_visibility;
+    use matrix_sdk::ruma::api::client::room::Visibility;
+    use matrix_sdk::ruma::events::room::join_rules::JoinRule;
+    #[allow(deprecated)]
+    let rule = match room.join_rule() {
+        None | Some(JoinRule::Invite) | Some(JoinRule::Private) => JoinRuleChoice::Invite,
+        Some(JoinRule::Knock) => JoinRuleChoice::Knock,
+        Some(JoinRule::Public) => JoinRuleChoice::Public,
+        Some(_) => JoinRuleChoice::Other,
+    };
+    let request = get_room_visibility::v3::Request::new(room.room_id().to_owned());
+    let listed = room
+        .client()
+        .send(request)
+        .await
+        .is_ok_and(|r| r.visibility == Visibility::Public);
+    (rule, listed)
+}
+
+/// Changes who may join (web `changeRoomAccess`); `Other` is never set.
+pub async fn set_join_rule(room: &Room, rule: JoinRuleChoice) -> Result<(), String> {
+    use matrix_sdk::ruma::events::room::join_rules::{JoinRule, RoomJoinRulesEventContent};
+    let rule = match rule {
+        JoinRuleChoice::Invite => JoinRule::Invite,
+        JoinRuleChoice::Knock => JoinRule::Knock,
+        JoinRuleChoice::Public => JoinRule::Public,
+        JoinRuleChoice::Other => return Err("this rule is not set here".into()),
+    };
+    room.send_state_event(RoomJoinRulesEventContent::new(rule))
+        .await
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
+/// Lists the room in the public directory, or takes it off.
+pub async fn set_listed(room: &Room, listed: bool) -> Result<(), String> {
+    use matrix_sdk::ruma::api::client::directory::set_room_visibility;
+    use matrix_sdk::ruma::api::client::room::Visibility;
+    let visibility = if listed {
+        Visibility::Public
+    } else {
+        Visibility::Private
+    };
+    let request = set_room_visibility::v3::Request::new(room.room_id().to_owned(), visibility);
+    room.client()
+        .send(request)
+        .await
+        .map(|_| ())
+        .map_err(|e| e.to_string())
 }
 
 pub async fn leave(room: &Room) -> Result<(), String> {

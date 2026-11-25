@@ -289,6 +289,10 @@ pub enum RoomAction {
     /// Block a person: their messages no longer come (`m.ignored_user_list`, web
     /// `ignorePerson`).
     Block(String),
+    /// Who may join the room (web `changeRoomAccess`, D516).
+    SetJoinRule(twake_domain::room_management::JoinRuleChoice),
+    /// List the room in the public directory, or take it off.
+    SetListed(bool),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1521,6 +1525,18 @@ async fn room_action(room: matrix_sdk::Room, action: RoomAction, emit: Emit) {
         ),
         // Nothing said when it worked (web)
         RoomAction::Block(user) => (admin::block(&room, user).await, String::new()),
+        RoomAction::SetJoinRule(rule) => (
+            admin::set_join_rule(&room, *rule).await,
+            "Access changed".into(),
+        ),
+        RoomAction::SetListed(listed) => (
+            admin::set_listed(&room, *listed).await,
+            if *listed {
+                "Listed in the directory".into()
+            } else {
+                "Taken off the directory".into()
+            },
+        ),
     };
     match result {
         Ok(()) => {

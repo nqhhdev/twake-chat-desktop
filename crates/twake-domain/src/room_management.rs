@@ -7,6 +7,30 @@ pub const ADMIN_LEVEL: i64 = 100;
 /// « Admin » is 80, below the owner who keeps 100 (D706).
 pub const HANDED_OVER_OWNER_LEVEL: i64 = 80;
 
+/// Who may join a room (web `JoinRuleChoice` and `RoomAccess.joinRule`): `Other` is a rule
+/// the app tells but never sets (`restricted` to a space, D516).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum JoinRuleChoice {
+    #[default]
+    Invite,
+    Knock,
+    Public,
+    Other,
+}
+
+impl JoinRuleChoice {
+    /// The line under the member count (web `info.accessLine`).
+    pub fn access_line(self) -> &'static str {
+        match self {
+            Self::Invite => "Private · Invite only",
+            Self::Knock => "Private · On request",
+            Self::Public => "Public",
+            Self::Other => "Space members",
+        }
+    }
+}
+
 /// `MemberRole`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
