@@ -15,6 +15,7 @@ mod forward;
 mod media;
 mod pdf;
 mod room_admin;
+mod room_creation;
 mod rooms;
 mod saved;
 mod search_index;

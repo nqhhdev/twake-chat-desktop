@@ -475,14 +475,29 @@ export component CreateDialog inherits Rectangle {
     in-out property <string> topic-text;
     in-out property <string> people-text;
     in-out property <bool> encrypted: true;
-    callback create-room(string, string, string, bool);
+    // What the room is (web `CreateKind`): "group", "feed", "space", "voice" or "page"
+    in-out property <string> kind: "group";
+    in-out property <bool> public;
+    // A Broadcast (web `NewPage`): who may follow, reactions, the address of its page
+    in-out property <string> page-access: "open";
+    in-out property <bool> reactions: true;
+    in-out property <string> slug;
+    property <bool> slug-edited;
+    // The address made of the name (web `suggestSlug`), computed in Rust
+    pure callback suggest-slug(string) -> string;
+    pure callback valid-slug(string) -> bool;
+    callback create-room(string, string, string, string, bool, bool, string, bool, string);
     callback open-direct(string);
     callback cancel();
+    property <bool> is-page: root.kind == "page";
+    // Public: anyone may join and find it; an open Broadcast is public (web `accessOf`)
+    property <bool> is-public: root.public || (root.is-page && root.page-access == "open");
+    property <bool> slug-ok: !root.is-page || root.page-access != "open" || root.valid-slug(root.slug);
     background: #00000066;
     TouchArea { clicked => { root.cancel(); } }
     Rectangle {
-        width: 420px;
-        height: box.preferred-height;
+        width: 460px;
+        height: min(root.height - 40px, box.preferred-height);
         border-radius: 16px;
         background: Theme.background;
         drop-shadow-blur: 20px;
@@ -491,16 +506,106 @@ export component CreateDialog inherits Rectangle {
         box := VerticalLayout {
             padding: 20px;
             spacing: 12px;
-            Text { text: root.mode == "direct" ? "New direct message" : "New room"; font-size: 18px; font-weight: Theme.weight-bold; color: Theme.text; }
+            Text {
+                text: root.mode == "direct" ? "New direct message"
+                    : root.kind == "feed" ? "New feed"
+                    : root.kind == "space" ? "New Space"
+                    : root.kind == "voice" ? "New voice room"
+                    : root.kind == "page" ? "New broadcast"
+                    : "New group chat";
+                font-size: 18px;
+                font-weight: Theme.weight-bold;
+                color: Theme.text;
+            }
             if root.mode == "direct": Field {
                 label: "Matrix id of the person";
                 text <=> root.user-text;
                 accepted => { if root.user-text != "" { root.open-direct(root.user-text); } }
             }
-            if root.mode == "room": Field { label: "Name"; text <=> root.name-text; }
+            // What to create (web `CreatePage` entries), and what it is for
+            if root.mode == "room": HorizontalLayout {
+                spacing: 6px;
+                for k in [
+                    { id: "group", label: "Group" },
+                    { id: "feed", label: "Feed" },
+                    { id: "space", label: "Space" },
+                    { id: "voice", label: "Voice room" },
+                    { id: "page", label: "Broadcast" },
+                ]: Rectangle {
+                    height: 30px;
+                    width: kt.preferred-width + 20px;
+                    border-radius: 15px;
+                    background: root.kind == k.id ? Theme.primary : k-touch.has-hover ? Theme.hover : Theme.panel;
+                    accessible-role: tab;
+                    accessible-label: k.label;
+                    accessible-item-selected: root.kind == k.id;
+                    accessible-action-default => { root.kind = k.id; }
+                    k-touch := TouchArea { mouse-cursor: pointer; clicked => { root.kind = k.id; } }
+                    kt := Text { text: k.label; color: root.kind == k.id ? Theme.on-primary : Theme.text; font-size: 13px; horizontal-alignment: center; vertical-alignment: center; }
+                }
+            }
+            if root.mode == "room": Text {
+                text: root.kind == "feed" ? "Only you and the moderators post."
+                    : root.kind == "space" ? "Brings people and several channels together."
+                    : root.kind == "page" ? "Posts for followers, with an optional public web page."
+                    : root.kind == "voice" ? "A room for calls."
+                    : "Everyone in it can write.";
+                color: Theme.text-secondary;
+                font-size: 12px;
+                wrap: word-wrap;
+            }
+            if root.mode == "room": Field {
+                label: "Name";
+                text <=> root.name-text;
+                changed text => { if !root.slug-edited { root.slug = root.suggest-slug(self.text); } }
+            }
             if root.mode == "room": Field { label: "Description (optional)"; text <=> root.topic-text; }
-            if root.mode == "room": Field { label: "Invite (Matrix ids, separated by commas)"; text <=> root.people-text; }
-            if root.mode == "room": CheckBox { text: "End-to-end encrypted"; checked <=> root.encrypted; }
+            if root.mode == "room" && !root.is-page: Field { label: "Invite (Matrix ids, separated by commas)"; text <=> root.people-text; }
+            if root.mode == "room" && root.is-page: VerticalLayout {
+                spacing: 4px;
+                Text { text: "Who can follow"; color: Theme.text-secondary; font-size: 12px; font-weight: 600; }
+                for a in [
+                    { id: "open", label: "Anyone, with a public web page" },
+                    { id: "invite", label: "Only people I invite" },
+                    { id: "approval", label: "Anyone, after an administrator approves" },
+                ]: Rectangle {
+                    height: 30px;
+                    accessible-role: checkbox;
+                    accessible-checked: root.page-access == a.id;
+                    accessible-label: a.label;
+                    accessible-action-default => { root.page-access = a.id; }
+                    TouchArea { mouse-cursor: pointer; clicked => { root.page-access = a.id; } }
+                    HorizontalLayout {
+                        spacing: 10px;
+                        VerticalLayout {
+                            alignment: center;
+                            Rectangle {
+                                width: 18px;
+                                height: 18px;
+                                border-radius: 9px;
+                                border-width: root.page-access == a.id ? 5px : 1.5px;
+                                border-color: root.page-access == a.id ? Theme.primary : Theme.text-secondary;
+                            }
+                        }
+                        Text { text: a.label; color: Theme.text; vertical-alignment: center; }
+                    }
+                }
+                if root.page-access == "open": Field {
+                    label: "Address of the public page";
+                    text <=> root.slug;
+                    changed text => { root.slug-edited = true; }
+                }
+                if root.page-access == "open": Text {
+                    text: "Lowercase letters, digits and dashes";
+                    color: root.slug-ok ? Theme.text-secondary : Theme.error;
+                    font-size: 12px;
+                }
+                CheckBox { text: "Followers can react to posts"; checked <=> root.reactions; }
+            }
+            if root.mode == "room" && !root.is-page: CheckBox { text: "Public group"; checked <=> root.public; }
+            if root.mode == "room" && root.is-public: Text { text: "Anyone on this server can find and join it."; color: Theme.text-secondary; font-size: 12px; wrap: word-wrap; }
+            // A public room is never encrypted (D187)
+            if root.mode == "room" && !root.is-public: CheckBox { text: "End-to-end encryption"; checked <=> root.encrypted; }
             HorizontalLayout {
                 alignment: end;
                 spacing: 8px;
@@ -508,12 +613,12 @@ export component CreateDialog inherits Rectangle {
                 PrimaryButton {
                     width: 120px;
                     label: root.mode == "direct" ? "Open" : "Create";
-                    enabled: root.mode == "direct" ? root.user-text != "" : root.name-text != "";
+                    enabled: root.mode == "direct" ? root.user-text != "" : root.name-text != "" && root.slug-ok;
                     clicked => {
                         if root.mode == "direct" {
                             root.open-direct(root.user-text);
                         } else {
-                            root.create-room(root.name-text, root.topic-text, root.people-text, root.encrypted);
+                            root.create-room(root.kind, root.name-text, root.topic-text, root.people-text, root.public, root.encrypted, root.page-access, root.reactions, root.slug);
                         }
                     }
                 }
