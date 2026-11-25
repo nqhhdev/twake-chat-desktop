@@ -128,6 +128,12 @@ pub enum Command {
         /// Values from 0 to 1.
         waveform: Vec<f32>,
     },
+    /// Delete a chat for the user alone up to `before_ts`, or bring it back with None
+    /// ([`Event::DeletedChats`], D186).
+    DeleteChat {
+        room_id: String,
+        before_ts: Option<f64>,
+    },
     /// Save a message of the open room for later, or forget it ([`Event::Saved`]).
     SaveMessage {
         event_id: String,
@@ -336,6 +342,8 @@ pub enum Event {
     },
     /// The saved messages, newest first, after each change.
     Saved(Vec<SavedEntry>),
+    /// The chats deleted for the user alone, after each change (D186).
+    DeletedChats(twake_domain::deleted_chats::DeletedChats),
     /// The bytes of a file asked with [`Command::FetchFile`]; None when it failed.
     FileData {
         key: String,
@@ -762,6 +770,18 @@ async fn run(mut commands: mpsc::UnboundedReceiver<Command>, emit: Emit) {
                     });
                 }
             }
+            Command::DeleteChat { room_id, before_ts } => {
+                if let Some(client) = state.client.clone() {
+                    let emit = emit.clone();
+                    tokio::spawn(async move {
+                        let done =
+                            crate::deleted_chats::set(&client, &emit, &room_id, before_ts).await;
+                        if let Err(e) = done {
+                            emit(Event::Error(format!("chat not deleted: {e}")));
+                        }
+                    });
+                }
+            }
             Command::SaveMessage { event_id, saved } => {
                 if let (Some(client), Some(index), Some(open)) =
                     (state.client.clone(), state.index.clone(), &state.open)
@@ -1152,6 +1172,10 @@ async fn start_session(state: &mut State, client: Client, emit: &Emit) {
         emit.clone(),
     )));
     state.tasks.push(tokio::spawn(crate::autoplay::start(
+        client.clone(),
+        emit.clone(),
+    )));
+    state.tasks.push(tokio::spawn(crate::deleted_chats::start(
         client.clone(),
         emit.clone(),
     )));
