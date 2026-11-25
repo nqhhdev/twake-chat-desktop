@@ -327,6 +327,8 @@ pub enum RoomAction {
     SetJoinRule(twake_domain::room_management::JoinRuleChoice),
     /// List the room in the public directory, or take it off.
     SetListed(bool),
+    /// What the user hears of the room (web `setNotificationLevel`).
+    SetNotificationLevel(twake_domain::room_management::NotificationLevel),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1769,6 +1771,10 @@ async fn room_action(room: matrix_sdk::Room, action: RoomAction, emit: Emit) {
         RoomAction::SetJoinRule(rule) => (
             admin::set_join_rule(&room, *rule).await,
             "Access changed".into(),
+        ),
+        RoomAction::SetNotificationLevel(level) => (
+            admin::set_notification_level(&room, *level).await,
+            String::new(),
         ),
         RoomAction::SetListed(listed) => (
             admin::set_listed(&room, *listed).await,

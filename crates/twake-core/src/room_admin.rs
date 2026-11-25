@@ -91,9 +91,11 @@ pub async fn details(room: &Room) -> Result<RoomDetails, String> {
     });
     let is_direct = room.is_direct().await.unwrap_or(false);
     let (join_rule, is_listed) = access(room).await;
+    let notification_level = notification_level(room, is_direct).await;
     Ok(RoomDetails {
         join_rule,
         is_listed,
+        notification_level,
         room_id: room.room_id().to_string(),
         name: room
             .cached_display_name()
@@ -193,6 +195,55 @@ async fn access(room: &Room) -> (JoinRuleChoice, bool) {
         .await
         .is_ok_and(|r| r.visibility == Visibility::Public);
     (rule, listed)
+}
+
+/// What the user hears of the room: their own choice, else the server's default for a room
+/// of its kind (encrypted or not, of two people or more).
+async fn notification_level(
+    room: &Room,
+    is_direct: bool,
+) -> twake_domain::room_management::NotificationLevel {
+    use matrix_sdk::notification_settings::{IsEncrypted, IsOneToOne, RoomNotificationMode};
+    use twake_domain::room_management::NotificationLevel;
+    let settings = room.client().notification_settings().await;
+    let mode = match settings
+        .get_user_defined_room_notification_mode(room.room_id())
+        .await
+    {
+        Some(mode) => mode,
+        None => {
+            let encrypted = IsEncrypted::from(room.encryption_state().is_encrypted());
+            let one_to_one = IsOneToOne::from(is_direct && room.joined_members_count() <= 2);
+            settings
+                .get_default_room_notification_mode(encrypted, one_to_one)
+                .await
+        }
+    };
+    match mode {
+        RoomNotificationMode::AllMessages => NotificationLevel::All,
+        RoomNotificationMode::MentionsAndKeywordsOnly => NotificationLevel::Mentions,
+        RoomNotificationMode::Mute => NotificationLevel::None,
+    }
+}
+
+/// Changes what the user hears of the room (web `setNotificationLevel`).
+pub async fn set_notification_level(
+    room: &Room,
+    level: twake_domain::room_management::NotificationLevel,
+) -> Result<(), String> {
+    use matrix_sdk::notification_settings::RoomNotificationMode;
+    use twake_domain::room_management::NotificationLevel;
+    let mode = match level {
+        NotificationLevel::All => RoomNotificationMode::AllMessages,
+        NotificationLevel::Mentions => RoomNotificationMode::MentionsAndKeywordsOnly,
+        NotificationLevel::None => RoomNotificationMode::Mute,
+    };
+    room.client()
+        .notification_settings()
+        .await
+        .set_room_notification_mode(room.room_id(), mode)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// Changes who may join (web `changeRoomAccess`); `Other` is never set.
