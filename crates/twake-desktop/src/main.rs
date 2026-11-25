@@ -2067,20 +2067,45 @@ fn wire_room_info(window: &AppWindow) {
     window.on_show_create(move |mode| w(&|win| win.set_create_mode(mode.clone())));
     let w = with.clone();
     window.on_cancel_create(move || w(&|win| win.set_create_mode("".into())));
-    window.on_create_room(|name, topic, people, encrypted| {
-        let invite = people
-            .split([',', ' ', ';', '\n'])
-            .map(str::trim)
-            .filter(|p| !p.is_empty())
-            .map(str::to_string)
-            .collect();
-        send(Command::CreateRoom {
-            name: name.to_string(),
-            topic: topic.to_string(),
-            invite,
-            encrypted,
-        });
-    });
+    window.on_create_room(
+        |kind, name, topic, people, public, encrypted, access, reactions, slug| {
+            use twake_domain::room_management::{NewPage, NewRoom, NewRoomKind, PageAccess};
+            let invite = people
+                .split([',', ' ', ';', '\n'])
+                .map(str::trim)
+                .filter(|p| !p.is_empty())
+                .map(str::to_string)
+                .collect();
+            let kind = match kind.as_str() {
+                "feed" => NewRoomKind::Broadcast,
+                "space" => NewRoomKind::Space,
+                "voice" => NewRoomKind::Voice,
+                "page" => NewRoomKind::Page,
+                _ => NewRoomKind::Discussion,
+            };
+            let page = (kind == NewRoomKind::Page).then(|| NewPage {
+                access: match access.as_str() {
+                    "invite" => PageAccess::Invite,
+                    "approval" => PageAccess::Approval,
+                    _ => PageAccess::Open,
+                },
+                allows_reactions: reactions,
+                slug: slug.to_string(),
+            });
+            send(Command::CreateRoom(NewRoom {
+                name: name.to_string(),
+                topic: topic.to_string(),
+                kind,
+                is_public: public && kind != NewRoomKind::Page,
+                is_encrypted: encrypted,
+                invite,
+                page,
+                ..NewRoom::default()
+            }));
+        },
+    );
+    window.on_suggest_slug(|name| twake_domain::room_management::suggest_slug(&name).into());
+    window.on_valid_slug(|slug| twake_domain::room_management::is_valid_slug(&slug));
     window.on_open_direct(|user| {
         send(Command::OpenDirect {
             user_id: user.to_string(),

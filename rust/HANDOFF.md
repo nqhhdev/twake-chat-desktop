@@ -106,6 +106,16 @@ M3:
   rule follow its new space (invite or knock when none is left), then removes every other
   link (best effort for a space the app has not joined). `canMoveToSpace` has no recorded
   case of its typed shape: unit tested, not in `ported.txt`. Not tried in a run.
+- Create (2026-11-25), as the web's `CreatePage` kinds and `buildCreateRoomOptions`: « + Room »
+  now picks Group, Feed (only moderators post), Space (it comes with its General channel,
+  suggested in it), Voice room or Broadcast (who may follow: anyone with a public page,
+  invited people, or after approval; followers' reactions; the address of its page,
+  suggested from the name with `suggestSlug` and checked with `isValidSlug`). The power
+  levels are now the web's: every member joins a call, answers a bot, votes, resolves a
+  thread and answers the assistant's request, only an owner publishes the page; a public
+  room is never encrypted, a Broadcast on approval is listed. Not yet: creating inside a
+  space, the contacts of the Create page (M6); a voice room opens as any room (no voice room
+  behaviour in the app yet). Not tried in a run.
 - Forward (2026-11-25), as the web's `ForwardDialog` and `saveForward`: « Forward » in the
   menu opens « Forward to… », a search (accents and case ignored) over the other
   conversations, labelled with their space, 50 at most; tick one or more, Forward, and the

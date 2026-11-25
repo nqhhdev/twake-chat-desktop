@@ -1063,7 +1063,9 @@ export component AppWindow inherits Window {
     in property <string> create-mode;
     callback show-create(string);
     callback cancel-create();
-    callback create-room(string, string, string, bool);
+    callback create-room(string, string, string, string, bool, bool, string, bool, string);
+    pure callback suggest-slug(string) -> string;
+    pure callback valid-slug(string) -> bool;
     callback open-direct(string);
 
     // Confirmation of an action that cannot be undone ("" hides it)
@@ -1684,7 +1686,9 @@ export component AppWindow inherits Window {
         width: root.width;
         height: root.height;
         mode: root.create-mode;
-        create-room(name, topic, people, encrypted) => { root.create-room(name, topic, people, encrypted); }
+        create-room(kind, name, topic, people, public, encrypted, access, reactions, slug) => { root.create-room(kind, name, topic, people, public, encrypted, access, reactions, slug); }
+        suggest-slug(name) => { return root.suggest-slug(name); }
+        valid-slug(slug) => { return root.valid-slug(slug); }
         open-direct(user) => { root.open-direct(user); }
         cancel => { root.cancel-create(); }
     }
