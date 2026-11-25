@@ -92,6 +92,10 @@ pub enum Command {
     Recover {
         key: String,
     },
+    /// « Autoplay animated images », kept in the account data ([`Event::Autoplay`]).
+    SetAutoplay(bool),
+    /// The composer: "new" or "classic", kept in the account data ([`Event::ComposerStyle`]).
+    SetComposerStyle(String),
     /// « Verify with another device » ([`Event::Verification`]).
     VerifyDevice,
     /// « Verify » on another device's request.
@@ -394,6 +398,8 @@ pub enum Event {
     },
     /// The saved messages, newest first, after each change.
     Saved(Vec<SavedEntry>),
+    /// The composer the user chose: "new" or "classic" (web `readComposerStyle`, D681).
+    ComposerStyle(String),
     /// Where the verification of one's devices stands.
     Verification(crate::verification::VerificationPhase),
     /// The server is reachable, or not (web `OfflineBanner`): the sync service's offline mode.
@@ -1243,6 +1249,33 @@ async fn run(mut commands: mpsc::UnboundedReceiver<Command>, emit: Emit) {
                     });
                 }
             }
+            Command::SetAutoplay(enabled) => {
+                if let Some(client) = state.client.clone() {
+                    let emit = emit.clone();
+                    tokio::spawn(async move {
+                        let content = serde_json::json!({ "enabled": enabled });
+                        match crate::account_prefs::set(&client, "app.twake.chat.autoplay", content)
+                            .await
+                        {
+                            Ok(()) => emit(Event::Autoplay(Some(enabled))),
+                            Err(e) => emit(Event::Error(format!("not saved: {e}"))),
+                        }
+                    });
+                }
+            }
+            Command::SetComposerStyle(style) => {
+                if let Some(client) = state.client.clone() {
+                    let emit = emit.clone();
+                    tokio::spawn(async move {
+                        let content = serde_json::json!({ "style": style });
+                        let kind = twake_domain::composer_style::COMPOSER_STYLE_TYPE;
+                        match crate::account_prefs::set(&client, kind, content).await {
+                            Ok(()) => emit(Event::ComposerStyle(style)),
+                            Err(e) => emit(Event::Error(format!("not saved: {e}"))),
+                        }
+                    });
+                }
+            }
             Command::VerifyDevice => {
                 if let Some(client) = state.client.clone() {
                     let verifier = state.verifier.clone();
@@ -1431,6 +1464,12 @@ async fn start_session(state: &mut State, client: Client, emit: &Emit) {
         .tasks
         .push(tokio::spawn(watch_encryption(client.clone(), emit.clone())));
     state.verifier.listen(&client, emit.clone());
+    state
+        .tasks
+        .push(tokio::spawn(crate::account_prefs::watch_composer_style(
+            client.clone(),
+            emit.clone(),
+        )));
     state.tasks.push(tokio::spawn(watch_tokens(client.clone())));
     state.tasks.push(tokio::spawn(crate::spaces::run(
         client.clone(),

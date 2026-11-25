@@ -9,6 +9,7 @@ pub mod attachment;
 pub mod call;
 pub mod call_window;
 pub mod composer;
+pub mod composer_style;
 pub mod deleted_chats;
 pub mod format;
 pub mod js;
