@@ -15,6 +15,7 @@ pub mod js;
 pub mod link_preview;
 pub mod mention;
 pub mod model;
+pub mod permalink;
 pub mod poll;
 pub mod rich_text;
 pub mod room_management;

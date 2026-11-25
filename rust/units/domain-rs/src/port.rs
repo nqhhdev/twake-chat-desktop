@@ -1746,14 +1746,12 @@ pub fn room_link(origin: String, room_id: String) -> Result<String, String> {
 
 /// Port of `userPermalink` (`src/domain/permalink.ts:21`).
 pub fn user_permalink(user_id: String) -> Result<String, String> {
-    let _ = &user_id;
-    unimplemented!("port `userPermalink` from src/domain/permalink.ts")
+    Ok(twake_domain::permalink::user_permalink(&user_id))
 }
 
 /// Port of `roomPermalink` (`src/domain/permalink.ts:26`).
 pub fn room_permalink(alias_or_id: String) -> Result<String, String> {
-    let _ = &alias_or_id;
-    unimplemented!("port `roomPermalink` from src/domain/permalink.ts")
+    Ok(twake_domain::permalink::room_permalink(&alias_or_id))
 }
 
 /// Port of `parsePermalink` (`src/domain/permalink.ts:49`).
