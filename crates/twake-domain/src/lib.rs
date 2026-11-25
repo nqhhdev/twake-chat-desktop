@@ -7,6 +7,7 @@
 pub mod activity;
 pub mod attachment;
 pub mod call;
+pub mod call_window;
 pub mod composer;
 pub mod format;
 pub mod js;
