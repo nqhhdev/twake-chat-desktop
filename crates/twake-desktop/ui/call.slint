@@ -436,6 +436,8 @@ export component CallWindow inherits Rectangle {
     // Let go, or put in a corner: kept for the next call
     callback chosen(CallWindowRect);
     callback expand();
+    // Out of the app, into a window of its own above the others (web `popOutCall`, D618)
+    callback pop-out();
     property <bool> dragging;
     property <CallWindowRect> from;
     property <CallWindowRect> live;
@@ -564,6 +566,12 @@ export component CallWindow inherits Rectangle {
                 fallback: "⛶";
                 clicked => { root.menu-open = false; root.expand(); }
             }
+            WindowMenuLine {
+                label: "Pop out of the app";
+                symbol: Icons.pip;
+                fallback: "⧉";
+                clicked => { root.menu-open = false; root.pop-out(); }
+            }
             Rectangle { height: 1px; background: Theme.line; }
             for corner in [
                 { id: "top-left", label: "Top left" },
@@ -579,5 +587,48 @@ export component CallWindow inherits Rectangle {
                 }
             }
         }
+    }
+}
+
+// The call out of the app, in a window of its own that stays above the others (web
+// `PipCall`, D618): closing it brings the call back into the app.
+export component CallPopOut inherits Window {
+    in property <string> room-name;
+    in property <[CallTileRow]> tiles;
+    in property <string> status;
+    in property <bool> encrypted;
+    in property <bool> microphone;
+    in property <bool> camera;
+    in property <bool> sharing;
+    in property <string> device-menu;
+    in property <[DeviceSection]> device-sections;
+    pure callback tile-width(int, length, length) -> length;
+    callback toggle-microphone();
+    callback toggle-camera();
+    callback toggle-screen();
+    callback open-devices(string);
+    callback pick-device(string, string);
+    callback leave();
+    title: room-name == "" ? "Call" : "Call · " + room-name;
+    always-on-top: true;
+    min-width: 320px;
+    min-height: 260px;
+    background: #18181b;
+    CallStage {
+        tiles: root.tiles;
+        status: root.status;
+        encrypted: root.encrypted;
+        microphone: root.microphone;
+        camera: root.camera;
+        sharing: root.sharing;
+        device-menu: root.device-menu;
+        device-sections: root.device-sections;
+        tile-width(n, w, h) => { return root.tile-width(n, w, h); }
+        toggle-microphone => { root.toggle-microphone(); }
+        toggle-camera => { root.toggle-camera(); }
+        toggle-screen => { root.toggle-screen(); }
+        open-devices(which) => { root.open-devices(which); }
+        pick-device(kind, id) => { root.pick-device(kind, id); }
+        leave => { root.leave(); }
     }
 }
