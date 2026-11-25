@@ -1144,10 +1144,58 @@ pub fn match_place_of(
     unimplemented!("port `matchPlaceOf` from src/domain/conversationView.ts")
 }
 
+/// A recorded `DeletedChats`: an object of `{ before_ts: number }`; else another shape.
+fn deleted_chats(
+    value: &serde_json::Value,
+) -> Result<twake_domain::deleted_chats::DeletedChats, String> {
+    let skip = || "SKIP: input not of the typed shape (DeletedChats)".to_string();
+    let entries = value
+        .as_object()
+        .filter(|_| crate::js::as_number(value).is_none())
+        .ok_or_else(skip)?;
+    entries
+        .iter()
+        .map(|(room_id, entry)| {
+            let before = entry
+                .get("before_ts")
+                .and_then(crate::js::as_number)
+                .ok_or_else(skip)?;
+            Ok((room_id.clone(), before))
+        })
+        .collect()
+}
+
 /// Port of `readDeletedChats` (`src/domain/deletedChats.ts:13`).
 pub fn read_deleted_chats(content: serde_json::Value) -> Result<serde_json::Value, String> {
-    let _ = &content;
-    unimplemented!("port `readDeletedChats` from src/domain/deletedChats.ts")
+    use serde_json::Value;
+    // `typeof content === 'object'`: a marked number is a number
+    let entries: Vec<(String, &Value)> = match &content {
+        Value::Object(o) if crate::js::as_number(&content).is_none() => {
+            o.iter().map(|(k, v)| (k.clone(), v)).collect()
+        }
+        Value::Array(a) => a
+            .iter()
+            .enumerate()
+            .map(|(i, v)| (i.to_string(), v))
+            .collect(),
+        _ => Vec::new(),
+    };
+    let plain = twake_domain::deleted_chats::read_deleted_chats(&content);
+    // NaN and ±Infinity are numbers too, which JSON cannot carry to the domain
+    let marked = |entry: &Value| {
+        entry
+            .get("before_ts")
+            .is_some_and(|b| b.is_object() && crate::js::as_number(b).is_some())
+    };
+    // The entries as they were given, as `Object.fromEntries` keeps them
+    let kept: serde_json::Map<String, Value> = entries
+        .into_iter()
+        .filter(|(key, entry)| {
+            crate::js::as_number(entry).is_none() && (plain.contains_key(key) || marked(entry))
+        })
+        .map(|(k, v)| (k, v.clone()))
+        .collect();
+    Ok(Value::Object(kept))
 }
 
 /// Port of `isChatHidden` (`src/domain/deletedChats.ts:26`).
@@ -1156,18 +1204,42 @@ pub fn is_chat_hidden(
     room_id: String,
     last_activity_at: f64,
 ) -> Result<bool, String> {
-    let _ = (&deleted, &room_id, &last_activity_at);
-    unimplemented!("port `isChatHidden` from src/domain/deletedChats.ts")
+    let deleted = deleted_chats(&deleted)?;
+    Ok(twake_domain::deleted_chats::is_chat_hidden(
+        &deleted,
+        &room_id,
+        last_activity_at,
+    ))
 }
 
 /// Port of `withoutDeleted` (`src/domain/deletedChats.ts:36`).
 pub fn without_deleted(
     deleted: serde_json::Value,
     room_id: String,
-    messages: Vec<serde_json::Value>,
-) -> Result<Vec<serde_json::Value>, String> {
-    let _ = (&deleted, &room_id, &messages);
-    unimplemented!("port `withoutDeleted` from src/domain/deletedChats.ts")
+    messages: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let deleted = deleted_chats(&deleted)?;
+    // No entry: the very messages given back, whatever they are
+    if !deleted.contains_key(&room_id) {
+        return Ok(messages);
+    }
+    let serde_json::Value::Array(items) = &messages else {
+        return Err("TypeError: messages.filter is not a function".into());
+    };
+    let typed_messages: Vec<twake_domain::Message> = typed(messages.clone())?;
+    let kept = twake_domain::deleted_chats::without_deleted(&deleted, &room_id, &typed_messages);
+    // The messages as they were given
+    Ok(serde_json::Value::Array(
+        kept.into_iter()
+            .map(|m| {
+                let index = typed_messages
+                    .iter()
+                    .position(|t| std::ptr::eq(t, m))
+                    .expect("a message of the list");
+                items[index].clone()
+            })
+            .collect(),
+    ))
 }
 
 /// Port of `isAfterDeletion` (`src/domain/deletedChats.ts:48`).
@@ -1176,8 +1248,10 @@ pub fn is_after_deletion(
     room_id: String,
     at: f64,
 ) -> Result<bool, String> {
-    let _ = (&deleted, &room_id, &at);
-    unimplemented!("port `isAfterDeletion` from src/domain/deletedChats.ts")
+    let deleted = deleted_chats(&deleted)?;
+    Ok(twake_domain::deleted_chats::is_after_deletion(
+        &deleted, &room_id, at,
+    ))
 }
 
 /// Port of `readDismissedQuestions` (`src/domain/dismissedQuestions.ts:12`).

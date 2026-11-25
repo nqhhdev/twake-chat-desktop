@@ -8,6 +8,7 @@ mod activity;
 mod autoplay;
 mod calls;
 mod compose;
+mod deleted_chats;
 mod engine;
 mod media;
 mod pdf;

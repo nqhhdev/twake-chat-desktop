@@ -58,6 +58,10 @@ parseCallWindow
 placeCall
 isCallFloating
 computeSharedContent
+readDeletedChats
+isChatHidden
+withoutDeleted
+isAfterDeletion
 toCallLine
 ringAsks
 isRinging

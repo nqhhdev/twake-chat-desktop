@@ -4998,14 +4998,9 @@ pub fn without_deleted_wire(len: u32) -> napi::Result<f64> {
     wire_io(len, |r, w| {
         let deleted: serde_json::Value = wire::read_value(r, &S_WITHOUT_DELETED_0)?;
         let room_id: String = r.string16()?;
-        let messages: Vec<serde_json::Value> =
-            r.list(|r| wire::read_value(r, S_WITHOUT_DELETED_2.inner()))?;
+        let messages: serde_json::Value = wire::read_value(r, &S_WITHOUT_DELETED_2)?;
         let out = &port::without_deleted(deleted, room_id, messages)?;
-        w.tag(1);
-        w.count(out.len());
-        for x0 in out.iter() {
-            wire::write_value(w, x0, S_WITHOUT_DELETED_OUT.inner())?;
-        }
+        wire::write_value(w, out, &S_WITHOUT_DELETED_OUT)?;
         Ok(())
     })
 }

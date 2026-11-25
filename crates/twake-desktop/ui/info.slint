@@ -149,6 +149,12 @@ export component InfoPane inherits Rectangle {
     callback ban(string);
     callback set-role(string, string);
     callback leave();
+    // For the user alone, without leaving (web `menu-delete-chat`, D186)
+    callback delete-chat();
+    // To the server's administrators (web `menu-report`); a person, in a direct message
+    // (web `menu-block`)
+    callback report();
+    callback block();
     property <bool> editing;
     background: Theme.background;
     Rectangle { x: 0; width: 1px; background: Theme.line; }
@@ -332,6 +338,16 @@ export component InfoPane inherits Rectangle {
         HorizontalLayout {
             padding: 12px;
             alignment: center;
+            spacing: 8px;
+            TextButton { label: info.direct ? "Report" : "Report room"; clicked => { root.report(); } }
+            if info.direct: TextButton { label: "Block user"; clicked => { root.block(); } }
+        }
+        HorizontalLayout {
+            padding: 12px;
+            padding-top: 0;
+            alignment: center;
+            spacing: 8px;
+            TextButton { label: "Delete chat"; clicked => { root.delete-chat(); } }
             TextButton { label: info.direct ? "Leave this chat" : "Leave the room"; clicked => { root.leave(); } }
         }
     }
