@@ -4,6 +4,7 @@
 //! callback, called from the engine's own threads (the UI hops to its event loop).
 //! Matrix runs on matrix-rust-sdk (ADR-003).
 
+mod account_prefs;
 mod activity;
 mod autoplay;
 mod calls;

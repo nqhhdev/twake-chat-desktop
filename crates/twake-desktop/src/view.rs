@@ -422,6 +422,12 @@ pub fn room_info(
         }
         .into(),
         listed: details.is_listed,
+        notification_level: match details.notification_level {
+            twake_domain::room_management::NotificationLevel::All => "all",
+            twake_domain::room_management::NotificationLevel::Mentions => "mentions",
+            twake_domain::room_management::NotificationLevel::None => "none",
+        }
+        .into(),
         // A room shown here is no space, and no room is managed by Twake Space in the app
         can_move: twake_domain::space_choices::can_move_to_space(
             details.kind == RoomKind::Direct,

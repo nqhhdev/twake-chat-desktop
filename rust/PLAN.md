@@ -72,7 +72,7 @@ Inventory source: `reference/twake-space-chat/src/ui` (screens) and `src/applica
 
 | Feature | Notes |
 | --- | --- |
-| Settings: appearance (theme, accent, text size, composer style, bubble alignment), notifications (per room levels, do not disturb, keywords), devices, archive, contacts visibility | `SettingsScreen` and its parts |
+| Settings: appearance (theme, accent, text size, composer style, bubble alignment), notifications (per room levels, do not disturb, keywords), devices, archive, contacts visibility | Started: « Settings… » (app menu) with Appearance: theme (system, light, dark; kept on the device), composer style (new, classic; account data `app.twake.chat.composer_style`, `readComposerStyle` recorded), « Autoplay animated images » (account data). Notifications of a room in its info (every message, mentions only, nothing). Left: accent, text size, density, clock, wallpaper, bubble alignment, the Notifications section (do not disturb, keywords), the other sections |
 | Offline banner, retry of failed sends, outgoing queue | Done: the offline band (the sync service's offline mode), « Not sent. » with Retry and Discard. Left: the outgoing files' progress and cancel |
 | Localisation: the web's languages (`src/locales`) | Fluent or gettext; same keys |
 | Accessibility: screen readers (VoiceOver, Narrator, Orca), keyboard navigation everywhere, high contrast | AccessKit through Slint |
@@ -105,4 +105,4 @@ the signing secrets from the user.
 ## Domain ports alongside (ADR-011)
 
 Each milestone ports the `src/domain` functions it uses and adds them to
-`rust/units/ported.txt`; CI replays their recorded cases. 74 of 222 done.
+`rust/units/ported.txt`; CI replays their recorded cases. 75 of 222 done.

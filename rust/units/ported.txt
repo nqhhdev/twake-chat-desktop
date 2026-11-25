@@ -68,6 +68,7 @@ isSelectable
 isValidSlug
 suggestSlug
 isNameTooLong
+readComposerStyle
 toCallLine
 ringAsks
 isRinging

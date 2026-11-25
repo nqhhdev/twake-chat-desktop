@@ -987,8 +987,9 @@ pub fn parse_client_config(raw: serde_json::Value) -> Result<serde_json::Value, 
 
 /// Port of `readComposerStyle` (`src/domain/composerStyle.ts:14`).
 pub fn read_composer_style(content: serde_json::Value) -> Result<serde_json::Value, String> {
-    let _ = &content;
-    unimplemented!("port `readComposerStyle` from src/domain/composerStyle.ts")
+    Ok(serde_json::Value::String(
+        twake_domain::composer_style::read_composer_style(&content).to_string(),
+    ))
 }
 
 /// Port of `parseInvitationTarget` (`src/domain/contact.ts:35`).
