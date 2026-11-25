@@ -1893,6 +1893,17 @@ fn wire_room_info(window: &AppWindow) {
             win.set_notice_action("".into());
         });
     });
+    window.on_info_set_join_rule(|rule| {
+        use twake_domain::room_management::JoinRuleChoice;
+        let rule = match rule.as_str() {
+            "invite" => JoinRuleChoice::Invite,
+            "knock" => JoinRuleChoice::Knock,
+            "public" => JoinRuleChoice::Public,
+            _ => return,
+        };
+        room_command(RoomAction::SetJoinRule(rule));
+    });
+    window.on_info_set_listed(|listed| room_command(RoomAction::SetListed(listed)));
     let w = with.clone();
     window.on_report_room(move || {
         let room_id = current_room();

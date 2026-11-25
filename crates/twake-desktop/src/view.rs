@@ -413,6 +413,15 @@ pub fn room_info(
         can_edit: details.permissions.can_edit_settings,
         can_encrypt: details.permissions.can_encrypt,
         can_invite: details.permissions.can_invite,
+        access_line: details.join_rule.access_line().into(),
+        join_rule: match details.join_rule {
+            twake_domain::room_management::JoinRuleChoice::Invite => "invite",
+            twake_domain::room_management::JoinRuleChoice::Knock => "knock",
+            twake_domain::room_management::JoinRuleChoice::Public => "public",
+            twake_domain::room_management::JoinRuleChoice::Other => "other",
+        }
+        .into(),
+        listed: details.is_listed,
     }
 }
 

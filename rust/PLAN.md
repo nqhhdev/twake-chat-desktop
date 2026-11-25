@@ -17,7 +17,7 @@ Inventory source: `reference/twake-space-chat/src/ui` (screens) and `src/applica
 | Members, roles, permissions, invite, kick, ban | `RoomMembers`, `RoomPermissions`, `InviteDialog`, `MemberRole` | power levels via matrix-sdk |
 | Media / Links / Files tabs | `SharedContent` | Done: tabs of the info pane from the loaded messages (`computeSharedContent` recorded). Left: hide GIFs when the room has them off (M6), browse the room's pictures in the viewer |
 | Edit room: rename, topic, picture, encryption switch | `RoomEditPanel`, `RoomSettings` | |
-| Room access, public link, public rooms directory | `RoomAccessSettings`, `PublicRoomsDialog` | |
+| Room access, public link, public rooms directory | `RoomAccessSettings`, `PublicRoomsDialog` | Done: « Who can join » (invite, on request, public) and « In directory » in the Edit view, the access line under the member count. Left: public link and page (D388), the public rooms directory |
 | Leave, delete chat (hide history for oneself), block user, report | `RoomHeaderMenu`, `BlockAction`, `ReasonDialog` | Done: leave, delete chat for oneself (`app.twake.chat.deleted_chats`; `deletedChats.ts` recorded), Undo, report the room or a message with a reason, block the person of a direct message (`m.ignored_user_list`). Left: unblock (with the M7 settings) |
 | Create room, direct message, broadcast, page | `CreateRoomScreen`, `CreatePage` | |
 | Invites list, accept / decline | `InvitesSection` | |
@@ -27,7 +27,7 @@ Inventory source: `reference/twake-space-chat/src/ui` (screens) and `src/applica
 | Pinned messages | `PinnedBar`, `PinnedMessages` | |
 | Polls: create, vote, end | `PollDialog`, `PollMessage` | |
 | Message details: versions, forward, copy link, select several | `MessageVersionsDialog`, `ForwardRoomRow`, `MessageSelectionBar` | Done: the message menu as the web (quick reactions, reply, « ⋯ »), copy message, copy link (matrix.to, ADR-020), download file, forward to several conversations, edit history, select several (forward, download, copy, pin, delete; `isSelectable` recorded). Left: delete others' messages as a moderator |
-| Typing indicators, read receipts per person, presence | `useStatus`, `StatusDialog` | Done: typing; ticks on one's own messages (sent ✓, read ✓✓) and « N Seen » / « Seen by » per message, from each member's read receipt. Left: the « avatars » and « names » styles under messages (M7 setting), presence |
+| Typing indicators, read receipts per person, presence | `useStatus`, `StatusDialog` | Done: typing; ticks on one's own messages (sent ✓, read ✓✓) and « N Seen » / « Seen by » per message, from each member's read receipt. Left: the « avatars » and « names » styles under messages, and the status (presence, its presets and « Do not disturb »): both come with the M7 settings |
 
 ## M4: Search, activity, composer
 

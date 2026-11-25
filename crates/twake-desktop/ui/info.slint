@@ -34,6 +34,38 @@ export struct RoomInfoData {
     can-edit: bool,
     can-encrypt: bool,
     can-invite: bool,
+    // Who may join (web `AccessLine`, `RoomAccessSettings`): "invite", "knock", "public" or
+    // "other" (a space's rule, told, never changed), and the directory listing
+    access-line: string,
+    join-rule: string,
+    listed: bool,
+}
+
+// A choice of « Who can join »: a round mark, checked or not
+component RuleChoice inherits Rectangle {
+    in property <string> label;
+    in property <bool> checked;
+    callback clicked();
+    height: 30px;
+    accessible-role: checkbox;
+    accessible-checked: checked;
+    accessible-label: label;
+    accessible-action-default => { clicked(); }
+    TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    HorizontalLayout {
+        spacing: 10px;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 18px;
+                height: 18px;
+                border-radius: 9px;
+                border-width: root.checked ? 5px : 1.5px;
+                border-color: root.checked ? Theme.primary : Theme.text-secondary;
+            }
+        }
+        Text { text: root.label; color: Theme.text; vertical-alignment: center; }
+    }
 }
 
 // A picture or a video of the room, in the Media tab (web `MediaTile`)
@@ -149,6 +181,9 @@ export component InfoPane inherits Rectangle {
     callback ban(string);
     callback set-role(string, string);
     callback leave();
+    // « Who can join » and « In directory » (web `RoomAccessSettings`, D516)
+    callback set-join-rule(string);
+    callback set-listed(bool);
     // For the user alone, without leaving (web `menu-delete-chat`, D186)
     callback delete-chat();
     // To the server's administrators (web `menu-report`); a person, in a direct message
@@ -195,9 +230,38 @@ export component InfoPane inherits Rectangle {
             }
             if !root.editing: Text { text: info.name; font-size: 20px; font-weight: Theme.weight-bold; color: Theme.text; horizontal-alignment: center; wrap: word-wrap; }
             if !root.editing: Text { text: info.count-text; color: Theme.text-secondary; horizontal-alignment: center; }
+            if !root.editing && !info.direct: Text { text: info.access-line; color: Theme.text-secondary; horizontal-alignment: center; }
             if !root.editing && info.topic != "": Text { text: info.topic; color: Theme.text; wrap: word-wrap; horizontal-alignment: center; }
             name-field := Field { visible: root.editing; height: root.editing ? self.preferred-height : 0; label: "Name"; }
             topic-field := Field { visible: root.editing; height: root.editing ? self.preferred-height : 0; label: "Description"; }
+            // Who may join: an encrypted room is never offered « Public » nor the listing,
+            // unless it has them already, to take them away (D187)
+            if root.editing && !info.direct: VerticalLayout {
+                spacing: 4px;
+                Text { text: "Who can join"; color: Theme.text-secondary; font-size: 12px; font-weight: 600; }
+                if info.join-rule == "other": Text { text: "Members of a space can join. This isn't changed here."; color: Theme.text-secondary; wrap: word-wrap; }
+                if info.join-rule != "other": RuleChoice { label: "Invite only"; checked: info.join-rule == "invite"; clicked => { root.set-join-rule("invite"); } }
+                if info.join-rule != "other": RuleChoice { label: "On request"; checked: info.join-rule == "knock"; clicked => { root.set-join-rule("knock"); } }
+                if info.join-rule != "other" && (!info.encrypted || info.join-rule == "public"): RuleChoice { label: "Public"; checked: info.join-rule == "public"; clicked => { root.set-join-rule("public"); } }
+                Text {
+                    text: info.encrypted ? "An encrypted room can't be public or listed." : "Public: anyone can join. On request: an administrator approves each request.";
+                    color: Theme.text-secondary;
+                    font-size: 12px;
+                    wrap: word-wrap;
+                }
+                if !info.encrypted || info.listed: HorizontalLayout {
+                    spacing: 8px;
+                    VerticalLayout {
+                        horizontal-stretch: 1;
+                        Text { text: "In directory"; color: Theme.text; }
+                        Text { text: "Anyone can find this room in the public directory."; color: Theme.text-secondary; font-size: 12px; wrap: word-wrap; }
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        CheckBox { checked: info.listed; toggled => { root.set-listed(self.checked); } }
+                    }
+                }
+            }
             HorizontalLayout {
                 spacing: 8px;
                 alignment: center;

@@ -1003,6 +1003,8 @@ export component AppWindow inherits Window {
     callback forward-send();
     callback forward-cancel();
     callback report-room();
+    callback info-set-join-rule(string);
+    callback info-set-listed(bool);
     callback block-user();
     callback open-pinned();
     in property <int> pinned-count;
@@ -1499,6 +1501,8 @@ export component AppWindow inherits Window {
                 leave => { root.leave-room(); }
                 delete-chat => { root.delete-chat(); }
                 report => { root.report-room(); }
+                set-join-rule(rule) => { root.info-set-join-rule(rule); }
+                set-listed(listed) => { root.info-set-listed(listed); }
                 block => { root.block-user(); }
             }
             if !root.activity-open && root.current-room-id != "" && root.search-open && !root.thread-open && !root.info-open: SearchPane {

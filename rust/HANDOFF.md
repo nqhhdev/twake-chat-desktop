@@ -86,6 +86,13 @@ M3:
   the web's `lastReadersOf`), the sender of a message left out; their names are read once
   from the room's members. The web's other styles (avatars, names under messages) come
   with the M7 settings. Not tried in a run.
+- Room access (2026-11-25), as the web's `AccessLine` and `RoomAccessSettings` (D516): the
+  room info says who may join under its member count (« Private · Invite only », « Private ·
+  On request », « Public », « Space members »; not in a direct message); its Edit view offers
+  « Who can join » and « In directory », the rule sent before the listing; an encrypted room
+  is never offered Public nor the listing unless it has them (D187); a space's rule is told,
+  never replaced. The public web page (D388) and the public rooms directory are still to do.
+  Not tried in a run.
 - Forward (2026-11-25), as the web's `ForwardDialog` and `saveForward`: « Forward » in the
   menu opens « Forward to… », a search (accents and case ignored) over the other
   conversations, labelled with their space, 50 at most; tick one or more, Forward, and the
