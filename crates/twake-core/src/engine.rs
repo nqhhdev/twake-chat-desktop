@@ -128,6 +128,24 @@ pub enum Command {
         /// Values from 0 to 1.
         waveform: Vec<f32>,
     },
+    /// Send a message that failed again (web `retryMessage`); `id`: its transaction id, as
+    /// the timeline gives a local echo.
+    RetrySend {
+        id: String,
+    },
+    /// Drop a message that failed (web `discardMessage`).
+    DiscardSend {
+        id: String,
+    },
+    /// The spaces a room may go to ([`Event::SpaceChoices`]).
+    SpaceChoices {
+        room_id: String,
+    },
+    /// Put a room in a space, or in none (web `saveRoomSpace`).
+    MoveToSpace {
+        room_id: String,
+        space_id: Option<String>,
+    },
     /// The public directory of the homeserver ([`Event::PublicRooms`]).
     PublicRooms,
     /// Join a room of the directory, or ask to (on request): [`Event::RoomCreated`] once
@@ -263,12 +281,8 @@ pub enum Command {
         action: RoomAction,
     },
     /// Create a room and invite people to it; opens it ([`Event::RoomCreated`]).
-    CreateRoom {
-        name: String,
-        topic: String,
-        invite: Vec<String>,
-        encrypted: bool,
-    },
+    /// A new room of one kind (web `createRoom`): [`Event::RoomCreated`] once made.
+    CreateRoom(twake_domain::room_management::NewRoom),
     /// Open the direct message with someone, created when there is none (in the clear, as
     /// the web: encryption is a switch of the room).
     OpenDirect {
@@ -372,6 +386,15 @@ pub enum Event {
     },
     /// The saved messages, newest first, after each change.
     Saved(Vec<SavedEntry>),
+    /// The server is reachable, or not (web `OfflineBanner`): the sync service's offline mode.
+    Connection {
+        online: bool,
+    },
+    /// The spaces a room may go to, depth first ([`Command::SpaceChoices`]).
+    SpaceChoices {
+        room_id: String,
+        choices: Vec<twake_domain::space_choices::SpaceChoice>,
+    },
     /// The rooms of the public directory.
     PublicRooms(Vec<crate::directory::PublicRoom>),
     /// The versions of a message, oldest first; empty when it could not be read.
@@ -811,6 +834,65 @@ async fn run(mut commands: mpsc::UnboundedReceiver<Command>, emit: Emit) {
                     });
                 }
             }
+            Command::RetrySend { id } => {
+                if let Some(open) = &state.open {
+                    let timelines = open_timelines(open);
+                    let emit = emit.clone();
+                    tokio::spawn(async move {
+                        if let Some(handle) = send_handle(&timelines, &id).await
+                            && let Err(e) = handle.unwedge().await
+                        {
+                            emit(Event::Error(format!("not sent again: {e}")));
+                        }
+                    });
+                }
+            }
+            Command::DiscardSend { id } => {
+                if let Some(open) = &state.open {
+                    let timelines = open_timelines(open);
+                    let emit = emit.clone();
+                    tokio::spawn(async move {
+                        if let Some(handle) = send_handle(&timelines, &id).await
+                            && let Err(e) = handle.abort().await
+                        {
+                            emit(Event::Error(format!("not discarded: {e}")));
+                        }
+                    });
+                }
+            }
+            Command::SpaceChoices { room_id } => {
+                if let Some(client) = state.client.clone() {
+                    let emit = emit.clone();
+                    tokio::spawn(async move {
+                        let choices = crate::space_links::space_choices(&client, &room_id).await;
+                        emit(Event::SpaceChoices { room_id, choices });
+                    });
+                }
+            }
+            Command::MoveToSpace { room_id, space_id } => {
+                if let Some(client) = state.client.clone() {
+                    let emit = emit.clone();
+                    tokio::spawn(async move {
+                        let moved = crate::space_links::move_room_to_space(
+                            &client,
+                            &room_id,
+                            space_id.as_deref(),
+                        )
+                        .await;
+                        match moved {
+                            Ok(()) => emit(Event::Notice(
+                                if space_id.is_some() {
+                                    "Moved to the space"
+                                } else {
+                                    "Taken out of its space"
+                                }
+                                .into(),
+                            )),
+                            Err(e) => emit(Event::Error(format!("not moved: {e}"))),
+                        }
+                    });
+                }
+            }
             Command::PublicRooms => {
                 if let Some(client) = state.client.clone() {
                     let emit = emit.clone();
@@ -1092,16 +1174,11 @@ async fn run(mut commands: mpsc::UnboundedReceiver<Command>, emit: Emit) {
                     tokio::spawn(room_action(room, action, emit));
                 }
             }
-            Command::CreateRoom {
-                name,
-                topic,
-                invite,
-                encrypted,
-            } => {
+            Command::CreateRoom(room) => {
                 if let Some(client) = state.client.clone() {
                     let emit = emit.clone();
                     tokio::spawn(async move {
-                        match create_room(&client, name, topic, invite, encrypted).await {
+                        match crate::room_creation::create(&client, room).await {
                             Ok(room_id) => emit(Event::RoomCreated { room_id }),
                             Err(e) => emit(Event::Error(format!("room not created: {e}"))),
                         }
@@ -1245,7 +1322,12 @@ async fn start_session(state: &mut State, client: Client, emit: &Emit) {
     if let Err(e) = client.event_cache().subscribe() {
         emit(Event::Error(format!("event cache: {e}")));
     }
-    let sync = match SyncService::builder(client.clone()).build().await {
+    // Offline mode: a sync that fails waits for the server and comes back by itself
+    let sync = match SyncService::builder(client.clone())
+        .with_offline_mode()
+        .build()
+        .await
+    {
         Ok(sync) => sync,
         Err(e) => {
             emit(Event::Error(format!("sync: {e}")));
@@ -1253,6 +1335,21 @@ async fn start_session(state: &mut State, client: Client, emit: &Emit) {
         }
     };
     sync.start().await;
+    // Whether the server is reachable (web `OfflineBanner`)
+    let states = sync.state();
+    let connection_emit = emit.clone();
+    state.tasks.push(tokio::spawn(async move {
+        use matrix_sdk_ui::sync_service::State;
+        let mut states = states;
+        let mut online = true;
+        while let Some(now) = states.next().await {
+            let next = !matches!(now, State::Offline | State::Error(_));
+            if next != online {
+                online = next;
+                connection_emit(Event::Connection { online });
+            }
+        }
+    }));
     let service = sync.room_list_service();
     state.tasks.push(tokio::spawn(rooms::run(
         client.clone(),
@@ -1492,6 +1589,32 @@ async fn watch_tokens(client: Client) {
     }
 }
 
+/// The timelines of the open room and of its open thread.
+fn open_timelines(open: &OpenRoom) -> Vec<Arc<Timeline>> {
+    let mut timelines = vec![open.timeline.clone()];
+    timelines.extend(open.thread.as_ref().map(|t| t.timeline.clone()));
+    timelines
+}
+
+/// The send handle of the local echo `transaction_id` in one of `timelines`.
+async fn send_handle(
+    timelines: &[Arc<Timeline>],
+    transaction_id: &str,
+) -> Option<matrix_sdk::send_queue::SendHandle> {
+    for timeline in timelines {
+        for item in timeline.items().await {
+            if let Some(event) = item.as_event()
+                && event
+                    .transaction_id()
+                    .is_some_and(|t| t.as_str() == transaction_id)
+            {
+                return event.local_echo_send_handle();
+            }
+        }
+    }
+    None
+}
+
 /// The pinned list of `room` with `event_ids` added (in order, at its end) or taken off.
 async fn set_pinned(
     room: &matrix_sdk::Room,
@@ -1591,47 +1714,6 @@ async fn room_action(room: matrix_sdk::Room, action: RoomAction, emit: Emit) {
         }
         Err(e) => emit(Event::Error(e)),
     }
-}
-
-async fn create_room(
-    client: &Client,
-    name: String,
-    topic: String,
-    invite: Vec<String>,
-    encrypted: bool,
-) -> Result<String, String> {
-    use matrix_sdk::ruma::{
-        UserId,
-        api::client::room::create_room::v3::{Request, RoomPreset},
-        events::{InitialStateEvent, room::encryption::RoomEncryptionEventContent},
-    };
-    let mut request = Request::new();
-    request.name = Some(name.trim().to_string()).filter(|n| !n.is_empty());
-    request.topic = Some(topic.trim().to_string()).filter(|t| !t.is_empty());
-    request.preset = Some(RoomPreset::PrivateChat);
-    // Everyone may join a call: the membership is a state event, which the default
-    // power levels keep to moderators (web `powerLevelsOverride`)
-    request.power_level_content_override = matrix_sdk::ruma::serde::Raw::from_json_string(
-        serde_json::json!({ "events": { crate::calls::CALL_MEMBER_TYPE: 0 } }).to_string(),
-    )
-    .ok();
-    request.invite = invite
-        .iter()
-        .map(|u| UserId::parse(u.trim()).map_err(|_| format!("« {u} » is not a Matrix id")))
-        .collect::<Result<_, _>>()?;
-    if encrypted {
-        request.initial_state = vec![
-            InitialStateEvent::with_empty_state_key(
-                RoomEncryptionEventContent::with_recommended_defaults(),
-            )
-            .to_raw_any(),
-        ];
-    }
-    let room = client
-        .create_room(request)
-        .await
-        .map_err(|e| e.to_string())?;
-    Ok(room.room_id().to_string())
 }
 
 async fn open_direct(client: &Client, user_id: &str) -> Result<String, String> {

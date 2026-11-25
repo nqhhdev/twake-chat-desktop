@@ -1306,6 +1306,12 @@ fn apply(window: &AppWindow, event: Event) {
         Event::Forwarded { to_rooms } => forward::forwarded(window, &to_rooms),
         Event::MessageVersions { versions, .. } => show_versions(window, &versions),
         Event::PublicRooms(rooms) => directory::loaded(window, rooms),
+        Event::Connection { online } => window.set_offline(!online),
+        Event::SpaceChoices { room_id, choices } => {
+            if STATE.with_borrow(|s| s.current_room == room_id) {
+                show_space_choices(window, &choices);
+            }
+        }
         Event::DeletedChats(deleted) => {
             STATE.with_borrow_mut(|s| s.deleted = deleted);
             show_rooms(window);
@@ -1673,6 +1679,27 @@ fn with_reason(command: Command, reason: Option<String>) -> Command {
     }
 }
 
+/// « Move to a Space »: « No space » first (checked when the room is in none), then the
+/// spaces where the user may add rooms (web `MoveToSpaceDialog`).
+fn show_space_choices(window: &AppWindow, choices: &[twake_domain::space_choices::SpaceChoice]) {
+    let in_one = choices.iter().any(|c| c.is_current);
+    let rows: Vec<SpaceChoiceRow> = std::iter::once(SpaceChoiceRow {
+        id: "".into(),
+        name: "No space".into(),
+        depth: 0,
+        current: !in_one,
+    })
+    .chain(choices.iter().map(|c| SpaceChoiceRow {
+        id: c.id.as_str().into(),
+        name: c.name.as_str().into(),
+        depth: i32::try_from(c.depth).unwrap_or(0),
+        current: c.is_current,
+    }))
+    .collect();
+    window.set_space_choices(ModelRc::from(Rc::new(VecModel::from(rows))));
+    window.set_space_dialog_open(true);
+}
+
 /// « Edit history », newest first, the newest marked current (web
 /// `MessageVersionsDialog`); a history that could not be read says so instead.
 fn show_versions(window: &AppWindow, versions: &[twake_core::MessageVersion]) {
@@ -1924,6 +1951,19 @@ fn wire_room_info(window: &AppWindow) {
         room_command(RoomAction::SetJoinRule(rule));
     });
     window.on_info_set_listed(|listed| room_command(RoomAction::SetListed(listed)));
+    window.on_info_move_to_space(|| {
+        send(Command::SpaceChoices {
+            room_id: current_room(),
+        });
+    });
+    let w = with.clone();
+    window.on_space_pick(move |id| {
+        send(Command::MoveToSpace {
+            room_id: current_room(),
+            space_id: (!id.is_empty()).then(|| id.to_string()),
+        });
+        w(&|win| win.set_space_dialog_open(false));
+    });
     let w = with.clone();
     window.on_report_room(move || {
         let room_id = current_room();
@@ -2028,20 +2068,47 @@ fn wire_room_info(window: &AppWindow) {
     window.on_show_create(move |mode| w(&|win| win.set_create_mode(mode.clone())));
     let w = with.clone();
     window.on_cancel_create(move || w(&|win| win.set_create_mode("".into())));
-    window.on_create_room(|name, topic, people, encrypted| {
-        let invite = people
-            .split([',', ' ', ';', '\n'])
-            .map(str::trim)
-            .filter(|p| !p.is_empty())
-            .map(str::to_string)
-            .collect();
-        send(Command::CreateRoom {
-            name: name.to_string(),
-            topic: topic.to_string(),
-            invite,
-            encrypted,
-        });
-    });
+    window.on_retry_send(|id| send(Command::RetrySend { id: id.to_string() }));
+    window.on_discard_send(|id| send(Command::DiscardSend { id: id.to_string() }));
+    window.on_create_room(
+        |kind, name, topic, people, public, encrypted, access, reactions, slug| {
+            use twake_domain::room_management::{NewPage, NewRoom, NewRoomKind, PageAccess};
+            let invite = people
+                .split([',', ' ', ';', '\n'])
+                .map(str::trim)
+                .filter(|p| !p.is_empty())
+                .map(str::to_string)
+                .collect();
+            let kind = match kind.as_str() {
+                "feed" => NewRoomKind::Broadcast,
+                "space" => NewRoomKind::Space,
+                "voice" => NewRoomKind::Voice,
+                "page" => NewRoomKind::Page,
+                _ => NewRoomKind::Discussion,
+            };
+            let page = (kind == NewRoomKind::Page).then(|| NewPage {
+                access: match access.as_str() {
+                    "invite" => PageAccess::Invite,
+                    "approval" => PageAccess::Approval,
+                    _ => PageAccess::Open,
+                },
+                allows_reactions: reactions,
+                slug: slug.to_string(),
+            });
+            send(Command::CreateRoom(NewRoom {
+                name: name.to_string(),
+                topic: topic.to_string(),
+                kind,
+                is_public: public && kind != NewRoomKind::Page,
+                is_encrypted: encrypted,
+                invite,
+                page,
+                ..NewRoom::default()
+            }));
+        },
+    );
+    window.on_suggest_slug(|name| twake_domain::room_management::suggest_slug(&name).into());
+    window.on_valid_slug(|slug| twake_domain::room_management::is_valid_slug(&slug));
     window.on_open_direct(|user| {
         send(Command::OpenDirect {
             user_id: user.to_string(),

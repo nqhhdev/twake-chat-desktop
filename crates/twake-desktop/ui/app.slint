@@ -8,10 +8,10 @@ import { FeedLine, ActivityPane } from "activity.slint";
 import { Row, ReactionChip, PollAnswerRow, MessageLine, SelectionButton, AudioState, Animations } from "timeline.slint";
 export { AudioState, Animations }
 export { Icons }
-import { ForwardDialog, ForwardRow, MemberRow, VersionRow, VersionsDialog, RoomInfoData, InfoPane, SharedFileRow, SharedLinkRow, SharedMediaRow, ConfirmDialog, CreateDialog, PollDialog } from "info.slint";
+import { ForwardDialog, ForwardRow, MemberRow, SpaceChoiceRow, SpaceDialog, VersionRow, VersionsDialog, RoomInfoData, InfoPane, SharedFileRow, SharedLinkRow, SharedMediaRow, ConfirmDialog, CreateDialog, PollDialog } from "info.slint";
 import { CallPopOut, CallStage, CallTileRow, CallWindow, CallWindowRect, DeviceRow, DeviceSection } from "call.slint";
 export { CallPopOut }
-export { Row, ReactionChip, PollAnswerRow, MemberRow, RoomInfoData, Suggestion, SearchHit, FeedLine, CallTileRow, CallWindowRect, DeviceRow, DeviceSection, SharedFileRow, SharedLinkRow, SharedMediaRow, ForwardRow, VersionRow }
+export { Row, ReactionChip, PollAnswerRow, MemberRow, RoomInfoData, Suggestion, SearchHit, FeedLine, CallTileRow, CallWindowRect, DeviceRow, DeviceSection, SharedFileRow, SharedLinkRow, SharedMediaRow, ForwardRow, VersionRow, SpaceChoiceRow }
 
 export struct SpaceItem {
     id: string,
@@ -984,6 +984,10 @@ export component AppWindow inherits Window {
     in property <bool> selection-unpin;
     in property <bool> selection-can-delete;
     callback select-message(string);
+    callback retry-send(string);
+    callback discard-send(string);
+    // The server cannot be reached (web `OfflineBanner`)
+    in property <bool> offline;
     callback selection-close();
     callback selection-forward();
     callback selection-download();
@@ -1014,6 +1018,11 @@ export component AppWindow inherits Window {
     callback directory-choose(int);
     callback info-set-join-rule(string);
     callback info-set-listed(bool);
+    callback info-move-to-space();
+    // « Move to a Space » open with these choices
+    in-out property <bool> space-dialog-open;
+    in property <[SpaceChoiceRow]> space-choices;
+    callback space-pick(string);
     callback block-user();
     callback open-pinned();
     in property <int> pinned-count;
@@ -1058,7 +1067,9 @@ export component AppWindow inherits Window {
     in property <string> create-mode;
     callback show-create(string);
     callback cancel-create();
-    callback create-room(string, string, string, bool);
+    callback create-room(string, string, string, string, bool, bool, string, bool, string);
+    pure callback suggest-slug(string) -> string;
+    pure callback valid-slug(string) -> bool;
     callback open-direct(string);
 
     // Confirmation of an action that cannot be undone ("" hides it)
@@ -1085,6 +1096,14 @@ export component AppWindow inherits Window {
     }
 
     if page == 2: VerticalLayout {
+        // Rare and worrying: a warning band above everything while the server is out of reach
+        if root.offline: Rectangle {
+            height: 32px;
+            background: Theme.warning-bg;
+            accessible-role: text;
+            accessible-label: "You are offline. The chat will update when the connection is back.";
+            Text { text: "You are offline. The chat will update when the connection is back."; color: Theme.text; font-size: 13px; }
+        }
         // App bar
         Rectangle {
             height: 52px;
@@ -1450,6 +1469,8 @@ export component AppWindow inherits Window {
                         forward(id) => { root.forward-message(id); }
                         versions(id) => { root.show-versions(id); }
                         select(id) => { root.select-message(id); }
+                        retry-send(id) => { root.retry-send(id); }
+                        discard-send(id) => { root.discard-send(id); }
                         seen(id) => { root.show-seen(id); }
                         direct: root.current-room-direct;
                     }
@@ -1525,6 +1546,7 @@ export component AppWindow inherits Window {
                 report => { root.report-room(); }
                 set-join-rule(rule) => { root.info-set-join-rule(rule); }
                 set-listed(listed) => { root.info-set-listed(listed); }
+                move-to-space => { root.info-move-to-space(); }
                 block => { root.block-user(); }
             }
             if !root.activity-open && root.current-room-id != "" && root.search-open && !root.thread-open && !root.info-open: SearchPane {
@@ -1591,6 +1613,8 @@ export component AppWindow inherits Window {
                         forward(id) => { root.forward-message(id); }
                         versions(id) => { root.show-versions(id); }
                         select(id) => { root.select-message(id); }
+                        retry-send(id) => { root.retry-send(id); }
+                        discard-send(id) => { root.discard-send(id); }
                         seen(id) => { root.show-seen(id); }
                         direct: root.current-room-direct;
                         }
@@ -1654,6 +1678,14 @@ export component AppWindow inherits Window {
         close => { root.versions-open = false; }
     }
 
+    if root.space-dialog-open: SpaceDialog {
+        width: root.width;
+        height: root.height;
+        choices: root.space-choices;
+        pick(id) => { root.space-pick(id); }
+        cancel => { root.space-dialog-open = false; }
+    }
+
     if root.forward-open: ForwardDialog {
         width: root.width;
         height: root.height;
@@ -1670,7 +1702,9 @@ export component AppWindow inherits Window {
         width: root.width;
         height: root.height;
         mode: root.create-mode;
-        create-room(name, topic, people, encrypted) => { root.create-room(name, topic, people, encrypted); }
+        create-room(kind, name, topic, people, public, encrypted, access, reactions, slug) => { root.create-room(kind, name, topic, people, public, encrypted, access, reactions, slug); }
+        suggest-slug(name) => { return root.suggest-slug(name); }
+        valid-slug(slug) => { return root.valid-slug(slug); }
         open-direct(user) => { root.open-direct(user); }
         cancel => { root.cancel-create(); }
     }

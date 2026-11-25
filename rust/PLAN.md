@@ -19,9 +19,9 @@ Inventory source: `reference/twake-space-chat/src/ui` (screens) and `src/applica
 | Edit room: rename, topic, picture, encryption switch | `RoomEditPanel`, `RoomSettings` | |
 | Room access, public link, public rooms directory | `RoomAccessSettings`, `PublicRoomsDialog` | Done: « Who can join » (invite, on request, public) and « In directory » in the Edit view, the access line under the member count, the public rooms directory (« Public groups »: join, or ask to join). Left: public link and page (D388) |
 | Leave, delete chat (hide history for oneself), block user, report | `RoomHeaderMenu`, `BlockAction`, `ReasonDialog` | Done: leave, delete chat for oneself (`app.twake.chat.deleted_chats`; `deletedChats.ts` recorded), Undo, report the room or a message with a reason, block the person of a direct message (`m.ignored_user_list`). Left: unblock (with the M7 settings) |
-| Create room, direct message, broadcast, page | `CreateRoomScreen`, `CreatePage` | |
+| Create room, direct message, broadcast, page | `CreateRoomScreen`, `CreatePage` | Done: group, feed, space (with its General channel), voice room, Broadcast (who may follow, reactions, address of its page): `buildCreateRoomOptions` ported, `isValidSlug`, `suggestSlug`, `isNameTooLong` recorded. Left: the contacts on the Create page (M6), creating inside a space |
 | Invites list, accept / decline | `InvitesSection` | |
-| Spaces: channels, General room, move to space | `SpaceChannels`, `SpaceLanding`, `MoveToSpaceDialog` | |
+| Spaces: channels, General room, move to space | `SpaceChannels`, `SpaceLanding`, `MoveToSpaceDialog` | Done: « Move to a Space » (`spaceLinks.ts` ported: links read from both ends, the missing ones written, a restricted room following its space, the others removed; `buildSpaceChoices`). Left: the space's channels and landing, its General room |
 | Folders of rooms, archive | `FolderPage`, `FolderSettings`, `ArchiveSettings` | account data; moved to M7 (settings) |
 | Contacts screen, person card, profile, edit own profile | `ContactsScreen`, `PersonCard`, `ProfilePanel`, `EditOwnProfileDialog` | moved to M6 with the ToM address book |
 | Pinned messages | `PinnedBar`, `PinnedMessages` | |
@@ -73,7 +73,7 @@ Inventory source: `reference/twake-space-chat/src/ui` (screens) and `src/applica
 | Feature | Notes |
 | --- | --- |
 | Settings: appearance (theme, accent, text size, composer style, bubble alignment), notifications (per room levels, do not disturb, keywords), devices, archive, contacts visibility | `SettingsScreen` and its parts |
-| Offline banner, retry of failed sends, outgoing queue | `OfflineBanner`, `OutgoingList` |
+| Offline banner, retry of failed sends, outgoing queue | Done: the offline band (the sync service's offline mode), « Not sent. » with Retry and Discard. Left: the outgoing files' progress and cancel |
 | Localisation: the web's languages (`src/locales`) | Fluent or gettext; same keys |
 | Accessibility: screen readers (VoiceOver, Narrator, Orca), keyboard navigation everywhere, high contrast | AccessKit through Slint |
 
@@ -105,4 +105,4 @@ the signing secrets from the user.
 ## Domain ports alongside (ADR-011)
 
 Each milestone ports the `src/domain` functions it uses and adds them to
-`rust/units/ported.txt`; CI replays their recorded cases. 71 of 222 done.
+`rust/units/ported.txt`; CI replays their recorded cases. 74 of 222 done.
