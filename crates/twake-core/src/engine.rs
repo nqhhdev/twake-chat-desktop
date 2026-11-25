@@ -132,9 +132,10 @@ pub enum Command {
     MessageVersions {
         event_id: String,
     },
-    /// Send a message of the open room again to these rooms ([`Event::Forwarded`]).
+    /// Send messages of the open room again to these rooms, in this order
+    /// ([`Event::Forwarded`]).
     Forward {
-        event_id: String,
+        event_ids: Vec<String>,
         to_rooms: Vec<String>,
     },
     /// Delete a chat for the user alone up to `before_ts`, or bring it back with None
@@ -211,8 +212,9 @@ pub enum Command {
         multiple: bool,
         thread: bool,
     },
+    /// Pin or unpin messages of the open room, in one update of the pinned list.
     Pin {
-        id: String,
+        ids: Vec<String>,
         pinned: bool,
     },
     /// Open the pinned messages of the open room in the side panel ([`Event::Thread`] with
@@ -808,14 +810,17 @@ async fn run(mut commands: mpsc::UnboundedReceiver<Command>, emit: Emit) {
                     });
                 }
             }
-            Command::Forward { event_id, to_rooms } => {
+            Command::Forward {
+                event_ids,
+                to_rooms,
+            } => {
                 if let (Some(client), Some(open)) = (state.client.clone(), &state.open) {
                     // A reply of the open thread is in the thread's timeline only
                     let mut timelines = vec![open.timeline.clone()];
                     timelines.extend(open.thread.as_ref().map(|t| t.timeline.clone()));
                     let emit = emit.clone();
                     tokio::spawn(async move {
-                        match crate::forward::forward(&client, &timelines, &event_id, &to_rooms)
+                        match crate::forward::forward(&client, &timelines, &event_ids, &to_rooms)
                             .await
                         {
                             Ok(to_rooms) => emit(Event::Forwarded { to_rooms }),
@@ -999,16 +1004,18 @@ async fn run(mut commands: mpsc::UnboundedReceiver<Command>, emit: Emit) {
                     });
                 }
             }
-            Command::Pin { id, pinned } => {
-                if let (Some(open), Ok(event_id)) = (&state.open, OwnedEventId::try_from(id)) {
+            Command::Pin { ids, pinned } => {
+                if let Some(open) = &state.open {
                     let room = open.timeline.room().clone();
+                    let event_ids: Vec<OwnedEventId> = ids
+                        .into_iter()
+                        .filter_map(|id| OwnedEventId::try_from(id).ok())
+                        .collect();
                     let emit = emit.clone();
                     tokio::spawn(async move {
-                        let done = if pinned {
-                            room.pin_event(&event_id).await
-                        } else {
-                            room.unpin_event(&event_id).await
-                        };
+                        // One update: pinning one by one would each read the list before the
+                        // other's change came back (web `setPinned`)
+                        let done = set_pinned(&room, &event_ids, pinned).await;
                         if let Err(e) = done {
                             emit(Event::Error(format!(
                                 "not {}: {e}",
@@ -1446,6 +1453,34 @@ async fn watch_tokens(client: Client) {
             session::on_tokens_refreshed(&client);
         }
     }
+}
+
+/// The pinned list of `room` with `event_ids` added (in order, at its end) or taken off.
+async fn set_pinned(
+    room: &matrix_sdk::Room,
+    event_ids: &[OwnedEventId],
+    pinned: bool,
+) -> matrix_sdk::Result<()> {
+    use matrix_sdk::ruma::events::room::pinned_events::RoomPinnedEventsEventContent;
+    let mut list = match room.pinned_event_ids() {
+        Some(list) => list,
+        None => room.load_pinned_events().await?.unwrap_or_default(),
+    };
+    let before = list.clone();
+    if pinned {
+        for id in event_ids {
+            if !list.contains(id) {
+                list.push(id.clone());
+            }
+        }
+    } else {
+        list.retain(|id| !event_ids.contains(id));
+    }
+    if list != before {
+        room.send_state_event(RoomPinnedEventsEventContent::new(list))
+            .await?;
+    }
+    Ok(())
 }
 
 async fn room_action(room: matrix_sdk::Room, action: RoomAction, emit: Emit) {
