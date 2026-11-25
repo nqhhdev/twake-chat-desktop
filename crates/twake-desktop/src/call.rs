@@ -370,6 +370,16 @@ fn name_of(user_id: &str) -> String {
         })
 }
 
+/// A shared screen takes the stage, the people a row under it: the first screen comes
+/// first, the others keep their order (web `CallStage`).
+fn stage_first(mut tiles: Vec<CallTile>) -> Vec<CallTile> {
+    if let Some(i) = tiles.iter().position(|t| t.is_screen) {
+        let screen = tiles.remove(i);
+        tiles.insert(0, screen);
+    }
+    tiles
+}
+
 /// Who is in the call changed: the rows keep the last picture of each person.
 pub fn tiles(window: &AppWindow, tiles: Vec<CallTile>) {
     let Some(model) = CALL.with_borrow(|c| c.tiles.clone()) else {
@@ -380,7 +390,7 @@ pub fn tiles(window: &AppWindow, tiles: Vec<CallTile>) {
         .map(|r| (r.identity.to_string(), (r.frame.clone(), r.ready)))
         .collect();
     let sharing = tiles.iter().any(|t| t.is_local && t.is_screen);
-    let rows: Vec<CallTileRow> = tiles
+    let rows: Vec<CallTileRow> = stage_first(tiles)
         .into_iter()
         .map(|t| {
             // The user's tile says « You », with their own initials (web `CallView`)
@@ -445,5 +455,46 @@ mod tests {
         // Four in a wide box: two columns beat four or one
         assert_eq!(tile_width(4, 1000.0, 600.0), 496.0);
         assert_eq!(tile_width(0, 100.0, 100.0), 100.0);
+    }
+
+    fn tile(identity: &str, is_screen: bool) -> CallTile {
+        CallTile {
+            identity: identity.into(),
+            user_id: String::new(),
+            is_local: false,
+            is_screen,
+            has_video: is_screen,
+            is_muted: false,
+            is_speaking: false,
+        }
+    }
+
+    fn order(tiles: Vec<CallTile>) -> Vec<String> {
+        stage_first(tiles).into_iter().map(|t| t.identity).collect()
+    }
+
+    #[test]
+    fn puts_the_first_screen_on_the_stage() {
+        // No screen: the order stays
+        assert_eq!(order(vec![tile("a", false), tile("b", false)]), ["a", "b"]);
+        // The screen first, the people after it in their order
+        assert_eq!(
+            order(vec![
+                tile("a", false),
+                tile("b", false),
+                tile("b:screen", true)
+            ]),
+            ["b:screen", "a", "b"]
+        );
+        // Two screens: only the first takes the stage
+        assert_eq!(
+            order(vec![
+                tile("a", false),
+                tile("a:screen", true),
+                tile("b:screen", true)
+            ]),
+            ["a:screen", "a", "b:screen"]
+        );
+        assert_eq!(order(vec![]), Vec::<String>::new());
     }
 }

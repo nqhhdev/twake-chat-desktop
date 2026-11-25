@@ -1,5 +1,6 @@
 // The call of a room (web `CallStage`, `CallView`): the grid of the people, each tile as
-// large as fits (16:9), and the controls under it.
+// large as fits (16:9), or a shared screen on the stage with the people in a row under
+// it, and the controls under them.
 import { Theme } from "theme.slint";
 import { Avatar, Icon, Icons } from "parts.slint";
 
@@ -120,15 +121,26 @@ export component CallStage inherits Rectangle {
     property <length> th: tw * 9 / 16;
     property <int> columns: max(1, min(tiles.length, floor((grid-width + gap) / max(1px, tw + gap))));
     property <int> rows: max(1, ceil(tiles.length / columns));
+    // A shared screen takes the stage (Rust puts it first), the people a centred row of
+    // tiles at most 200 px wide under it (web `CallStage`, `STRIP_TILE_WIDTH`)
+    property <bool> staged: tiles.length > 0 && tiles[0].screen;
+    property <int> strip-count: tiles.length - 1;
+    property <length> sw: strip-count > 0 ? max(0px, min(200px, (grid-width - (strip-count + 1) * gap) / strip-count)) : 0px;
+    property <length> sh: sw * 9 / 16;
+    property <length> stage-height: strip-count > 0 ? grid-height - sh - gap : grid-height;
 
     for tile[i] in tiles: CallTileView {
         // Rows centred, the last one too
         property <int> line: floor(i / columns);
         property <int> in-line: line == rows - 1 ? tiles.length - line * columns : columns;
-        x: 16px + (grid-width - in-line * tw - (in-line - 1) * gap) / 2 + mod(i, columns) * (tw + gap);
-        y: 16px + (grid-height - rows * th - (rows - 1) * gap) / 2 + line * (th + gap);
-        width: tw;
-        height: th;
+        x: !staged ? 16px + (grid-width - in-line * tw - (in-line - 1) * gap) / 2 + mod(i, columns) * (tw + gap)
+            : i == 0 ? 16px
+            : 16px + (grid-width - strip-count * sw - (strip-count - 1) * gap) / 2 + (i - 1) * (sw + gap);
+        y: !staged ? 16px + (grid-height - rows * th - (rows - 1) * gap) / 2 + line * (th + gap)
+            : i == 0 ? 16px
+            : 16px + stage-height + gap;
+        width: !staged ? tw : i == 0 ? grid-width : sw;
+        height: !staged ? th : i == 0 ? stage-height : sh;
         tile: tile;
     }
     // Above the grid once someone is in it, else in its middle

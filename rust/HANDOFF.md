@@ -113,9 +113,14 @@ M5 (first part, calls, ADR-018):
   `splitsCallChat`). Checked with two apps in a clear and an encrypted room.
 - Screen share: « 🖥️ » in the call controls opens the system's picker (ScreenCaptureKit on
   macOS, libwebrtc's desktop capturer); the screen goes out at 15 pictures a second and shows
-  as « Screen of alice » after the sharer's tile, the button pressed while sharing. Stopping
-  from the menu bar ends it. Not seen working: nobody answered the picker in the unattended
-  run.
+  as « Screen of alice », the button pressed while sharing. Stopping from the menu bar ends
+  it. Not seen working: nobody answered the picker in the unattended run.
+- Speaker view (2026-11-25), as the web's `CallStage`: a shared screen takes the stage, the
+  width of the grid, and the people sit in a centred row of 16:9 tiles at most 200 px wide
+  under it; the first screen if two are shared. The web has no spotlight of who speaks (the
+  speaking ring only), so neither does the app. The ordering is tested
+  (`call::tests::puts_the_first_screen_on_the_stage`); the layout was not looked at, as no
+  screen was shared in a run.
 - Two apps (alice, bob) joined the same call in a clear room and in an encrypted one; in the
   encrypted one each device sent its key to the other and received the other's. Leaving or
   quitting empties the membership (delayed leave).
@@ -153,7 +158,7 @@ Seeds: `dev/seed.sh`, `dev/seed-media.py`, `dev/seed-m2.py`, `dev/seed-large.sh`
 
 - Calls: not heard or seen. Mic sound and the decryption of the media were not checked (no
   one spoke), and the camera never opened: macOS gives no answer to an unbundled debug
-  binary (needs `NSCameraUsageDescription`, M8). No speaker view, device menus, raised hands, call window, background blur (rest of M5). The
+  binary (needs `NSCameraUsageDescription`, M8). No device menus, raised hands, call window, background blur (rest of M5). The
   membership is not renewed after 4 h; a membership left by a crash is not cleared at start
   (the web's `#leaveVanishedCalls`); the old « encrypted » flag of a call is ignored (the
   room decides). The composer is cramped in the 380 px column.
@@ -223,4 +228,4 @@ M4 is done apart from the gaps above (the GIF picker moved to M6: it goes throug
 twake-common-proxy). M5 has started: joining calls with audio, camera and E2EE keys works
 on the local stack, and so do ringing, declining, the call line and the call thread. Screen
 share is built but not yet seen working (it needs someone to answer the system's picker).
-Next is the speaker view. See rust/PLAN.md.
+Next are the device menus. See rust/PLAN.md.
