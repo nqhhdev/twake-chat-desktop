@@ -223,6 +223,8 @@ export component MessageLine inherits Rectangle {
     callback copy-link(string);
     // To other conversations (web `message-forward`)
     callback forward(string);
+    // A corrected message's earlier versions (web `message-versions-open`)
+    callback versions(string);
     height: layout.preferred-height;
 
     hover := TouchArea {
@@ -606,6 +608,7 @@ export component MessageLine inherits Rectangle {
                 if entry.can-edit: MenuLine { label: "Edit"; symbol: Icons.edit; fallback: "✎"; clicked => { root.edit(entry.id); } }
                 MenuDivider { }
                 MenuLine { label: "Copy link"; symbol: Icons.link; fallback: "🔗"; clicked => { root.copy-link(entry.id); } }
+                if entry.edited: MenuLine { label: "Edit history"; fallback: "🕘"; clicked => { root.versions(entry.id); } }
                 MenuLine { label: entry.saved ? "Remove from saved" : "Save for later"; symbol: Icons.bookmark; fallback: "🔖"; clicked => { root.save-message(entry.id, !entry.saved); } }
                 if !entry.own || entry.can-delete: MenuDivider { }
                 if !entry.own: MenuLine { label: "Report"; symbol: Icons.flag; fallback: "⚑"; clicked => { root.report(entry.id); } }

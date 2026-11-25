@@ -62,8 +62,14 @@ M3:
 - Message menu (2026-11-25), as the web's `MessageToolbar`: hovering a message shows the
   quick reactions, Reply and « ⋯ », which opens the rest in the web's sections (Reply, Copy
   message, Pin, Download file · Reply in thread, Edit · Copy link, Save · Report, Delete).
-  Copy link copies a matrix.to link (ADR-020). Not yet in it: Versions, Select, Translate
-  and the assistant. Not opened in a run.
+  Copy link copies a matrix.to link (ADR-020). Not yet in it: Select, Translate and the
+  assistant. Not opened in a run.
+- Edit history (2026-11-25), as the web's `readMessageVersions` and
+  `MessageVersionsDialog`: « Edit history » in the menu of a corrected message; the first
+  text, then each correction by its author (the server's `m.replace` relations, decrypted,
+  100 at most; the edit the timeline holds when the server cannot answer), shown newest
+  first with « · current » on the newest; « The edit history could not be loaded. » when
+  nothing comes back. Not opened in a run.
 - Forward (2026-11-25), as the web's `ForwardDialog` and `saveForward`: « Forward » in the
   menu opens « Forward to… », a search (accents and case ignored) over the other
   conversations, labelled with their space, 50 at most; tick one or more, Forward, and the

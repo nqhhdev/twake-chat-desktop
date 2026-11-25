@@ -884,6 +884,11 @@ fn main() -> Result<(), slint::PlatformError> {
                 forward::open(&w, &id);
             }
         });
+        window.on_show_versions(|id| {
+            send(Command::MessageVersions {
+                event_id: id.to_string(),
+            });
+        });
         let weak = window.as_weak();
         window.on_forward_filter_edited(move |_| {
             if let Some(w) = weak.upgrade() {
@@ -1220,6 +1225,7 @@ fn apply(window: &AppWindow, event: Event) {
             });
         }
         Event::Forwarded { to_rooms } => forward::forwarded(window, &to_rooms),
+        Event::MessageVersions { versions, .. } => show_versions(window, &versions),
         Event::DeletedChats(deleted) => {
             STATE.with_borrow_mut(|s| s.deleted = deleted);
             show_rooms(window);
@@ -1568,6 +1574,39 @@ fn with_reason(command: Command, reason: Option<String>) -> Command {
         },
         other => other,
     }
+}
+
+/// « Edit history », newest first, the newest marked current (web
+/// `MessageVersionsDialog`); a history that could not be read says so instead.
+fn show_versions(window: &AppWindow, versions: &[twake_core::MessageVersion]) {
+    if versions.is_empty() {
+        window.set_notice("The edit history could not be loaded.".into());
+        return;
+    }
+    let now = chrono::Utc::now().timestamp_millis();
+    let rows: Vec<VersionRow> = versions
+        .iter()
+        .rev()
+        .enumerate()
+        .map(|(i, v)| {
+            let when = format!(
+                "{} {}",
+                twake_domain::format::room_list_time(v.sent_at, now),
+                twake_domain::format::message_time(v.sent_at)
+            );
+            VersionRow {
+                text: v.text.as_str().into(),
+                info: if i == 0 {
+                    format!("{when} · current")
+                } else {
+                    when
+                }
+                .into(),
+            }
+        })
+        .collect();
+    window.set_versions(ModelRc::from(Rc::new(VecModel::from(rows))));
+    window.set_versions_open(true);
 }
 
 /// Puts `text` on the system's clipboard and says `done`, or that it could not.
