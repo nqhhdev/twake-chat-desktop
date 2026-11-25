@@ -14,6 +14,7 @@ mod icons;
 mod pdf;
 mod previews;
 mod search;
+mod shared;
 mod staged;
 mod switcher;
 mod view;
@@ -361,6 +362,7 @@ fn main() -> Result<(), slint::PlatformError> {
     audio::install(&window);
     gifs::install(&window);
     call::install(&window);
+    shared::install(&window);
     {
         let weak = window.as_weak();
         window.on_composer_unstage(move |thread, index| {
@@ -1329,6 +1331,7 @@ fn show_timeline(window: &AppWindow, entries: &[TimelineEntry]) {
         window.set_scroll_to_bottom(bump);
         send(Command::MarkRead);
     }
+    shared::show(window, entries);
 }
 
 /// The messages of the room and of the open thread, drawn again from what is kept.
@@ -1507,6 +1510,9 @@ fn show_info(window: &AppWindow) {
         sync_model(members_model, view::member_rows(details, &mut find));
     });
     requests.into_iter().for_each(send);
+    let entries = STATE.with_borrow_mut(|s| std::mem::take(&mut s.entries));
+    shared::show(window, &entries);
+    STATE.with_borrow_mut(|s| s.entries = entries);
 }
 
 /// The room info pane, invitations, the new room dialog and the confirmations.

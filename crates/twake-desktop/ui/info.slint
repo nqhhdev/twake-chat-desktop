@@ -2,7 +2,7 @@
 // (ui/ConfirmDialog) and the new room / direct message dialog (ui/CreateRoomScreen).
 import { ListView, ScrollView, CheckBox } from "std-widgets.slint";
 import { Theme } from "theme.slint";
-import { Avatar, Badge, PrimaryButton, TextButton, Field } from "parts.slint";
+import { Avatar, Badge, Icon, Icons, PrimaryButton, TextButton, Field } from "parts.slint";
 
 export struct MemberRow {
     user-id: string,
@@ -34,6 +34,58 @@ export struct RoomInfoData {
     can-edit: bool,
     can-encrypt: bool,
     can-invite: bool,
+}
+
+// A picture or a video of the room, in the Media tab (web `MediaTile`)
+export struct SharedMediaRow {
+    // The file, for the viewer or the system's player
+    key: string,
+    name: string,
+    picture: image,
+    has-picture: bool,
+    video: bool,
+}
+
+// A link of the room, its preview's title when the app has one (web `LinkRow`)
+export struct SharedLinkRow {
+    url: string,
+    title: string,
+}
+
+// A file of the room: its name, size and day (web `shared-files`)
+export struct SharedFileRow {
+    key: string,
+    name: string,
+    info: string,
+}
+
+// One tab of the info: "members", "media", "links" or "files" (web `InfoTab`)
+component InfoTabButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    callback clicked();
+    height: 36px;
+    width: t.preferred-width + 20px;
+    accessible-role: tab;
+    accessible-label: label;
+    accessible-item-selected: selected;
+    accessible-action-default => { clicked(); }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    t := Text {
+        text: root.label;
+        color: root.selected ? Theme.primary : touch.has-hover ? Theme.text : Theme.text-secondary;
+        font-weight: 600;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    if root.selected: Rectangle {
+        y: parent.height - 2px;
+        height: 2px;
+        background: Theme.primary;
+    }
 }
 
 component MemberLine inherits Rectangle {
@@ -78,6 +130,15 @@ component MemberLine inherits Rectangle {
 export component InfoPane inherits Rectangle {
     in property <RoomInfoData> info;
     in property <[MemberRow]> members;
+    in property <[SharedMediaRow]> media;
+    in property <[SharedLinkRow]> links;
+    in property <[SharedFileRow]> files;
+    // The tab chosen; a direct message has no Members tab and shows Media (web)
+    in-out property <string> tab: "members";
+    property <string> shown-tab: info.direct && tab == "members" ? "media" : tab;
+    callback open-media(string, string, bool);
+    callback open-link(string);
+    callback save-file(string, string);
     in-out property <string> invite-text;
     callback close();
     callback rename(string);
@@ -157,15 +218,115 @@ export component InfoPane inherits Rectangle {
                 }
                 TextButton { label: "Invite"; clicked => { if root.invite-text != "" { root.invite(root.invite-text); } } }
             }
-            Text { text: "Members"; font-weight: 600; color: Theme.text; }
+            HorizontalLayout {
+                spacing: 4px;
+                if !info.direct: InfoTabButton { label: "Members"; selected: root.shown-tab == "members"; clicked => { root.tab = "members"; } }
+                InfoTabButton { label: "Media"; selected: root.shown-tab == "media"; clicked => { root.tab = "media"; } }
+                InfoTabButton { label: "Links"; selected: root.shown-tab == "links"; clicked => { root.tab = "links"; } }
+                InfoTabButton { label: "Files"; selected: root.shown-tab == "files"; clicked => { root.tab = "files"; } }
+            }
         }
-        ListView {
+        if root.shown-tab == "members": ListView {
             vertical-stretch: 1;
             for m in root.members: MemberLine {
                 member: m;
                 remove => { root.remove(m.user-id); }
                 ban => { root.ban(m.user-id); }
                 set-role(role) => { root.set-role(m.user-id, role); }
+            }
+        }
+        // Nothing in the tab shown (web `info.nothing`)
+        if (root.shown-tab == "media" && root.media.length == 0) || (root.shown-tab == "links" && root.links.length == 0) || (root.shown-tab == "files" && root.files.length == 0): VerticalLayout {
+            vertical-stretch: 1;
+            padding: 16px;
+            Text { text: "Nothing shared yet."; color: Theme.text-secondary; }
+            Rectangle { }
+        }
+        // A grid of three square tiles a line; a click opens the picture or plays the video
+        if root.shown-tab == "media" && root.media.length > 0: ScrollView {
+            vertical-stretch: 1;
+            property <length> gap: 4px;
+            property <length> side: (self.visible-width - 24px - 2 * gap) / 3;
+            content-height: 12px + ceil(root.media.length / 3) * (side + gap);
+            for item[i] in root.media: Rectangle {
+                x: 12px + mod(i, 3) * (parent.side + parent.gap);
+                y: floor(i / 3) * (parent.side + parent.gap);
+                width: parent.side;
+                height: parent.side;
+                border-radius: 6px;
+                clip: true;
+                background: #2a2a2e;
+                accessible-role: button;
+                accessible-label: item.name;
+                accessible-action-default => { root.open-media(item.key, item.name, item.video); }
+                if item.has-picture: Image {
+                    width: parent.width;
+                    height: parent.height;
+                    source: item.picture;
+                    image-fit: cover;
+                }
+                if item.video: Text { text: "▶"; color: #ffffff; font-size: 24px; horizontal-alignment: center; vertical-alignment: center; }
+                TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.open-media(item.key, item.name, item.video); }
+                }
+            }
+        }
+        if root.shown-tab == "links" && root.links.length > 0: ListView {
+            vertical-stretch: 1;
+            for link in root.links: Rectangle {
+                height: link-lines.preferred-height;
+                border-radius: 10px;
+                background: link-touch.has-hover ? Theme.hover : transparent;
+                accessible-role: button;
+                accessible-label: link.title == "" ? link.url : link.title;
+                accessible-action-default => { root.open-link(link.url); }
+                link-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.open-link(link.url); }
+                }
+                link-lines := VerticalLayout {
+                    padding: 8px;
+                    padding-left: 16px;
+                    padding-right: 16px;
+                    spacing: 2px;
+                    if link.title != "": Text { text: link.title; color: Theme.text; font-weight: 600; overflow: elide; }
+                    Text { text: link.url; color: Theme.primary; overflow: elide; }
+                }
+            }
+        }
+        if root.shown-tab == "files" && root.files.length > 0: ListView {
+            vertical-stretch: 1;
+            for file in root.files: Rectangle {
+                height: 52px;
+                border-radius: 10px;
+                background: file-touch.has-hover ? Theme.hover : transparent;
+                accessible-role: button;
+                accessible-label: "Download " + file.name;
+                accessible-action-default => { root.save-file(file.key, file.name); }
+                file-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.save-file(file.key, file.name); }
+                }
+                HorizontalLayout {
+                    padding-left: 16px;
+                    padding-right: 16px;
+                    spacing: 12px;
+                    VerticalLayout {
+                        alignment: center;
+                        Icon { source: Icons.file; fallback: "📄"; color: Theme.text-secondary; size: 20px; }
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        horizontal-stretch: 1;
+                        Text { text: file.name; color: Theme.text; overflow: elide; }
+                        Text { text: file.info; color: Theme.text-secondary; font-size: 12px; overflow: elide; }
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        Text { text: "⬇"; color: Theme.text-secondary; font-size: 16px; }
+                    }
+                }
             }
         }
         HorizontalLayout {

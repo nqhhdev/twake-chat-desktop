@@ -37,6 +37,13 @@ M3:
 - Spaces: a rail of the top-level spaces filters the room list; chips All / Unread / People /
   Rooms.
 - Deleting a message now asks first.
+- Media, Links and Files (2026-11-25), as the web's `SharedContent`: tabs of the room info
+  after Members (a direct message has the three only), from the messages of the open room
+  (`computeSharedContent`), so they grow as its history is loaded. Media: a grid of three,
+  a picture opens in the viewer, a video in the system's player (no first frame drawn);
+  Links: the cached preview's title when there is one, a click opens the link; Files: name,
+  size and day (dd/mm/yy), a click saves it. Not yet: the GIFs of a room that has them off
+  stay shown (that switch comes with M6), the viewer shows one picture, not the room's.
 
 M4, first part (2026-11-20):
 

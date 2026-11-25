@@ -8,10 +8,10 @@ import { FeedLine, ActivityPane } from "activity.slint";
 import { Row, ReactionChip, PollAnswerRow, MessageLine, AudioState, Animations } from "timeline.slint";
 export { AudioState, Animations }
 export { Icons }
-import { MemberRow, RoomInfoData, InfoPane, ConfirmDialog, CreateDialog, PollDialog } from "info.slint";
+import { MemberRow, RoomInfoData, InfoPane, SharedFileRow, SharedLinkRow, SharedMediaRow, ConfirmDialog, CreateDialog, PollDialog } from "info.slint";
 import { CallPopOut, CallStage, CallTileRow, CallWindow, CallWindowRect, DeviceRow, DeviceSection } from "call.slint";
 export { CallPopOut }
-export { Row, ReactionChip, PollAnswerRow, MemberRow, RoomInfoData, Suggestion, SearchHit, FeedLine, CallTileRow, CallWindowRect, DeviceRow, DeviceSection }
+export { Row, ReactionChip, PollAnswerRow, MemberRow, RoomInfoData, Suggestion, SearchHit, FeedLine, CallTileRow, CallWindowRect, DeviceRow, DeviceSection, SharedFileRow, SharedLinkRow, SharedMediaRow }
 
 export struct SpaceItem {
     id: string,
@@ -982,6 +982,9 @@ export component AppWindow inherits Window {
     in property <bool> info-open;
     in property <RoomInfoData> info;
     in property <[MemberRow]> info-members;
+    in property <[SharedMediaRow]> info-media;
+    in property <[SharedLinkRow]> info-links;
+    in property <[SharedFileRow]> info-files;
     in-out property <string> info-invite-text;
     callback open-info();
     callback close-info();
@@ -1399,6 +1402,14 @@ export component AppWindow inherits Window {
                 width: 360px;
                 info: root.info;
                 members: root.info-members;
+                media: root.info-media;
+                links: root.info-links;
+                files: root.info-files;
+                open-media(key, name, video) => {
+                    if video { root.open-attachment(key, name); } else { root.view-image(key, name); }
+                }
+                open-link(url) => { root.link-clicked(url); }
+                save-file(key, name) => { root.save-attachment(key, name); }
                 invite-text <=> root.info-invite-text;
                 close => { root.close-info(); }
                 rename(name) => { root.info-rename(name); }

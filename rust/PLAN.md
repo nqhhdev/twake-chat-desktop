@@ -15,7 +15,7 @@ Inventory source: `reference/twake-space-chat/src/ui` (screens) and `src/applica
 | --- | --- | --- |
 | Room info pane: picture, name, description, members count, tiles | `InfoPanel`, `RoomEditPanel` | 360 px pane beside the conversation; floats when narrow |
 | Members, roles, permissions, invite, kick, ban | `RoomMembers`, `RoomPermissions`, `InviteDialog`, `MemberRole` | power levels via matrix-sdk |
-| Media / Links / Files tabs | `SharedContent` | event cache + filters |
+| Media / Links / Files tabs | `SharedContent` | Done: tabs of the info pane from the loaded messages (`computeSharedContent` recorded). Left: hide GIFs when the room has them off (M6), browse the room's pictures in the viewer |
 | Edit room: rename, topic, picture, encryption switch | `RoomEditPanel`, `RoomSettings` | |
 | Room access, public link, public rooms directory | `RoomAccessSettings`, `PublicRoomsDialog` | |
 | Leave, delete chat (hide history for oneself), block user, report | `RoomHeaderMenu`, `BlockAction`, `ReasonDialog` | `app.twake.chat.deleted_chats` account data |
@@ -105,4 +105,4 @@ the signing secrets from the user.
 ## Domain ports alongside (ADR-011)
 
 Each milestone ports the `src/domain` functions it uses and adds them to
-`rust/units/ported.txt`; CI replays their recorded cases. 63 of 222 done.
+`rust/units/ported.txt`; CI replays their recorded cases. 64 of 222 done.
