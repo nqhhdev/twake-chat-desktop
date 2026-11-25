@@ -26,7 +26,7 @@ Inventory source: `reference/twake-space-chat/src/ui` (screens) and `src/applica
 | Contacts screen, person card, profile, edit own profile | `ContactsScreen`, `PersonCard`, `ProfilePanel`, `EditOwnProfileDialog` | moved to M6 with the ToM address book |
 | Pinned messages | `PinnedBar`, `PinnedMessages` | |
 | Polls: create, vote, end | `PollDialog`, `PollMessage` | |
-| Message details: versions, forward, copy link, select several | `MessageVersionsDialog`, `ForwardRoomRow`, `MessageSelectionBar` | Done: the message menu as the web (quick reactions, reply, « ⋯ »), copy message, copy link (matrix.to, ADR-020), download file. Left: forward, versions, select several |
+| Message details: versions, forward, copy link, select several | `MessageVersionsDialog`, `ForwardRoomRow`, `MessageSelectionBar` | Done: the message menu as the web (quick reactions, reply, « ⋯ »), copy message, copy link (matrix.to, ADR-020), download file, forward to several conversations. Left: versions, select several |
 | Typing indicators, read receipts per person, presence | `useStatus`, `StatusDialog` | |
 
 ## M4: Search, activity, composer
