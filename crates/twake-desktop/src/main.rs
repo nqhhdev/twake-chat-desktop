@@ -1307,6 +1307,7 @@ fn apply(window: &AppWindow, event: Event) {
         Event::MessageVersions { versions, .. } => show_versions(window, &versions),
         Event::PublicRooms(rooms) => directory::loaded(window, rooms),
         Event::Connection { online } => window.set_offline(!online),
+        Event::Verification(phase) => show_verification(window, phase),
         Event::SpaceChoices { room_id, choices } => {
             if STATE.with_borrow(|s| s.current_room == room_id) {
                 show_space_choices(window, &choices);
@@ -1677,6 +1678,32 @@ fn with_reason(command: Command, reason: Option<String>) -> Command {
         },
         other => other,
     }
+}
+
+/// The verification of one's devices at its new phase (web `DeviceVerificationDialog`).
+fn show_verification(window: &AppWindow, phase: twake_core::VerificationPhase) {
+    use twake_core::VerificationPhase as P;
+    let name = match &phase {
+        P::Incoming => "incoming",
+        P::Asking => "asking",
+        P::Waiting => "waiting",
+        P::Comparing { .. } => "comparing",
+        P::Done => "done",
+        P::Cancelled => "cancelled",
+    };
+    if let P::Comparing { emojis, decimals } = &phase {
+        let rows: Vec<VerifyEmoji> = emojis
+            .iter()
+            .map(|(symbol, name)| VerifyEmoji {
+                symbol: symbol.as_str().into(),
+                name: name.as_str().into(),
+            })
+            .collect();
+        window.set_verify_emojis(ModelRc::from(Rc::new(VecModel::from(rows))));
+        let (a, b, c) = decimals;
+        window.set_verify_decimals(format!("{a} {b} {c}").into());
+    }
+    window.set_verify_phase(name.into());
 }
 
 /// « Move to a Space »: « No space » first (checked when the room is in none), then the
@@ -2069,6 +2096,16 @@ fn wire_room_info(window: &AppWindow) {
     let w = with.clone();
     window.on_cancel_create(move || w(&|win| win.set_create_mode("".into())));
     window.on_retry_send(|id| send(Command::RetrySend { id: id.to_string() }));
+    window.on_verify_device(|| send(Command::VerifyDevice));
+    window.on_verify_accept(|| send(Command::AcceptVerification));
+    window.on_verify_confirm(|matching| send(Command::ConfirmVerification(matching)));
+    let w = with.clone();
+    window.on_verify_cancel(move || {
+        send(Command::CancelVerification);
+        w(&|win| win.set_verify_phase("".into()));
+    });
+    let w = with.clone();
+    window.on_verify_close(move || w(&|win| win.set_verify_phase("".into())));
     window.on_discard_send(|id| send(Command::DiscardSend { id: id.to_string() }));
     window.on_create_room(
         |kind, name, topic, people, public, encrypted, access, reactions, slug| {

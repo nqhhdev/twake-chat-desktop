@@ -8,10 +8,10 @@ import { FeedLine, ActivityPane } from "activity.slint";
 import { Row, ReactionChip, PollAnswerRow, MessageLine, SelectionButton, AudioState, Animations } from "timeline.slint";
 export { AudioState, Animations }
 export { Icons }
-import { ForwardDialog, ForwardRow, MemberRow, SpaceChoiceRow, SpaceDialog, VersionRow, VersionsDialog, RoomInfoData, InfoPane, SharedFileRow, SharedLinkRow, SharedMediaRow, ConfirmDialog, CreateDialog, PollDialog } from "info.slint";
+import { ForwardDialog, ForwardRow, MemberRow, SpaceChoiceRow, SpaceDialog, VerifyDialog, VerifyEmoji, VersionRow, VersionsDialog, RoomInfoData, InfoPane, SharedFileRow, SharedLinkRow, SharedMediaRow, ConfirmDialog, CreateDialog, PollDialog } from "info.slint";
 import { CallPopOut, CallStage, CallTileRow, CallWindow, CallWindowRect, DeviceRow, DeviceSection } from "call.slint";
 export { CallPopOut }
-export { Row, ReactionChip, PollAnswerRow, MemberRow, RoomInfoData, Suggestion, SearchHit, FeedLine, CallTileRow, CallWindowRect, DeviceRow, DeviceSection, SharedFileRow, SharedLinkRow, SharedMediaRow, ForwardRow, VersionRow, SpaceChoiceRow }
+export { Row, ReactionChip, PollAnswerRow, MemberRow, RoomInfoData, Suggestion, SearchHit, FeedLine, CallTileRow, CallWindowRect, DeviceRow, DeviceSection, SharedFileRow, SharedLinkRow, SharedMediaRow, ForwardRow, VersionRow, SpaceChoiceRow, VerifyEmoji }
 
 export struct SpaceItem {
     id: string,
@@ -768,6 +768,15 @@ export component AppWindow inherits Window {
     in property <bool> loading-history;
     in property <bool> history-complete;
     in property <bool> needs-recovery-key;
+    // Verifying one's devices (web `DeviceVerificationDialog`): "" when none is shown
+    in property <string> verify-phase;
+    in property <[VerifyEmoji]> verify-emojis;
+    in property <string> verify-decimals;
+    callback verify-device();
+    callback verify-accept();
+    callback verify-cancel();
+    callback verify-confirm(bool);
+    callback verify-close();
     in-out property <string> recovery-key;
     // bumped by Rust to scroll the timeline to its newest message
     in property <int> scroll-to-bottom;
@@ -1165,6 +1174,11 @@ export component AppWindow inherits Window {
                 VerticalLayout {
                     alignment: center;
                     TextButton { label: "Unlock"; clicked => { root.recover(root.recovery-key); } }
+                }
+                // Or trust it from a device already trusted (web `SecurityBanner`)
+                VerticalLayout {
+                    alignment: center;
+                    TextButton { label: "Verify with another device"; clicked => { root.verify-device(); } }
                 }
             }
         }
@@ -1676,6 +1690,19 @@ export component AppWindow inherits Window {
         versions: root.versions;
         title: root.versions-title;
         close => { root.versions-open = false; }
+    }
+
+    if root.verify-phase != "": VerifyDialog {
+        width: root.width;
+        height: root.height;
+        phase: root.verify-phase;
+        emojis: root.verify-emojis;
+        decimals: root.verify-decimals;
+        accept => { root.verify-accept(); }
+        cancel => { root.verify-cancel(); }
+        same => { root.verify-confirm(true); }
+        differ => { root.verify-confirm(false); }
+        close => { root.verify-close(); }
     }
 
     if root.space-dialog-open: SpaceDialog {

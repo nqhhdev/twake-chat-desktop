@@ -123,6 +123,15 @@ M3:
   failed says « Not sent. » with Retry (the send queue unwedged) and Discard (its local
   echo aborted). Not yet: a file going up shows no progress nor Cancel. Not tried in a run
   (it needs the server cut off).
+
+M6, first part (2026-11-25):
+- Device verification, as the web's `DeviceVerificationDialog` without its QR codes: « Verify
+  with another device » beside the recovery key asks the user's other devices; a request from
+  another of the user's devices opens « Verify a new device » (Verify / Not now). Once ready,
+  the device that asked starts the emoji comparison (SAS), the other accepts it; the seven
+  emojis with their names (or the three numbers when the other device shows none), « They
+  match » / « They differ »; « Device verified » or « Verification stopped ». One at a time;
+  the requests of other people are not heard. Not tried in a run (it needs two devices).
 - Forward (2026-11-25), as the web's `ForwardDialog` and `saveForward`: « Forward » in the
   menu opens « Forward to… », a search (accents and case ignored) over the other
   conversations, labelled with their space, 50 at most; tick one or more, Forward, and the

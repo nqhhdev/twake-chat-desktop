@@ -61,7 +61,7 @@ Inventory source: `reference/twake-space-chat/src/ui` (screens) and `src/applica
 | SSO with the Twake identity provider, `.well-known` discovery | `twakeSso`, `clientConfig` | test with Dex in `dev/` |
 | GIF picker (trending, search) through twake-common-proxy; a room's « GIFs off » | `useGifPicker`, `TwakeProxyGifs`, `RoomGifsSection` | moved from M4: needs the proxy |
 | ToM: recovery key vault (unlock after sign-in), address book | `adapters/tom`, `RecoveryVault` | replaces typing the key |
-| Device verification (emoji, QR), new devices notice, security settings | `DeviceVerificationDialog`, `SecuritySettings` | |
+| Device verification (emoji, QR), new devices notice, security settings | `DeviceVerificationDialog`, `SecuritySettings` | Done: emoji verification of one's own devices, asked here or by another device (numbers when no emojis). Left: QR codes (camera), the new devices notice, security settings (M7), verifying a person |
 | Assistant (personal bot), Scribe, suggestions, questions, consent | `Assistant*`, `useScribe` | side-service |
 | Auto-translate of messages | `MessageTranslate`, `AutoTranslateSetting` | |
 | Drive picker, mail compose, calendar meeting | `useDrivePicker`, `MailCompose`, `ScheduleMeeting` | |

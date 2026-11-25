@@ -875,3 +875,83 @@ export component SpaceDialog inherits Rectangle {
         }
     }
 }
+
+// An emoji to compare (web `VerificationEmoji`): its symbol and its English name
+export struct VerifyEmoji {
+    symbol: string,
+    name: string,
+}
+
+// Verifying one's devices (web `DeviceVerificationDialog`): what to do at each phase, the
+// emojis to compare, and its buttons. `phase`: "incoming", "asking", "waiting",
+// "comparing", "done" or "cancelled".
+export component VerifyDialog inherits Rectangle {
+    in property <string> phase;
+    in property <[VerifyEmoji]> emojis;
+    // « 1234 5678 9012 » when the other device shows no emojis
+    in property <string> decimals;
+    callback accept();
+    callback cancel();
+    callback same();
+    callback differ();
+    callback close();
+    property <bool> digits: root.phase == "comparing" && root.emojis.length == 0;
+    background: #00000066;
+    Rectangle {
+        width: 460px;
+        height: box.preferred-height;
+        border-radius: 16px;
+        background: Theme.background;
+        drop-shadow-blur: 20px;
+        drop-shadow-color: #00000040;
+        TouchArea {}
+        box := VerticalLayout {
+            padding: 24px;
+            spacing: 14px;
+            Text {
+                text: root.phase == "incoming" ? "Verify a new device"
+                    : root.phase == "asking" ? "Waiting for your other devices"
+                    : root.phase == "waiting" ? "Waiting for the other device"
+                    : root.digits ? "Compare the numbers"
+                    : root.phase == "comparing" ? "Compare the emojis"
+                    : root.phase == "done" ? "Device verified"
+                    : "Verification stopped";
+                font-size: 18px;
+                font-weight: Theme.weight-bold;
+                color: Theme.text;
+            }
+            Text {
+                text: root.phase == "incoming" ? "One of your other devices asks to be verified. Do it only if you just signed in there."
+                    : root.phase == "asking" ? "Open Twake Chat on another device where you are signed in and accept the request. None at hand? Close this window and use your recovery key."
+                    : root.phase == "waiting" ? "Open Twake Chat on your other device and accept the request."
+                    : root.digits ? "Check that your other device shows the same numbers, in the same order."
+                    : root.phase == "comparing" ? "Check that your other device shows the same emojis, in the same order."
+                    : root.phase == "done" ? "Your devices trust each other: the encrypted history is shared with this device."
+                    : "Nothing was trusted. You can start again from the security banner.";
+                color: Theme.text-secondary;
+                wrap: word-wrap;
+            }
+            if root.phase == "comparing" && !root.digits: HorizontalLayout {
+                alignment: center;
+                spacing: 8px;
+                for emoji in root.emojis: VerticalLayout {
+                    width: 52px;
+                    spacing: 4px;
+                    Text { text: emoji.symbol; font-size: 32px; horizontal-alignment: center; }
+                    Text { text: emoji.name; color: Theme.text-secondary; font-size: 11px; horizontal-alignment: center; wrap: word-wrap; }
+                }
+            }
+            if root.digits: Text { text: root.decimals; font-size: 24px; color: Theme.text; horizontal-alignment: center; }
+            HorizontalLayout {
+                alignment: end;
+                spacing: 8px;
+                if root.phase == "incoming": TextButton { label: "Not now"; clicked => { root.cancel(); } }
+                if root.phase == "incoming": PrimaryButton { width: 120px; label: "Verify"; clicked => { root.accept(); } }
+                if root.phase == "asking" || root.phase == "waiting": TextButton { label: "Cancel"; clicked => { root.cancel(); } }
+                if root.phase == "comparing": TextButton { label: "They differ"; clicked => { root.differ(); } }
+                if root.phase == "comparing": PrimaryButton { width: 120px; label: "They match"; clicked => { root.same(); } }
+                if root.phase == "done" || root.phase == "cancelled": PrimaryButton { width: 120px; label: "Close"; clicked => { root.close(); } }
+            }
+        }
+    }
+}
