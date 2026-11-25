@@ -128,6 +128,14 @@ pub enum Command {
         /// Values from 0 to 1.
         waveform: Vec<f32>,
     },
+    /// The public directory of the homeserver ([`Event::PublicRooms`]).
+    PublicRooms,
+    /// Join a room of the directory, or ask to (on request): [`Event::RoomCreated`] once
+    /// joined, a notice once asked.
+    JoinPublic {
+        room_id: String,
+        on_approval: bool,
+    },
     /// The edit history of a message of the open room ([`Event::MessageVersions`]).
     MessageVersions {
         event_id: String,
@@ -364,6 +372,8 @@ pub enum Event {
     },
     /// The saved messages, newest first, after each change.
     Saved(Vec<SavedEntry>),
+    /// The rooms of the public directory.
+    PublicRooms(Vec<crate::directory::PublicRoom>),
     /// The versions of a message, oldest first; empty when it could not be read.
     MessageVersions {
         event_id: String,
@@ -797,6 +807,29 @@ async fn run(mut commands: mpsc::UnboundedReceiver<Command>, emit: Emit) {
                         let _ = tokio::fs::remove_file(&path).await;
                         if let Err(e) = sent {
                             emit(Event::Error(format!("voice message not sent: {e}")));
+                        }
+                    });
+                }
+            }
+            Command::PublicRooms => {
+                if let Some(client) = state.client.clone() {
+                    let emit = emit.clone();
+                    tokio::spawn(async move {
+                        emit(Event::PublicRooms(crate::directory::all(&client).await));
+                    });
+                }
+            }
+            Command::JoinPublic {
+                room_id,
+                on_approval,
+            } => {
+                if let Some(client) = state.client.clone() {
+                    let emit = emit.clone();
+                    tokio::spawn(async move {
+                        match crate::directory::join(&client, &room_id, on_approval).await {
+                            Ok(true) => emit(Event::RoomCreated { room_id }),
+                            Ok(false) => emit(Event::Notice("Request sent".into())),
+                            Err(e) => emit(Event::Error(format!("not joined: {e}"))),
                         }
                     });
                 }

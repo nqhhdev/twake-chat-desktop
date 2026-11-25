@@ -9,6 +9,7 @@ mod autoplay;
 mod calls;
 mod compose;
 mod deleted_chats;
+mod directory;
 mod engine;
 mod forward;
 mod media;
@@ -23,6 +24,7 @@ mod timeline;
 mod versions;
 
 pub use calls::{CallDeviceList, CallStatus, CallTile, DeviceKind, IncomingCall};
+pub use directory::PublicRoom;
 pub use engine::{Command, EncryptionStatus, Engine, Event, RoomAction, SavedEntry, SessionState};
 pub use media::{Picture, mxc_key};
 pub use pdf::available as pdf_available;
