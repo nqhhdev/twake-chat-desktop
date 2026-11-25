@@ -296,6 +296,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let _ = slint::invoke_from_event_loop(move || {
             if let Some(window) = weak.upgrade() {
                 apply(&window, event);
+                call::mirror(&window);
             }
         });
     }));
@@ -803,6 +804,12 @@ fn main() -> Result<(), slint::PlatformError> {
         window.on_call_detach(move || {
             if let Some(w) = weak.upgrade() {
                 call::detach(&w);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_call_pop_out(move || {
+            if let Some(w) = weak.upgrade() {
+                call::pop_out(&w);
             }
         });
         let weak = window.as_weak();

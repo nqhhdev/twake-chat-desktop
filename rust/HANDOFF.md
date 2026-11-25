@@ -139,6 +139,10 @@ M5 (first part, calls, ADR-018):
   composer on the right (`defaultCallWindow`). Below 900 px wide the app shows a band with
   Expand and Leave instead (web: a phone). The window was not dragged in a run (no
   automated pointer moves), only built and its rules replayed.
+- Pop-out (2026-11-25, ADR-019): « Pop out of the app » in the window's menu opens the call
+  in a window of its own that stays above the others, at the window's size; the app shows
+  the band meanwhile, and closing the pop-out (or Expand) brings the call back. No
+  automatic pop-out. Not opened in a run.
 - Two apps (alice, bob) joined the same call in a clear room and in an encrypted one; in the
   encrypted one each device sent its key to the other and received the other's. Leaving or
   quitting empties the membership (delayed leave).
@@ -176,7 +180,7 @@ Seeds: `dev/seed.sh`, `dev/seed-media.py`, `dev/seed-m2.py`, `dev/seed-large.sh`
 
 - Calls: not heard or seen. Mic sound and the decryption of the media were not checked (no
   one spoke), and the camera never opened: macOS gives no answer to an unbundled debug
-  binary (needs `NSCameraUsageDescription`, M8). No raised hands, pop-out window, background blur (rest of M5). The
+  binary (needs `NSCameraUsageDescription`, M8). No raised hands, captions, background blur (rest of M5). The
   membership is not renewed after 4 h; a membership left by a crash is not cleared at start
   (the web's `#leaveVanishedCalls`); the old « encrypted » flag of a call is ignored (the
   room decides). The composer is cramped in the 380 px column.
@@ -246,6 +250,5 @@ M4 is done apart from the gaps above (the GIF picker moved to M6: it goes throug
 twake-common-proxy). M5 has started: joining calls with audio, camera and E2EE keys works
 on the local stack, and so do ringing, declining, the call line and the call thread. Screen
 share is built but not yet seen working (it needs someone to answer the system's picker).
-Next in M5: the pop-out of the call into a native window of its own, always on top
-(picture in picture), then raised hands and captions through Meet, then background blur.
-See rust/PLAN.md.
+Next in M5: raised hands and captions through Meet, then background blur. See
+rust/PLAN.md.
