@@ -23,6 +23,7 @@ mod session;
 mod space_links;
 mod spaces;
 mod timeline;
+mod verification;
 mod versions;
 
 pub use calls::{CallDeviceList, CallStatus, CallTile, DeviceKind, IncomingCall};
@@ -31,4 +32,5 @@ pub use engine::{Command, EncryptionStatus, Engine, Event, RoomAction, SavedEntr
 pub use media::{Picture, mxc_key};
 pub use pdf::available as pdf_available;
 pub use session::data_dir;
+pub use verification::VerificationPhase;
 pub use versions::MessageVersion;

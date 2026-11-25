@@ -92,6 +92,14 @@ pub enum Command {
     Recover {
         key: String,
     },
+    /// « Verify with another device » ([`Event::Verification`]).
+    VerifyDevice,
+    /// « Verify » on another device's request.
+    AcceptVerification,
+    /// « Not now », a close: the verification stops.
+    CancelVerification,
+    /// « They match » (true) or « They differ ».
+    ConfirmVerification(bool),
     SignOut,
     /// Decode the image of `key` (see [`crate::mxc_key`] and `Attachment::source`) at this
     /// size in pixels, cropped to fill it or scaled to fit.
@@ -386,6 +394,8 @@ pub enum Event {
     },
     /// The saved messages, newest first, after each change.
     Saved(Vec<SavedEntry>),
+    /// Where the verification of one's devices stands.
+    Verification(crate::verification::VerificationPhase),
     /// The server is reachable, or not (web `OfflineBanner`): the sync service's offline mode.
     Connection {
         online: bool,
@@ -561,6 +571,8 @@ struct State {
     call: Option<crate::calls::CallHandle>,
     /// The rooms whose ring the user declines, for the call watcher.
     declines: Option<mpsc::UnboundedSender<String>>,
+    /// The verification of one's devices under way (web `DeviceVerificationDialog`).
+    verifier: crate::verification::Verifier,
 }
 
 struct OpenRoom {
@@ -1231,6 +1243,39 @@ async fn run(mut commands: mpsc::UnboundedReceiver<Command>, emit: Emit) {
                     });
                 }
             }
+            Command::VerifyDevice => {
+                if let Some(client) = state.client.clone() {
+                    let verifier = state.verifier.clone();
+                    let emit = emit.clone();
+                    tokio::spawn(async move {
+                        if let Err(e) = verifier.start(&client, emit.clone()).await {
+                            emit(Event::Error(format!("verification: {e}")));
+                        }
+                    });
+                }
+            }
+            Command::AcceptVerification => {
+                let verifier = state.verifier.clone();
+                let emit = emit.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = verifier.accept().await {
+                        emit(Event::Error(format!("verification: {e}")));
+                    }
+                });
+            }
+            Command::CancelVerification => {
+                let verifier = state.verifier.clone();
+                tokio::spawn(async move { verifier.cancel().await });
+            }
+            Command::ConfirmVerification(matching) => {
+                let verifier = state.verifier.clone();
+                let emit = emit.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = verifier.confirm(matching).await {
+                        emit(Event::Error(format!("verification: {e}")));
+                    }
+                });
+            }
             Command::Recover { key } => {
                 if let Some(client) = &state.client {
                     match client.encryption().recovery().recover(key.trim()).await {
@@ -1385,6 +1430,7 @@ async fn start_session(state: &mut State, client: Client, emit: &Emit) {
     state
         .tasks
         .push(tokio::spawn(watch_encryption(client.clone(), emit.clone())));
+    state.verifier.listen(&client, emit.clone());
     state.tasks.push(tokio::spawn(watch_tokens(client.clone())));
     state.tasks.push(tokio::spawn(crate::spaces::run(
         client.clone(),
