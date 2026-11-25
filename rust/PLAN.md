@@ -48,7 +48,7 @@ Inventory source: `reference/twake-space-chat/src/ui` (screens) and `src/applica
 
 | Feature | Web reference | Notes |
 | --- | --- | --- |
-| MatrixRTC calls over LiveKit, own UI: grid, speaker, screen share | `ui/calls`, `calls` use cases | `livekit` Rust SDK; camera/mic via the OS (ADR-018). Done: join/start, membership with delayed leave, E2EE keys, mic, camera, grid, screen share (system picker, « Screen of … » tile; sending not yet seen working), a shared screen on the stage with the people in a row under it (web `CallStage`: the web has no spotlight of who speaks, only the speaking ring); `shouldMirror`, `countCallPeople` recorded. Left: device menus |
+| MatrixRTC calls over LiveKit, own UI: grid, speaker, screen share | `ui/calls`, `calls` use cases | `livekit` Rust SDK; camera/mic via the OS (ADR-018). Done: join/start, membership with delayed leave, E2EE keys, mic, camera, grid, screen share (system picker, « Screen of … » tile; sending not yet seen working), a shared screen on the stage with the people in a row under it (web `CallStage`: the web has no spotlight of who speaks, only the speaking ring); device menus (microphone, speaker, camera; `currentDeviceId` recorded); `shouldMirror`, `countCallPeople` recorded |
 | Incoming call, ringing, call line in the timeline, call thread | `CallInvite`, `CallLine`, `CallThreadBand` | Done: ring (MSC4075) and decline (MSC4310) in the clear, banner with Answer and Decline, « Call declined », call line (`app.twake.chat.call`); call thread (« Meeting started at … » root, « Show the channel » / « Back to the meeting thread »); `toCallLine`, `ringAsks`, `isRinging`, `findCallThread`, `splitsCallChat` recorded. Left: OS notification and sound of a ring, the line as a bubble |
 | Raised hands, captions, recording through Meet | `MeetingDialog`, `ScheduleMeeting` | side-service + Meet API |
 | Background blur | `@livekit/track-processors` | later in M5: needs a segmentation model on the CPU/GPU |
@@ -105,4 +105,4 @@ the signing secrets from the user.
 ## Domain ports alongside (ADR-011)
 
 Each milestone ports the `src/domain` functions it uses and adds them to
-`rust/units/ported.txt`; CI replays their recorded cases. 54 of 222 done.
+`rust/units/ported.txt`; CI replays their recorded cases. 55 of 222 done.

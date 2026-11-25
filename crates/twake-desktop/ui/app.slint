@@ -9,8 +9,8 @@ import { Row, ReactionChip, PollAnswerRow, MessageLine, AudioState, Animations }
 export { AudioState, Animations }
 export { Icons }
 import { MemberRow, RoomInfoData, InfoPane, ConfirmDialog, CreateDialog, PollDialog } from "info.slint";
-import { CallStage, CallTileRow } from "call.slint";
-export { Row, ReactionChip, PollAnswerRow, MemberRow, RoomInfoData, Suggestion, SearchHit, FeedLine, CallTileRow }
+import { CallStage, CallTileRow, DeviceRow, DeviceSection } from "call.slint";
+export { Row, ReactionChip, PollAnswerRow, MemberRow, RoomInfoData, Suggestion, SearchHit, FeedLine, CallTileRow, DeviceRow, DeviceSection }
 
 export struct SpaceItem {
     id: string,
@@ -911,6 +911,10 @@ export component AppWindow inherits Window {
     in property <bool> call-microphone;
     in property <bool> call-camera;
     in property <[CallTileRow]> call-tiles;
+    in-out property <string> call-device-menu;
+    in property <[DeviceSection]> call-device-sections;
+    callback call-open-devices(string);
+    callback call-pick-device(string, string);
     property <bool> call-here: root.in-call && root.call-room-id == root.current-room-id;
     callback start-call(bool);
     callback leave-call();
@@ -1260,6 +1264,10 @@ export component AppWindow inherits Window {
                     toggle-microphone => { root.call-toggle-microphone(); }
                     toggle-camera => { root.call-toggle-camera(); }
                     toggle-screen => { root.call-toggle-screen(); }
+                    device-menu: root.call-device-menu;
+                    device-sections: root.call-device-sections;
+                    open-devices(which) => { root.call-open-devices(which); }
+                    pick-device(kind, id) => { root.call-pick-device(kind, id); }
                     leave => { root.leave-call(); }
                 }
                 Rectangle {

@@ -7,11 +7,13 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use slint::{Model, VecModel};
-use twake_core::{CallStatus, CallTile, Command, IncomingCall, Picture};
+use twake_core::{
+    CallDeviceList, CallStatus, CallTile, Command, DeviceKind, IncomingCall, Picture,
+};
 use twake_domain::TimelineEntry;
 
 use crate::view::{initials, tint};
-use crate::{AppWindow, CallTileRow, STATE, send};
+use crate::{AppWindow, CallTileRow, DeviceRow, DeviceSection, STATE, send};
 
 /// Room between tiles (as in call.slint, web `TILE_GAP`).
 const TILE_GAP: f32 = 8.0;
@@ -189,7 +191,74 @@ fn clear(window: &AppWindow) {
 
 pub fn leave(window: &AppWindow) {
     send(Command::LeaveCall);
+    window.set_call_device_menu("".into());
     clear(window);
+}
+
+/// Opens a device menu, read at each opening: one may have been plugged in since (web
+/// `loadDeviceMenu`). "audio": microphones and speakers; "video": cameras; "": closes.
+pub fn open_devices(window: &AppWindow, which: &str) {
+    window.set_call_device_menu(which.into());
+    window.set_call_device_sections(slint::ModelRc::default());
+    let kinds = match which {
+        "audio" => vec![DeviceKind::Microphone, DeviceKind::Speaker],
+        "video" => vec![DeviceKind::Camera],
+        _ => return,
+    };
+    send(Command::CallDevices(kinds));
+}
+
+/// The devices of the menu open, read by the engine.
+pub fn devices(window: &AppWindow, lists: Vec<CallDeviceList>) {
+    if window.get_call_device_menu().is_empty() {
+        return;
+    }
+    let sections: Vec<DeviceSection> = lists.into_iter().filter_map(device_section).collect();
+    window.set_call_device_sections(Rc::new(VecModel::from(sections)).into());
+}
+
+fn device_section(list: CallDeviceList) -> Option<DeviceSection> {
+    let (kind, title) = match list.kind {
+        DeviceKind::Microphone => ("microphone", "Microphone"),
+        DeviceKind::Speaker => ("speaker", "Speaker"),
+        DeviceKind::Camera => ("camera", "Camera"),
+    };
+    // A system that cannot choose its output says nothing about it (web)
+    if list.devices.is_empty() && list.kind == DeviceKind::Speaker {
+        return None;
+    }
+    let rows: Vec<DeviceRow> = list
+        .devices
+        .iter()
+        .enumerate()
+        .map(|(rank, (id, name))| DeviceRow {
+            checked: list.active_id.as_deref() == Some(id.as_str()),
+            // Without the permission a device has no name (web)
+            label: if name.is_empty() {
+                format!("{title} {}", rank + 1).into()
+            } else {
+                name.as_str().into()
+            },
+            id: id.as_str().into(),
+        })
+        .collect();
+    Some(DeviceSection {
+        kind: kind.into(),
+        title: title.into(),
+        rows: Rc::new(VecModel::from(rows)).into(),
+    })
+}
+
+/// Uses a device of a menu from now on, and closes the menu.
+pub fn pick_device(window: &AppWindow, kind: &str, id: &str) {
+    window.set_call_device_menu("".into());
+    let kind = match kind {
+        "microphone" => DeviceKind::Microphone,
+        "speaker" => DeviceKind::Speaker,
+        "camera" => DeviceKind::Camera,
+        _ => return,
+    };
+    send(Command::CallSwitchDevice(kind, id.to_string()));
 }
 
 pub fn toggle_microphone(window: &AppWindow) {

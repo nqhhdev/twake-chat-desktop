@@ -121,6 +121,13 @@ M5 (first part, calls, ADR-018):
   speaking ring only), so neither does the app. The ordering is tested
   (`call::tests::puts_the_first_screen_on_the_stage`); the layout was not looked at, as no
   screen was shared in a run.
+- Device menus (2026-11-25), as the web's `CallDeviceMenu`: « ▴ » beside the microphone lists
+  the microphones and speakers, beside the camera the cameras, read at each opening; the one
+  in use checked (`currentDeviceId`: the one picked, else the system's default, the first);
+  a click switches it during the call (LiveKit's `PlatformAudio`; the camera reopens on the
+  new one). A system that gives no speakers shows no Speaker section (web). Not tried with
+  two real devices in a run; a camera is known by its index, so unplugging one may move the
+  pick to the next. The web's background choices under the camera come with the blur.
 - Two apps (alice, bob) joined the same call in a clear room and in an encrypted one; in the
   encrypted one each device sent its key to the other and received the other's. Leaving or
   quitting empties the membership (delayed leave).
@@ -158,7 +165,7 @@ Seeds: `dev/seed.sh`, `dev/seed-media.py`, `dev/seed-m2.py`, `dev/seed-large.sh`
 
 - Calls: not heard or seen. Mic sound and the decryption of the media were not checked (no
   one spoke), and the camera never opened: macOS gives no answer to an unbundled debug
-  binary (needs `NSCameraUsageDescription`, M8). No device menus, raised hands, call window, background blur (rest of M5). The
+  binary (needs `NSCameraUsageDescription`, M8). No raised hands, call window, background blur (rest of M5). The
   membership is not renewed after 4 h; a membership left by a crash is not cleared at start
   (the web's `#leaveVanishedCalls`); the old « encrypted » flag of a call is ignored (the
   room decides). The composer is cramped in the 380 px column.
@@ -228,4 +235,5 @@ M4 is done apart from the gaps above (the GIF picker moved to M6: it goes throug
 twake-common-proxy). M5 has started: joining calls with audio, camera and E2EE keys works
 on the local stack, and so do ringing, declining, the call line and the call thread. Screen
 share is built but not yet seen working (it needs someone to answer the system's picker).
-Next are the device menus. See rust/PLAN.md.
+Next in M5: the call window (picture in picture), then raised hands and captions through
+Meet, then background blur. See rust/PLAN.md.

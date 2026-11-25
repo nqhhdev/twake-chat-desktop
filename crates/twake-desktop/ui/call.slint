@@ -18,6 +18,45 @@ export struct CallTileRow {
     ready: bool,
 }
 
+// One device of a menu, the one in use checked (web `MenuRadio`)
+export struct DeviceRow {
+    id: string,
+    label: string,
+    checked: bool,
+}
+
+// The devices of one kind: "microphone", "speaker" or "camera" (web `CallDeviceList`)
+export struct DeviceSection {
+    kind: string,
+    title: string,
+    rows: [DeviceRow],
+}
+
+// The arrow beside a control, which opens its devices (web `CallView`, `CallDeviceMenu`)
+component CallArrow inherits Rectangle {
+    in property <string> label;
+    in property <bool> open;
+    callback clicked();
+    width: 24px;
+    height: 48px;
+    border-radius: 12px;
+    background: open ? Theme.primary : touch.has-hover ? #4a4a50 : #3a3a40;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-action-default => { clicked(); }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    Text {
+        text: "▴";
+        color: #ffffff;
+        font-size: 14px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
 component CallButton inherits Rectangle {
     in property <string> icon;
     // The icon of the OS; `icon` is its emoji where the OS has none
@@ -104,11 +143,17 @@ export component CallStage inherits Rectangle {
     in property <bool> microphone;
     in property <bool> camera;
     in property <bool> sharing;
+    // The devices of the menu open: "audio" (microphones, speakers), "video" (cameras) or ""
+    in property <string> device-menu;
+    in property <[DeviceSection]> device-sections;
     // The width of a tile that fits them all (web `tileWidth`), computed in Rust
     pure callback tile-width(int, length, length) -> length;
     callback toggle-microphone();
     callback toggle-camera();
     callback toggle-screen();
+    // Opens a device menu ("audio", "video"), or closes it ("")
+    callback open-devices(string);
+    callback pick-device(string, string);
     callback leave();
     background: #18181b;
     accessible-role: groupbox;
@@ -163,19 +208,35 @@ export component CallStage inherits Rectangle {
             accessible-label: "Encrypted call";
             Icon { source: Icons.lock; fallback: "🔒"; color: #ffffff; }
         }
-        CallButton {
-            icon: root.microphone ? "🎤" : "🔇";
-            symbol: root.microphone ? Icons.mic : Icons.mic-off;
-            label: "Microphone";
-            off: !root.microphone;
-            clicked => { root.toggle-microphone(); }
+        HorizontalLayout {
+            spacing: 2px;
+            CallButton {
+                icon: root.microphone ? "🎤" : "🔇";
+                symbol: root.microphone ? Icons.mic : Icons.mic-off;
+                label: "Microphone";
+                off: !root.microphone;
+                clicked => { root.toggle-microphone(); }
+            }
+            CallArrow {
+                label: "Microphone and speaker";
+                open: root.device-menu == "audio";
+                clicked => { root.open-devices(root.device-menu == "audio" ? "" : "audio"); }
+            }
         }
-        CallButton {
-            icon: "📷";
-            symbol: Icons.video;
-            label: "Camera";
-            off: !root.camera;
-            clicked => { root.toggle-camera(); }
+        HorizontalLayout {
+            spacing: 2px;
+            CallButton {
+                icon: "📷";
+                symbol: Icons.video;
+                label: "Camera";
+                off: !root.camera;
+                clicked => { root.toggle-camera(); }
+            }
+            CallArrow {
+                label: "Cameras";
+                open: root.device-menu == "video";
+                clicked => { root.open-devices(root.device-menu == "video" ? "" : "video"); }
+            }
         }
         CallButton {
             icon: "🖥️";
@@ -189,6 +250,81 @@ export component CallStage inherits Rectangle {
             label: "Leave the call";
             danger: true;
             clicked => { root.leave(); }
+        }
+    }
+    if root.device-menu != "": TouchArea {
+        clicked => { root.open-devices(""); }
+    }
+    if root.device-menu != "" && root.device-sections.length > 0: Rectangle {
+        width: 300px;
+        height: menu-list.preferred-height;
+        x: (root.width - self.width) / 2;
+        y: root.height - 72px - self.height - 8px;
+        border-radius: 10px;
+        background: Theme.background;
+        border-width: 1px;
+        border-color: Theme.line;
+        drop-shadow-blur: 12px;
+        drop-shadow-color: #00000030;
+        accessible-role: list;
+        accessible-label: "Devices";
+        // Holds the clicks: they do not reach the TouchArea that closes the menu
+        TouchArea { }
+        menu-list := VerticalLayout {
+            padding: 6px;
+            for section in root.device-sections: VerticalLayout {
+                HorizontalLayout {
+                    padding-left: 8px;
+                    Text {
+                        height: 28px;
+                        text: section.title;
+                        color: Theme.text-secondary;
+                        font-size: 12px;
+                        font-weight: 600;
+                        vertical-alignment: center;
+                    }
+                }
+                for row in section.rows: Rectangle {
+                    height: 34px;
+                    border-radius: 6px;
+                    background: row-touch.has-hover ? Theme.hover : transparent;
+                    accessible-role: checkbox;
+                    accessible-checked: row.checked;
+                    accessible-label: row.label;
+                    accessible-action-default => { root.pick-device(section.kind, row.id); }
+                    row-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.pick-device(section.kind, row.id); }
+                    }
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        spacing: 8px;
+                        Text {
+                            width: 16px;
+                            text: row.checked ? "✓" : "";
+                            color: Theme.primary;
+                            vertical-alignment: center;
+                        }
+                        Text {
+                            text: row.label;
+                            color: Theme.text;
+                            vertical-alignment: center;
+                            overflow: elide;
+                        }
+                    }
+                }
+                // Not a speaker: a system that cannot choose its output says nothing (web)
+                if section.rows.length == 0: HorizontalLayout {
+                    padding-left: 32px;
+                    Text {
+                        height: 34px;
+                        text: "No device";
+                        color: Theme.text-secondary;
+                        vertical-alignment: center;
+                    }
+                }
+            }
         }
     }
 }

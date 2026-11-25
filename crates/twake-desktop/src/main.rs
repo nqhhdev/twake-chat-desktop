@@ -805,6 +805,18 @@ fn main() -> Result<(), slint::PlatformError> {
             }
         });
         let weak = window.as_weak();
+        window.on_call_open_devices(move |which| {
+            if let Some(w) = weak.upgrade() {
+                call::open_devices(&w, &which);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_call_pick_device(move |kind, id| {
+            if let Some(w) = weak.upgrade() {
+                call::pick_device(&w, &kind, &id);
+            }
+        });
+        let weak = window.as_weak();
         window.on_call_toggle_screen(move || {
             if let Some(w) = weak.upgrade() {
                 call::toggle_screen(&w);
@@ -993,6 +1005,7 @@ fn apply(window: &AppWindow, event: Event) {
         Event::CallMembers { room_id, user_ids } => call::members(window, room_id, &user_ids),
         Event::CallStatus { room_id, status } => call::status(window, &room_id, status),
         Event::CallTiles(tiles) => call::tiles(window, tiles),
+        Event::CallDevices(lists) => call::devices(window, lists),
         Event::Ringing(ringing) => call::ringing(window, ringing),
         Event::CallFrame { identity, picture } => call::frame(&identity, &picture),
         Event::Autoplay(enabled) => {
