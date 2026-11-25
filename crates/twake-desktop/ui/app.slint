@@ -79,8 +79,29 @@ export struct RoomRow {
     mentions: int,
     encrypted: bool,
     invite: bool,
+    // A direct message, pinned to the top (web « Pin »), its notifications off (« Mute »),
+    // marked unread
+    direct: bool,
+    favourite: bool,
+    muted: bool,
+    marked-unread: bool,
     avatar: image,
     has-avatar: bool,
+}
+
+// A line of a room row's menu (web `RoomRowMenu`)
+component RowMenuLine inherits Rectangle {
+    in property <string> label;
+    in property <bool> danger;
+    callback clicked();
+    height: 32px;
+    border-radius: 6px;
+    background: touch.has-hover ? Theme.hover : transparent;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-action-default => { clicked(); }
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    Text { x: 10px; text: root.label; color: root.danger ? Theme.error : Theme.text; vertical-alignment: center; }
 }
 
 component RoomLine inherits Rectangle {
@@ -89,6 +110,9 @@ component RoomLine inherits Rectangle {
     callback clicked();
     callback accept();
     callback decline();
+    // The menu of the row (web `RoomRowMenu`): "read", "unread", "mute", "unmute", "pin",
+    // "unpin", "leave" or "delete"
+    callback act(string);
     height: 68px;
     background: selected ? Theme.selected : touch.has-hover ? Theme.hover : transparent;
     border-radius: 12px;
@@ -117,6 +141,8 @@ component RoomLine inherits Rectangle {
                     overflow: elide;
                     horizontal-stretch: 1;
                 }
+                if room.favourite: Text { text: "📌"; font-size: 11px; vertical-alignment: center; accessible-label: "Favourite"; }
+                if room.muted: Text { text: "🔕"; font-size: 11px; vertical-alignment: center; accessible-label: "Muted"; }
                 Text { text: room.time; color: Theme.text-secondary; font-size: 12px; }
             }
             HorizontalLayout {
@@ -132,6 +158,40 @@ component RoomLine inherits Rectangle {
                 if room.unread > 0: Badge { label: room.unread > 99 ? "99+" : room.unread; }
                 if room.invite: TextButton { label: "Join"; clicked => { root.accept(); } }
                 if room.invite: TextButton { label: "Decline"; clicked => { root.decline(); } }
+            }
+        }
+    }
+    // « Options of … » on hover: read or unread, mute, pin, leave (web `RoomRowMenu`)
+    if !room.invite && touch.has-hover: Rectangle {
+        x: parent.width - self.width - 8px;
+        y: 6px;
+        width: 24px;
+        height: 24px;
+        border-radius: 12px;
+        background: more-touch.has-hover ? Theme.selected : Theme.background;
+        accessible-role: button;
+        accessible-label: "Options of " + room.name;
+        accessible-action-default => { menu.show(); }
+        more-touch := TouchArea { mouse-cursor: pointer; clicked => { menu.show(); } }
+        Text { text: "⋯"; color: Theme.text; horizontal-alignment: center; vertical-alignment: center; }
+    }
+    menu := PopupWindow {
+        x: parent.width - 200px;
+        y: 30px;
+        width: 192px;
+        Rectangle {
+            border-radius: 10px;
+            background: Theme.background;
+            border-width: 1px;
+            border-color: Theme.line;
+            drop-shadow-blur: 12px;
+            drop-shadow-color: #00000030;
+            VerticalLayout {
+                padding: 6px;
+                RowMenuLine { label: room.unread > 0 || room.marked-unread ? "Mark as read" : "Mark as unread"; clicked => { root.act(room.unread > 0 || room.marked-unread ? "read" : "unread"); } }
+                RowMenuLine { label: room.muted ? "Unmute" : "Mute"; clicked => { root.act(room.muted ? "unmute" : "mute"); } }
+                RowMenuLine { label: room.favourite ? "Unpin" : "Pin"; clicked => { root.act(room.favourite ? "unpin" : "pin"); } }
+                RowMenuLine { label: room.direct ? "Delete chat" : "Leave"; danger: true; clicked => { root.act(room.direct ? "delete" : "leave"); } }
             }
         }
     }
@@ -1049,6 +1109,7 @@ export component AppWindow inherits Window {
     callback info-set-listed(bool);
     callback info-move-to-space();
     callback info-set-notification(string);
+    callback room-row-act(string, string);
     // « Move to a Space » open with these choices
     in-out property <bool> space-dialog-open;
     in property <[SpaceChoiceRow]> space-choices;
@@ -1303,6 +1364,7 @@ export component AppWindow inherits Window {
                             clicked => { root.open-room(room.id); }
                             accept => { root.accept-invite(room.id); }
                             decline => { root.decline-invite(room.id); }
+                            act(action) => { root.room-row-act(room.id, action); }
                         }
                     }
                 }

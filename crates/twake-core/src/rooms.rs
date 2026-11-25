@@ -140,6 +140,11 @@ async fn summarize(room: &RoomListItem) -> RoomSummary {
         unread_count: room.num_unread_messages(),
         mention_count: room.num_unread_mentions(),
         is_marked_unread: room.is_marked_unread(),
+        is_favourite: room.is_favourite(),
+        is_muted: matches!(
+            room.cached_user_defined_notification_mode(),
+            Some(matrix_sdk::notification_settings::RoomNotificationMode::Mute)
+        ),
         last_activity: preview
             .as_ref()
             .map(|p| p.sent_at)

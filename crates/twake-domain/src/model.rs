@@ -53,6 +53,12 @@ pub struct RoomSummary {
     pub unread_count: u64,
     pub mention_count: u64,
     pub is_marked_unread: bool,
+    /// Pinned to the top of the list (the `m.favourite` tag, web « Pin »).
+    #[serde(default)]
+    pub is_favourite: bool,
+    /// Its notifications are off (web « Mute »).
+    #[serde(default)]
+    pub is_muted: bool,
     pub preview: Option<RoomPreview>,
     /// Epoch milliseconds of the newest event, for ordering and the time column.
     pub last_activity: Option<i64>,

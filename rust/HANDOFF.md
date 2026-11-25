@@ -144,8 +144,11 @@ M6, first part (2026-11-25):
   any member says what they hear of it, « Every message », « Mentions only » or « Nothing »,
   with the web's help line; the user's own choice in the push rules, else the server's
   default for a room of its kind (encrypted or not, of two people or more); a change goes
-  through matrix-sdk's notification settings. Not yet: Mute / Unmute in a room row's menu
-  and the muted mark in the list (the list has no menu yet). Not tried in a run.
+  through matrix-sdk's notification settings. Not tried in a run.
+- Room row menu (2026-11-25), as the web's `RoomRowMenu`: « ⋯ » on a hovered row: Mark as
+  read / unread (MSC2867), Mute / Unmute, Pin / Unpin (the `m.favourite` tag; pinned rooms
+  first, 📌), Leave or, for a direct message, Delete chat (both ask first); muted rooms show
+  🔕. Not yet: Select (bulk actions on rooms). Not tried in a run.
 - Forward (2026-11-25), as the web's `ForwardDialog` and `saveForward`: « Forward » in the
   menu opens « Forward to… », a search (accents and case ignored) over the other
   conversations, labelled with their space, 50 at most; tick one or more, Forward, and the

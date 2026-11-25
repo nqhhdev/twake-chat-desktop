@@ -329,6 +329,12 @@ pub enum RoomAction {
     SetListed(bool),
     /// What the user hears of the room (web `setNotificationLevel`).
     SetNotificationLevel(twake_domain::room_management::NotificationLevel),
+    /// Read up to its last message (web « Mark as read » of a room row).
+    MarkRead,
+    /// Marked unread for later (MSC2867, web « Mark as unread »).
+    MarkUnread,
+    /// Pinned to the top of the list, or not (the `m.favourite` tag, web « Pin »).
+    SetFavourite(bool),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1772,6 +1778,29 @@ async fn room_action(room: matrix_sdk::Room, action: RoomAction, emit: Emit) {
             admin::set_join_rule(&room, *rule).await,
             "Access changed".into(),
         ),
+        RoomAction::MarkRead => (
+            async {
+                let _ = room.set_unread_flag(false).await;
+                let timeline = room.timeline().await.map_err(|e| e.to_string())?;
+                timeline
+                    .mark_as_read(ReceiptType::Read)
+                    .await
+                    .map(|_| ())
+                    .map_err(|e| e.to_string())
+            }
+            .await,
+            String::new(),
+        ),
+        RoomAction::MarkUnread => (
+            room.set_unread_flag(true).await.map_err(|e| e.to_string()),
+            String::new(),
+        ),
+        RoomAction::SetFavourite(on) => (
+            room.set_is_favourite(*on, None)
+                .await
+                .map_err(|e| e.to_string()),
+            String::new(),
+        ),
         RoomAction::SetNotificationLevel(level) => (
             admin::set_notification_level(&room, *level).await,
             String::new(),
@@ -1792,7 +1821,12 @@ async fn room_action(room: matrix_sdk::Room, action: RoomAction, emit: Emit) {
             }
             if matches!(
                 action,
-                RoomAction::Report(_) | RoomAction::ReportMessage(..) | RoomAction::Block(_)
+                RoomAction::Report(_)
+                    | RoomAction::ReportMessage(..)
+                    | RoomAction::Block(_)
+                    | RoomAction::MarkRead
+                    | RoomAction::MarkUnread
+                    | RoomAction::SetFavourite(_)
             ) {
                 // Nothing of the room changed
             } else if matches!(action, RoomAction::Leave) {

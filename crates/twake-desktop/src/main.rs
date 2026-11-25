@@ -1419,7 +1419,7 @@ fn show_rooms(window: &AppWindow) {
             ..
         } = s;
         let mut find = lookup(pictures, asked, &mut requests);
-        let rows: Vec<RoomRow> = rooms
+        let mut rows: Vec<RoomRow> = rooms
             .iter()
             // A deleted chat stays out of the list until something newer (web `isChatHidden`)
             .filter(|r| {
@@ -1438,6 +1438,8 @@ fn show_rooms(window: &AppWindow) {
             })
             .map(|r| view::room_row(r, now, &mut find))
             .collect();
+        // Pinned rooms first, each group in its order (web « Pin »)
+        rows.sort_by_key(|r| !r.favourite);
         sync_model(rooms_model, rows);
     });
     requests.into_iter().for_each(send);
@@ -1991,6 +1993,48 @@ fn wire_room_info(window: &AppWindow) {
             _ => NotificationLevel::All,
         };
         room_command(RoomAction::SetNotificationLevel(level));
+    });
+    // The menu of a room row (web `RoomRowMenu`)
+    let w = with.clone();
+    window.on_room_row_act(move |room_id, action| {
+        use twake_domain::room_management::NotificationLevel;
+        let room_id = room_id.to_string();
+        let room = |action| Command::Room {
+            room_id: room_id.clone(),
+            action,
+        };
+        match action.as_str() {
+            "read" => send(room(RoomAction::MarkRead)),
+            "unread" => send(room(RoomAction::MarkUnread)),
+            "mute" => send(room(RoomAction::SetNotificationLevel(NotificationLevel::None))),
+            "unmute" => send(room(RoomAction::SetNotificationLevel(NotificationLevel::All))),
+            "pin" => send(room(RoomAction::SetFavourite(true))),
+            "unpin" => send(room(RoomAction::SetFavourite(false))),
+            "leave" => w(&|win| ask(win, "Leave this room?", "Leave", room(RoomAction::Leave))),
+            "delete" => {
+                let last = STATE.with_borrow(|s| {
+                    s.rooms
+                        .iter()
+                        .find(|r| r.id == room_id)
+                        .and_then(|r| r.last_activity)
+                        .unwrap_or(0)
+                });
+                let before_ts = chrono::Utc::now().timestamp_millis().max(last) as f64;
+                w(&|win| {
+                    ask(
+                        win,
+                        "Delete this chat?\n\nIt disappears from your list and its history is hidden for \
+                         you; the other members keep it.",
+                        "Delete chat",
+                        Command::DeleteChat {
+                            room_id: room_id.clone(),
+                            before_ts: Some(before_ts),
+                        },
+                    )
+                });
+            }
+            _ => {}
+        }
     });
     window.on_info_move_to_space(|| {
         send(Command::SpaceChoices {

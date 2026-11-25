@@ -99,6 +99,10 @@ pub fn room_row(room: &RoomSummary, now: i64, pictures: Pictures<'_>) -> RoomRow
         mentions: room.mention_count.min(i32::MAX as u64) as i32,
         encrypted: room.is_encrypted,
         invite: room.is_invite,
+        direct: room.kind == RoomKind::Direct,
+        favourite: room.is_favourite,
+        muted: room.is_muted,
+        marked_unread: room.is_marked_unread,
         has_avatar: picture.is_some(),
         avatar: picture.unwrap_or_default(),
     }
