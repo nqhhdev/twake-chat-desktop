@@ -84,25 +84,32 @@ async fn current_content(
         .ok_or_else(|| "message_not_found".to_string())
 }
 
-/// Sends the message `event_id`, of the room's or the thread's timeline, to each room of
-/// `to`; the rooms it reached.
+/// Sends the messages `event_ids`, of the room's or the thread's timeline, to each room of
+/// `to`, in their order; the rooms they reached.
 pub async fn forward(
     client: &Client,
     timelines: &[std::sync::Arc<Timeline>],
-    event_id: &str,
+    event_ids: &[String],
     to: &[String],
 ) -> Result<Vec<String>, String> {
-    let event_id = EventId::parse(event_id).map_err(|_| "message_not_found".to_string())?;
-    let content = forwarded_content(&current_content(timelines, &event_id).await?);
+    let mut contents = Vec::with_capacity(event_ids.len());
+    for event_id in event_ids {
+        let event_id = EventId::parse(event_id).map_err(|_| "message_not_found".to_string())?;
+        contents.push(forwarded_content(
+            &current_content(timelines, &event_id).await?,
+        ));
+    }
     let mut sent = Vec::new();
     for room_id in to {
         let room = RoomId::parse(room_id)
             .ok()
             .and_then(|id| client.get_room(&id))
             .ok_or("room_not_found")?;
-        room.send_raw("m.room.message", Value::Object(content.clone()))
-            .await
-            .map_err(|e| e.to_string())?;
+        for content in &contents {
+            room.send_raw("m.room.message", Value::Object(content.clone()))
+                .await
+                .map_err(|e| e.to_string())?;
+        }
         sent.push(room_id.clone());
     }
     Ok(sent)

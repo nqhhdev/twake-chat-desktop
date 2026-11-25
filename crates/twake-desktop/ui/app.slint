@@ -5,7 +5,7 @@ import { Avatar, Badge, PrimaryButton, TextButton, Field, Suggestion, TextChange
 import { Switcher } from "switcher.slint";
 import { SearchHit, SearchPane } from "search.slint";
 import { FeedLine, ActivityPane } from "activity.slint";
-import { Row, ReactionChip, PollAnswerRow, MessageLine, AudioState, Animations } from "timeline.slint";
+import { Row, ReactionChip, PollAnswerRow, MessageLine, SelectionButton, AudioState, Animations } from "timeline.slint";
 export { AudioState, Animations }
 export { Icons }
 import { ForwardDialog, ForwardRow, MemberRow, VersionRow, VersionsDialog, RoomInfoData, InfoPane, SharedFileRow, SharedLinkRow, SharedMediaRow, ConfirmDialog, CreateDialog, PollDialog } from "info.slint";
@@ -971,6 +971,25 @@ export component AppWindow inherits Window {
     callback copy-link(string);
     callback forward-message(string);
     callback show-versions(string);
+    callback show-seen(string);
+    in property <bool> current-room-direct;
+    in property <string> versions-title: "Edit history";
+    // Ticking messages to act on several (web `MessageSelectionBar`, D183)
+    in property <bool> selecting;
+    in property <string> selection-text;
+    in property <int> selection-count;
+    in property <bool> selection-can-forward;
+    in property <bool> selection-has-files;
+    in property <bool> selection-can-pin;
+    in property <bool> selection-unpin;
+    in property <bool> selection-can-delete;
+    callback select-message(string);
+    callback selection-close();
+    callback selection-forward();
+    callback selection-download();
+    callback selection-copy();
+    callback selection-pin();
+    callback selection-delete();
     // « Edit history » open with these versions, newest first
     in property <[VersionRow]> versions;
     in-out property <bool> versions-open;
@@ -1333,6 +1352,25 @@ export component AppWindow inherits Window {
                     alignment: end;
                     TextButton { label: "Back to the meeting thread"; clicked => { root.call-thread-toggle(); } }
                 }
+                // The messages ticked: what to do with them, and the cross that leaves
+                if root.selecting: Rectangle {
+                    height: 44px;
+                    background: #26262b;
+                    accessible-role: groupbox;
+                    accessible-label: "Actions on the selected messages";
+                    HorizontalLayout {
+                        padding-left: 16px;
+                        padding-right: 8px;
+                        spacing: 4px;
+                        Text { text: root.selection-text; color: #ffffff; font-weight: 600; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
+                        VerticalLayout { alignment: center; SelectionButton { label: "Forward"; enabled: root.selection-can-forward; clicked => { root.selection-forward(); } } }
+                        if root.selection-has-files: VerticalLayout { alignment: center; SelectionButton { label: "Download"; clicked => { root.selection-download(); } } }
+                        VerticalLayout { alignment: center; SelectionButton { label: "Copy"; enabled: root.selection-count > 0; clicked => { root.selection-copy(); } } }
+                        if root.selection-can-pin: VerticalLayout { alignment: center; SelectionButton { label: root.selection-unpin ? "Unpin" : "Pin"; enabled: root.selection-count > 0; clicked => { root.selection-pin(); } } }
+                        VerticalLayout { alignment: center; SelectionButton { label: "Delete"; enabled: root.selection-can-delete; clicked => { root.selection-delete(); } } }
+                        VerticalLayout { alignment: center; SelectionButton { label: "✕"; clicked => { root.selection-close(); } } }
+                    }
+                }
                 if root.deleted-before != "": HorizontalLayout {
                     padding: 8px;
                     alignment: center;
@@ -1365,6 +1403,7 @@ export component AppWindow inherits Window {
                     }
                     for r in root.rows: MessageLine {
                         entry: r;
+                        selecting: root.selecting;
                         list-width: timeline.visible-width;
                         link-clicked(url) => { root.link-clicked(url); }
                         open-attachment(key, name) => { root.open-attachment(key, name); }
@@ -1386,6 +1425,9 @@ export component AppWindow inherits Window {
                         copy-link(id) => { root.copy-link(id); }
                         forward(id) => { root.forward-message(id); }
                         versions(id) => { root.show-versions(id); }
+                        select(id) => { root.select-message(id); }
+                        seen(id) => { root.show-seen(id); }
+                        direct: root.current-room-direct;
                     }
                 }
                 if root.typing-text != "": HorizontalLayout {
@@ -1522,6 +1564,9 @@ export component AppWindow inherits Window {
                         copy-link(id) => { root.copy-link(id); }
                         forward(id) => { root.forward-message(id); }
                         versions(id) => { root.show-versions(id); }
+                        select(id) => { root.select-message(id); }
+                        seen(id) => { root.show-seen(id); }
+                        direct: root.current-room-direct;
                         }
                     }
                     thread-composer := Composer {
@@ -1579,6 +1624,7 @@ export component AppWindow inherits Window {
         width: root.width;
         height: root.height;
         versions: root.versions;
+        title: root.versions-title;
         close => { root.versions-open = false; }
     }
 

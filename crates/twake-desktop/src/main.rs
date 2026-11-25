@@ -16,6 +16,7 @@ mod icons;
 mod pdf;
 mod previews;
 mod search;
+mod selection;
 mod shared;
 mod staged;
 mod switcher;
@@ -65,6 +66,8 @@ struct UiState {
     members_model: Rc<VecModel<MemberRow>>,
     /// The command a confirmation dialog runs on « yes ».
     pending: Option<Command>,
+    /// The commands sent with `pending` once confirmed (several messages deleted at once).
+    pending_more: Vec<Command>,
     /// The chats deleted for the user alone (D186), and the one « Undo » brings back.
     deleted: twake_domain::deleted_chats::DeletedChats,
     undo_room: Option<String>,
@@ -110,6 +113,7 @@ impl Default for UiState {
             details: None,
             members_model: Rc::new(VecModel::default()),
             pending: None,
+            pending_more: Vec::new(),
             deleted: Default::default(),
             undo_room: None,
             spaces: Vec::new(),
@@ -341,6 +345,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 s.details = None;
             });
             if let Some(w) = weak.upgrade() {
+                selection::reset(&w);
                 if !w.get_notice_action().is_empty() {
                     STATE.with_borrow_mut(|s| s.undo_room = None);
                     w.set_notice("".into());
@@ -881,7 +886,55 @@ fn main() -> Result<(), slint::PlatformError> {
         let weak = window.as_weak();
         window.on_forward_message(move |id| {
             if let Some(w) = weak.upgrade() {
-                forward::open(&w, &id);
+                forward::open(&w, vec![id.to_string()]);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_select_message(move |id| {
+            if let Some(w) = weak.upgrade() {
+                selection::select(&w, &id);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_selection_close(move || {
+            if let Some(w) = weak.upgrade() {
+                selection::close(&w);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_selection_forward(move || {
+            if let Some(w) = weak.upgrade() {
+                selection::forward(&w);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_selection_download(move || {
+            if let Some(w) = weak.upgrade() {
+                selection::download(&w);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_selection_copy(move || {
+            if let Some(w) = weak.upgrade() {
+                selection::copy(&w);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_selection_pin(move || {
+            if let Some(w) = weak.upgrade() {
+                selection::pin(&w);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_selection_delete(move || {
+            if let Some(w) = weak.upgrade() {
+                selection::delete(&w);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_show_seen(move |id| {
+            if let Some(w) = weak.upgrade() {
+                show_seen(&w, &id);
             }
         });
         window.on_show_versions(|id| {
@@ -1018,6 +1071,13 @@ fn apply(window: &AppWindow, event: Event) {
             if STATE.with_borrow(|s| s.current_room == room_id) {
                 window.set_current_room_name(name.into());
                 window.set_current_room_encrypted(is_encrypted);
+                // A direct message says nothing of who read what (web `!isDirect`)
+                let direct = STATE.with_borrow(|s| {
+                    s.rooms
+                        .iter()
+                        .any(|r| r.id == room_id && r.kind == twake_domain::RoomKind::Direct)
+                });
+                window.set_current_room_direct(direct);
             }
         }
         Event::Timeline {
@@ -1392,6 +1452,7 @@ fn show_timeline(window: &AppWindow, entries: &[TimelineEntry]) {
         .into_iter()
         .map(|mut r| {
             r.saved = activity::is_saved(&r.id);
+            r.selected = selection::is_selected(&r.id);
             r.anim = gifs::slot(&r, view::DENSITY, &mut requests);
             r
         })
@@ -1540,6 +1601,22 @@ fn ask(window: &AppWindow, message: &str, label: &str, command: Command) {
     window.set_confirm_message(message.into());
 }
 
+/// A confirmation for several commands sent together (no reason asked).
+fn ask_many(window: &AppWindow, message: &str, label: &str, mut commands: Vec<Command>) {
+    if commands.is_empty() {
+        return;
+    }
+    let first = commands.remove(0);
+    window.set_confirm_with_reason(false);
+    window.set_confirm_reason("".into());
+    STATE.with_borrow_mut(|s| {
+        s.pending = Some(first);
+        s.pending_more = commands;
+    });
+    window.set_confirm_label(label.into());
+    window.set_confirm_message(message.into());
+}
+
 /// The command of a confirmation, with the reason typed in it.
 fn with_reason(command: Command, reason: Option<String>) -> Command {
     match command {
@@ -1606,6 +1683,39 @@ fn show_versions(window: &AppWindow, versions: &[twake_core::MessageVersion]) {
         })
         .collect();
     window.set_versions(ModelRc::from(Rc::new(VecModel::from(rows))));
+    window.set_versions_title("Edit history".into());
+    window.set_versions_open(true);
+}
+
+/// « Seen by »: the others who read the message, the latest reader first, each with the
+/// time of their receipt (web `message-seen`).
+fn show_seen(window: &AppWindow, id: &str) {
+    let mut readers = STATE.with_borrow(|s| {
+        view::readers_by_message(&s.entries)
+            .remove(id)
+            .unwrap_or_default()
+    });
+    readers.sort_by_key(|r| std::cmp::Reverse(r.read_at));
+    let now = chrono::Utc::now().timestamp_millis();
+    let rows: Vec<VersionRow> = readers
+        .iter()
+        .map(|r| VersionRow {
+            text: r.name.as_str().into(),
+            info: r
+                .read_at
+                .map(|at| {
+                    format!(
+                        "{} {}",
+                        twake_domain::format::room_list_time(at, now),
+                        twake_domain::format::message_time(at)
+                    )
+                })
+                .unwrap_or_default()
+                .into(),
+        })
+        .collect();
+    window.set_versions(ModelRc::from(Rc::new(VecModel::from(rows))));
+    window.set_versions_title("Seen by".into());
     window.set_versions_open(true);
 }
 
@@ -1929,12 +2039,23 @@ fn wire_room_info(window: &AppWindow) {
                 send(Command::MarkRead);
             }
             send(with_reason(command, reason.take()));
+            STATE
+                .with_borrow_mut(|s| std::mem::take(&mut s.pending_more))
+                .into_iter()
+                .for_each(send);
+            // Deleting the messages ticked ends the selection (web)
+            if selection::is_active() {
+                w(&selection::close);
+            }
         }
         w(&|win| win.set_confirm_message("".into()));
     });
     let w = with;
     window.on_confirm_no(move || {
-        STATE.with_borrow_mut(|s| s.pending = None);
+        STATE.with_borrow_mut(|s| {
+            s.pending = None;
+            s.pending_more.clear();
+        });
         w(&|win| win.set_confirm_message("".into()));
     });
 }
@@ -1977,7 +2098,7 @@ fn wire_polls_and_pins(window: &AppWindow) {
     });
     window.on_pin(|id, pinned| {
         send(Command::Pin {
-            id: id.to_string(),
+            ids: vec![id.to_string()],
             pinned,
         })
     });

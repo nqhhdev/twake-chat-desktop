@@ -1684,8 +1684,30 @@ pub fn is_same_day(a: f64, b: f64) -> Result<bool, String> {
 
 /// Port of `isSelectable` (`src/domain/message.ts:207`).
 pub fn is_selectable(message: serde_json::Value) -> Result<bool, String> {
-    let _ = &message;
-    unimplemented!("port `isSelectable` from src/domain/message.ts")
+    use twake_domain::{MessageNotice, SendStatus};
+    // The three fields the rule reads, typed; the app's `Message` is a subset of the web's,
+    // so the rest of the recorded message is not read
+    let skip = |field: &str| format!("SKIP: input not of the typed shape ({field})");
+    let send_status = match message.get("sendStatus").and_then(serde_json::Value::as_str) {
+        Some("sent") => SendStatus::Sent,
+        Some("sending") => SendStatus::Sending,
+        Some("failed") => SendStatus::Failed,
+        _ => return Err(skip("sendStatus")),
+    };
+    // Any notice but « deleted » (unsupported, a missed or legacy call) reads the same here
+    let notice = match message.get("notice") {
+        Some(serde_json::Value::Null) => None,
+        Some(serde_json::Value::String(n)) if n == "deleted" => Some(MessageNotice::Deleted),
+        Some(serde_json::Value::String(_)) => Some(MessageNotice::Unsupported),
+        _ => return Err(skip("notice")),
+    };
+    let is_call = message.get("call").is_some_and(|c| !coerce::is_falsy(c));
+    let typed_message = twake_domain::Message {
+        send_status: Some(send_status),
+        notice,
+        ..twake_domain::Message::default()
+    };
+    Ok(twake_domain::model::is_selectable(&typed_message, is_call))
 }
 
 /// Port of `startsGroup` (`src/domain/message.ts:218`).
