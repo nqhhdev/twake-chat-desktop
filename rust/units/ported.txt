@@ -48,6 +48,7 @@ withSaved
 isViewablePdf
 shouldMirror
 countCallPeople
+currentDeviceId
 toCallLine
 ringAsks
 isRinging

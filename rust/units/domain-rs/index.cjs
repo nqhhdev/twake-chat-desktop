@@ -71,7 +71,7 @@ const specs = {
   prepareCommandText: [[0, 1], 'json', false],
   prepareOutgoing: [[0, 1, 1], 'json', false],
   shouldMirror: [[1], 'json', false],
-  currentDeviceId: [[1, 0], 'raw', false],
+  currentDeviceId: [[1, 0], 'json', false],
   countCallPeople: [[1], 'raw', false],
   ringAsks: [[1, 1, 0, 0, 0], 'raw', false],
   isRinging: [[1, 0, 0, 0, 0], 'raw', false],

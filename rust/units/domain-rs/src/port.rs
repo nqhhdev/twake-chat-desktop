@@ -541,12 +541,17 @@ pub fn recording_mode_of(
 }
 
 /// Port of `currentDeviceId` (`src/domain/call.ts:143`).
+/// A JSON value: `null` without a device, as the web (`?? null`), where `Option` would
+/// come back as `undefined` from an absent `activeId`.
 pub fn current_device_id(
     devices: Vec<serde_json::Value>,
     active_id: Option<String>,
-) -> Result<Option<String>, String> {
-    let _ = (&devices, &active_id);
-    unimplemented!("port `currentDeviceId` from src/domain/call.ts")
+) -> Result<serde_json::Value, String> {
+    let devices: Vec<twake_domain::call::MediaDevice> = typed(serde_json::Value::Array(devices))?;
+    Ok(
+        twake_domain::call::current_device_id(&devices, active_id.as_deref())
+            .map_or(serde_json::Value::Null, serde_json::Value::String),
+    )
 }
 
 /// Port of `countCallPeople` (`src/domain/call.ts:156`).
