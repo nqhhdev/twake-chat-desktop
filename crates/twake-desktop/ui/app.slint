@@ -1048,6 +1048,7 @@ export component AppWindow inherits Window {
     callback info-set-join-rule(string);
     callback info-set-listed(bool);
     callback info-move-to-space();
+    callback info-set-notification(string);
     // « Move to a Space » open with these choices
     in-out property <bool> space-dialog-open;
     in property <[SpaceChoiceRow]> space-choices;
@@ -1582,6 +1583,7 @@ export component AppWindow inherits Window {
                 set-join-rule(rule) => { root.info-set-join-rule(rule); }
                 set-listed(listed) => { root.info-set-listed(listed); }
                 move-to-space => { root.info-move-to-space(); }
+                set-notification(level) => { root.info-set-notification(level); }
                 block => { root.block-user(); }
             }
             if !root.activity-open && root.current-room-id != "" && root.search-open && !root.thread-open && !root.info-open: SearchPane {

@@ -1983,6 +1983,15 @@ fn wire_room_info(window: &AppWindow) {
         room_command(RoomAction::SetJoinRule(rule));
     });
     window.on_info_set_listed(|listed| room_command(RoomAction::SetListed(listed)));
+    window.on_info_set_notification(|level| {
+        use twake_domain::room_management::NotificationLevel;
+        let level = match level.as_str() {
+            "mentions" => NotificationLevel::Mentions,
+            "none" => NotificationLevel::None,
+            _ => NotificationLevel::All,
+        };
+        room_command(RoomAction::SetNotificationLevel(level));
+    });
     window.on_info_move_to_space(|| {
         send(Command::SpaceChoices {
             room_id: current_room(),

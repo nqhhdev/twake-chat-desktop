@@ -41,6 +41,8 @@ export struct RoomInfoData {
     listed: bool,
     // May go to a space (web `canMoveToSpace`)
     can-move: bool,
+    // What the user hears of it: "all", "mentions" or "none" (web `notificationLevel`)
+    notification-level: string,
 }
 
 // A choice of « Who can join »: a round mark, checked or not
@@ -188,6 +190,8 @@ export component InfoPane inherits Rectangle {
     callback set-listed(bool);
     // « Move to a Space » (web `MoveToSpaceDialog`)
     callback move-to-space();
+    // What the user hears of the room (web `info.levelChoice`)
+    callback set-notification(string);
     // For the user alone, without leaving (web `menu-delete-chat`, D186)
     callback delete-chat();
     // To the server's administrators (web `menu-report`); a person, in a direct message
@@ -235,6 +239,22 @@ export component InfoPane inherits Rectangle {
             if !root.editing: Text { text: info.name; font-size: 20px; font-weight: Theme.weight-bold; color: Theme.text; horizontal-alignment: center; wrap: word-wrap; }
             if !root.editing: Text { text: info.count-text; color: Theme.text-secondary; horizontal-alignment: center; }
             if !root.editing && !info.direct: Text { text: info.access-line; color: Theme.text-secondary; horizontal-alignment: center; }
+            // Notifications, for every member (web `info.levelChoice`, `info.levelHelp`)
+            if !root.editing: VerticalLayout {
+                spacing: 2px;
+                Text { text: "Notifications"; color: Theme.text-secondary; font-size: 12px; font-weight: 600; }
+                RuleChoice { label: "Every message"; checked: info.notification-level == "all"; clicked => { root.set-notification("all"); } }
+                RuleChoice { label: "Mentions only"; checked: info.notification-level == "mentions"; clicked => { root.set-notification("mentions"); } }
+                RuleChoice { label: "Nothing"; checked: info.notification-level == "none"; clicked => { root.set-notification("none"); } }
+                Text {
+                    text: info.notification-level == "all" ? "You are told about every message."
+                        : info.notification-level == "mentions" ? "Only messages that name you, or everyone."
+                        : "Nothing, not even mentions.";
+                    color: Theme.text-secondary;
+                    font-size: 12px;
+                    wrap: word-wrap;
+                }
+            }
             if !root.editing && info.topic != "": Text { text: info.topic; color: Theme.text; wrap: word-wrap; horizontal-alignment: center; }
             name-field := Field { visible: root.editing; height: root.editing ? self.preferred-height : 0; label: "Name"; }
             topic-field := Field { visible: root.editing; height: root.editing ? self.preferred-height : 0; label: "Description"; }
