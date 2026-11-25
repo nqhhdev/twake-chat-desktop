@@ -317,3 +317,14 @@ mod creation_tests {
         assert!(!is_name_too_long(&format!("  {}  ", "a".repeat(100))));
     }
 }
+
+/// What the user hears of a room (web `NotificationLevel`): every message, mentions only, or
+/// nothing.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum NotificationLevel {
+    #[default]
+    All,
+    Mentions,
+    None,
+}

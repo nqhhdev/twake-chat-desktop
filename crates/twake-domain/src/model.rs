@@ -201,6 +201,9 @@ pub struct RoomDetails {
     pub join_rule: crate::room_management::JoinRuleChoice,
     #[serde(default)]
     pub is_listed: bool,
+    /// What the user hears of it (web `notificationLevel`).
+    #[serde(default)]
+    pub notification_level: crate::room_management::NotificationLevel,
 }
 
 /// A message on the server and not deleted can be ticked to act on several at once (web
