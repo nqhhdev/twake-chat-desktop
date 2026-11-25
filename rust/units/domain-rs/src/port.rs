@@ -2169,8 +2169,7 @@ pub fn given_roles(permissions: serde_json::Value) -> Result<Vec<String>, String
 
 /// Port of `isValidSlug` (`src/domain/roomManagement.ts:452`).
 pub fn is_valid_slug(slug: String) -> Result<bool, String> {
-    let _ = &slug;
-    unimplemented!("port `isValidSlug` from src/domain/roomManagement.ts")
+    Ok(twake_domain::room_management::is_valid_slug(&slug))
 }
 
 /// Port of `canHavePublicPage` (`src/domain/roomManagement.ts:461`).
@@ -2187,8 +2186,7 @@ pub fn public_page_path(room: serde_json::Value) -> Result<Option<String>, Strin
 
 /// Port of `suggestSlug` (`src/domain/roomManagement.ts:483`).
 pub fn suggest_slug(name: String) -> Result<String, String> {
-    let _ = &name;
-    unimplemented!("port `suggestSlug` from src/domain/roomManagement.ts")
+    Ok(twake_domain::room_management::suggest_slug(&name))
 }
 
 /// Port of `isValidColor` (`src/domain/roomManagement.ts:493`).
@@ -2441,8 +2439,7 @@ pub fn normalize_status(text: Option<String>) -> Result<Option<String>, String> 
 
 /// Port of `isNameTooLong` (`src/domain/text.ts:31`).
 pub fn is_name_too_long(name: String) -> Result<bool, String> {
-    let _ = &name;
-    unimplemented!("port `isNameTooLong` from src/domain/text.ts")
+    Ok(twake_domain::room_management::is_name_too_long(&name))
 }
 
 /// Port of `presenceOfPreset` (`src/domain/text.ts:46`).

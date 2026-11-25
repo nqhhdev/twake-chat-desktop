@@ -65,6 +65,9 @@ isAfterDeletion
 userPermalink
 roomPermalink
 isSelectable
+isValidSlug
+suggestSlug
+isNameTooLong
 toCallLine
 ringAsks
 isRinging
