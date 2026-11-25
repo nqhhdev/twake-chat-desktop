@@ -2385,8 +2385,16 @@ pub fn can_move_to_space(
     room: serde_json::Value,
     permissions: serde_json::Value,
 ) -> Result<bool, String> {
-    let _ = (&room, &permissions);
-    unimplemented!("port `canMoveToSpace` from src/domain/spaceChoices.ts")
+    // The four fields the rule reads, of their web types; anything else is another shape
+    let skip = || "SKIP: input not of the typed shape".to_string();
+    let kind = room.get("kind").and_then(serde_json::Value::as_str).ok_or_else(skip)?;
+    let flag = |value: &serde_json::Value, key: &str| value.get(key).and_then(serde_json::Value::as_bool).ok_or_else(skip);
+    Ok(twake_domain::space_choices::can_move_to_space(
+        kind == "direct",
+        flag(&room, "isSpace")?,
+        flag(&permissions, "isManagedBySpace")?,
+        flag(&permissions, "canEditSettings")?,
+    ))
 }
 
 /// Port of `arrangeRooms` (`src/domain/spaceTree.ts:23`).
