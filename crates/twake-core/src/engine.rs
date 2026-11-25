@@ -272,12 +272,8 @@ pub enum Command {
         action: RoomAction,
     },
     /// Create a room and invite people to it; opens it ([`Event::RoomCreated`]).
-    CreateRoom {
-        name: String,
-        topic: String,
-        invite: Vec<String>,
-        encrypted: bool,
-    },
+    /// A new room of one kind (web `createRoom`): [`Event::RoomCreated`] once made.
+    CreateRoom(twake_domain::room_management::NewRoom),
     /// Open the direct message with someone, created when there is none (in the clear, as
     /// the web: encryption is a switch of the room).
     OpenDirect {
@@ -1139,16 +1135,11 @@ async fn run(mut commands: mpsc::UnboundedReceiver<Command>, emit: Emit) {
                     tokio::spawn(room_action(room, action, emit));
                 }
             }
-            Command::CreateRoom {
-                name,
-                topic,
-                invite,
-                encrypted,
-            } => {
+            Command::CreateRoom(room) => {
                 if let Some(client) = state.client.clone() {
                     let emit = emit.clone();
                     tokio::spawn(async move {
-                        match create_room(&client, name, topic, invite, encrypted).await {
+                        match crate::room_creation::create(&client, room).await {
                             Ok(room_id) => emit(Event::RoomCreated { room_id }),
                             Err(e) => emit(Event::Error(format!("room not created: {e}"))),
                         }
@@ -1638,47 +1629,6 @@ async fn room_action(room: matrix_sdk::Room, action: RoomAction, emit: Emit) {
         }
         Err(e) => emit(Event::Error(e)),
     }
-}
-
-async fn create_room(
-    client: &Client,
-    name: String,
-    topic: String,
-    invite: Vec<String>,
-    encrypted: bool,
-) -> Result<String, String> {
-    use matrix_sdk::ruma::{
-        UserId,
-        api::client::room::create_room::v3::{Request, RoomPreset},
-        events::{InitialStateEvent, room::encryption::RoomEncryptionEventContent},
-    };
-    let mut request = Request::new();
-    request.name = Some(name.trim().to_string()).filter(|n| !n.is_empty());
-    request.topic = Some(topic.trim().to_string()).filter(|t| !t.is_empty());
-    request.preset = Some(RoomPreset::PrivateChat);
-    // Everyone may join a call: the membership is a state event, which the default
-    // power levels keep to moderators (web `powerLevelsOverride`)
-    request.power_level_content_override = matrix_sdk::ruma::serde::Raw::from_json_string(
-        serde_json::json!({ "events": { crate::calls::CALL_MEMBER_TYPE: 0 } }).to_string(),
-    )
-    .ok();
-    request.invite = invite
-        .iter()
-        .map(|u| UserId::parse(u.trim()).map_err(|_| format!("« {u} » is not a Matrix id")))
-        .collect::<Result<_, _>>()?;
-    if encrypted {
-        request.initial_state = vec![
-            InitialStateEvent::with_empty_state_key(
-                RoomEncryptionEventContent::with_recommended_defaults(),
-            )
-            .to_raw_any(),
-        ];
-    }
-    let room = client
-        .create_room(request)
-        .await
-        .map_err(|e| e.to_string())?;
-    Ok(room.room_id().to_string())
 }
 
 async fn open_direct(client: &Client, user_id: &str) -> Result<String, String> {
