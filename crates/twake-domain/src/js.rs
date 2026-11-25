@@ -53,22 +53,35 @@ pub fn math_round(x: f64) -> f64 {
     }
 }
 
-/// `Math.min(...)`: NaN when any argument is NaN (Rust's `f64::min` ignores NaN).
+/// `Math.min(...)`: NaN when any argument is NaN (Rust's `f64::min` ignores NaN), and -0
+/// below +0 (`f64::min` may return either).
 pub fn math_min(values: &[f64]) -> f64 {
     values
         .iter()
         .try_fold(f64::INFINITY, |acc, &v| {
-            if v.is_nan() { None } else { Some(acc.min(v)) }
+            if v.is_nan() {
+                None
+            } else if v < acc || (v == acc && v.is_sign_negative()) {
+                Some(v)
+            } else {
+                Some(acc)
+            }
         })
         .unwrap_or(f64::NAN)
 }
 
-/// `Math.max(...)`: NaN when any argument is NaN.
+/// `Math.max(...)`: NaN when any argument is NaN, and +0 above -0.
 pub fn math_max(values: &[f64]) -> f64 {
     values
         .iter()
         .try_fold(f64::NEG_INFINITY, |acc, &v| {
-            if v.is_nan() { None } else { Some(acc.max(v)) }
+            if v.is_nan() {
+                None
+            } else if v > acc || (v == acc && v.is_sign_positive()) {
+                Some(v)
+            } else {
+                Some(acc)
+            }
         })
         .unwrap_or(f64::NAN)
 }

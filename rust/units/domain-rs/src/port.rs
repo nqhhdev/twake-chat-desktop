@@ -837,19 +837,69 @@ pub fn to_call_line(
     }
 }
 
+use twake_domain::call_window as cw;
+
+/// A recorded object of numbers, typed: a missing or non-number field is another shape.
+fn numbers<const N: usize>(value: &serde_json::Value, keys: [&str; N]) -> Result<[f64; N], String> {
+    let mut out = [0.0; N];
+    for (slot, key) in out.iter_mut().zip(keys) {
+        *slot = value
+            .get(key)
+            .and_then(crate::js::as_number)
+            .ok_or_else(|| format!("SKIP: input not of the typed shape ({key} is not a number)"))?;
+    }
+    Ok(out)
+}
+
+fn window_rect(value: &serde_json::Value) -> Result<cw::WindowRect, String> {
+    let [x, y, width, height] = numbers(value, ["x", "y", "width", "height"])?;
+    Ok(cw::WindowRect {
+        x,
+        y,
+        width,
+        height,
+    })
+}
+
+fn viewport(value: &serde_json::Value) -> Result<cw::WindowViewport, String> {
+    let [width, height] = numbers(value, ["width", "height"])?;
+    Ok(cw::WindowViewport { width, height })
+}
+
+/// NaN, ±Infinity and -0 marked as `index.cjs` reads them.
+fn window_json(rect: cw::WindowRect) -> serde_json::Value {
+    use crate::js::number;
+    serde_json::json!({
+        "x": number(rect.x),
+        "y": number(rect.y),
+        "width": number(rect.width),
+        "height": number(rect.height),
+    })
+}
+
+/// A room id of `now`: a string or null; absent or of another type, another shape.
+fn room_id_of(now: &serde_json::Value, key: &str) -> Result<Option<String>, String> {
+    match now.get(key) {
+        Some(serde_json::Value::String(id)) => Ok(Some(id.clone())),
+        Some(serde_json::Value::Null) => Ok(None),
+        _ => Err(format!("SKIP: input not of the typed shape ({key})")),
+    }
+}
+
 /// Port of `fitWindow` (`src/domain/callWindow.ts:33`).
 pub fn fit_window(
     rect: serde_json::Value,
     screen: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
-    let _ = (&rect, &screen);
-    unimplemented!("port `fitWindow` from src/domain/callWindow.ts")
+    Ok(window_json(cw::fit_window(
+        window_rect(&rect)?,
+        viewport(&screen)?,
+    )))
 }
 
 /// Port of `defaultCallWindow` (`src/domain/callWindow.ts:47`).
 pub fn default_call_window(screen: serde_json::Value) -> Result<serde_json::Value, String> {
-    let _ = &screen;
-    unimplemented!("port `defaultCallWindow` from src/domain/callWindow.ts")
+    Ok(window_json(cw::default_call_window(viewport(&screen)?)))
 }
 
 /// Port of `moveWindow` (`src/domain/callWindow.ts:60`).
@@ -859,8 +909,12 @@ pub fn move_window(
     dy: f64,
     screen: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
-    let _ = (&rect, &dx, &dy, &screen);
-    unimplemented!("port `moveWindow` from src/domain/callWindow.ts")
+    Ok(window_json(cw::move_window(
+        window_rect(&rect)?,
+        dx,
+        dy,
+        viewport(&screen)?,
+    )))
 }
 
 /// Port of `placeInCorner` (`src/domain/callWindow.ts:69`).
@@ -869,8 +923,11 @@ pub fn place_in_corner(
     corner: String,
     screen: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
-    let _ = (&rect, &corner, &screen);
-    unimplemented!("port `placeInCorner` from src/domain/callWindow.ts")
+    Ok(window_json(cw::place_in_corner(
+        window_rect(&rect)?,
+        &corner,
+        viewport(&screen)?,
+    )))
 }
 
 /// Port of `resizeWindow` (`src/domain/callWindow.ts:105`).
@@ -881,14 +938,18 @@ pub fn resize_window(
     dy: f64,
     screen: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
-    let _ = (&rect, &edge, &dx, &dy, &screen);
-    unimplemented!("port `resizeWindow` from src/domain/callWindow.ts")
+    Ok(window_json(cw::resize_window(
+        window_rect(&rect)?,
+        &edge,
+        dx,
+        dy,
+        viewport(&screen)?,
+    )))
 }
 
 /// Port of `parseCallWindow` (`src/domain/callWindow.ts:139`).
 pub fn parse_call_window(stored: Option<String>) -> Result<Option<serde_json::Value>, String> {
-    let _ = &stored;
-    unimplemented!("port `parseCallWindow` from src/domain/callWindow.ts")
+    Ok(cw::parse_call_window(stored.as_deref()).map(window_json))
 }
 
 /// Port of `placeCall` (`src/domain/callWindow.ts:172`).
@@ -896,17 +957,26 @@ pub fn place_call(
     state: serde_json::Value,
     now: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
-    let _ = (&state, &now);
-    unimplemented!("port `placeCall` from src/domain/callWindow.ts")
+    let state: cw::CallPlacement = typed(state)?;
+    let shown = room_id_of(&now, "shownRoomId")?;
+    let call = room_id_of(&now, "callRoomId")?;
+    serde_json::to_value(cw::place_call(&state, shown.as_deref(), call.as_deref()))
+        .map_err(|e| e.to_string())
 }
 
 /// Port of `isCallFloating` (`src/domain/callWindow.ts:190`).
 pub fn is_call_floating(
     state: serde_json::Value,
-    call_room_id: Option<String>,
+    call_room_id: serde_json::Value,
 ) -> Result<bool, String> {
-    let _ = (&state, &call_room_id);
-    unimplemented!("port `isCallFloating` from src/domain/callWindow.ts")
+    let state: cw::CallPlacement = typed(state)?;
+    // `string | null`: an undefined room is another shape (`undefined !== null` in JS)
+    let call_room_id = match call_room_id {
+        serde_json::Value::String(id) => Some(id),
+        serde_json::Value::Null => None,
+        _ => return Err("SKIP: input not of the typed shape (callRoomId)".into()),
+    };
+    Ok(cw::is_call_floating(&state, call_room_id.as_deref()))
 }
 
 /// Port of `parseClientConfig` (`src/domain/clientConfig.ts:34`).

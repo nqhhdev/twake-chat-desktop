@@ -9,8 +9,8 @@ import { Row, ReactionChip, PollAnswerRow, MessageLine, AudioState, Animations }
 export { AudioState, Animations }
 export { Icons }
 import { MemberRow, RoomInfoData, InfoPane, ConfirmDialog, CreateDialog, PollDialog } from "info.slint";
-import { CallStage, CallTileRow, DeviceRow, DeviceSection } from "call.slint";
-export { Row, ReactionChip, PollAnswerRow, MemberRow, RoomInfoData, Suggestion, SearchHit, FeedLine, CallTileRow, DeviceRow, DeviceSection }
+import { CallStage, CallTileRow, CallWindow, CallWindowRect, DeviceRow, DeviceSection } from "call.slint";
+export { Row, ReactionChip, PollAnswerRow, MemberRow, RoomInfoData, Suggestion, SearchHit, FeedLine, CallTileRow, CallWindowRect, DeviceRow, DeviceSection }
 
 export struct SpaceItem {
     id: string,
@@ -916,11 +916,24 @@ export component AppWindow inherits Window {
     callback call-open-devices(string);
     callback call-pick-device(string, string);
     property <bool> call-here: root.in-call && root.call-room-id == root.current-room-id;
+    // The call floats: its room was left, or it was detached (web `isCallFloating`, D571)
+    in property <bool> call-floating;
+    // The call in its room, taking the width (not floating)
+    property <bool> call-staged: root.call-here && !root.call-floating;
+    // A floating call is a window over the app when it is wide, else a band (web: a phone)
+    property <bool> call-windowed: root.in-call && root.call-floating && root.width >= 900px;
+    in property <CallWindowRect> call-window;
+    pure callback call-window-moved(CallWindowRect, length, length) -> CallWindowRect;
+    pure callback call-window-resized(CallWindowRect, string, length, length) -> CallWindowRect;
+    pure callback call-window-cornered(CallWindowRect, string) -> CallWindowRect;
+    pure callback call-window-fitted(CallWindowRect) -> CallWindowRect;
+    callback call-window-chosen(CallWindowRect);
+    callback call-detach();
+    callback call-expand();
     callback start-call(bool);
     callback leave-call();
     callback call-toggle-microphone();
     callback call-toggle-camera();
-    callback go-to-call();
     pure callback call-tile-width(int, length, length) -> length;
     // A call that rings for the user (web `IncomingCallBanner`): « … is calling you »
     in property <string> ring-text;
@@ -1230,8 +1243,8 @@ export component AppWindow inherits Window {
                         Rectangle { width: 8px; }
                     }
                 }
-                // A call of another room goes on: back to it, or leave it
-                if root.in-call && !root.call-here: Rectangle {
+                // A floating call on a narrow window: back to it, or leave it
+                if root.in-call && root.call-floating && !root.call-windowed: Rectangle {
                     height: 40px;
                     background: Theme.selected;
                     HorizontalLayout {
@@ -1244,7 +1257,7 @@ export component AppWindow inherits Window {
                             overflow: elide;
                             horizontal-stretch: 1;
                         }
-                        VerticalLayout { alignment: center; TextButton { label: "Back to the call"; clicked => { root.go-to-call(); } } }
+                        VerticalLayout { alignment: center; TextButton { label: "Expand"; clicked => { root.call-expand(); } } }
                         VerticalLayout { alignment: center; TextButton { label: "Leave"; clicked => { root.leave-call(); } } }
                         Rectangle { width: 8px; }
                     }
@@ -1252,7 +1265,9 @@ export component AppWindow inherits Window {
                 // In the call of this room, the call takes the width and the conversation a
                 // column on its right (web `CallLayout`, D8)
                 HorizontalLayout {
-                if root.call-here: CallStage {
+                if root.call-staged: CallStage {
+                    can-detach: true;
+                    detach => { root.call-detach(); }
                     horizontal-stretch: 1;
                     tiles: root.call-tiles;
                     status: root.call-status;
@@ -1272,15 +1287,15 @@ export component AppWindow inherits Window {
                 }
                 Rectangle {
                 // The thread of the call takes the place of the channel
-                property <bool> put-away: root.call-here && root.call-thread-shown && root.thread-open;
+                property <bool> put-away: root.call-staged && root.call-thread-shown && root.thread-open;
                 visible: !self.put-away;
-                min-width: root.call-here && !self.put-away ? 380px : 0px;
-                max-width: self.put-away ? 0px : root.call-here ? 380px : 100000px;
+                min-width: root.call-staged && !self.put-away ? 380px : 0px;
+                max-width: self.put-away ? 0px : root.call-staged ? 380px : 100000px;
                 // The conversation and its composer lie on one wallpaper (web ds/wallpaper.ts)
                 background: Theme.wallpaper;
                 Image { width: 100%; height: 100%; source: Theme.wallpaper-image; image-fit: cover; }
                 VerticalLayout {
-                if root.call-here && root.call-thread && !root.call-thread-shown: HorizontalLayout {
+                if root.call-staged && root.call-thread && !root.call-thread-shown: HorizontalLayout {
                     padding: 8px;
                     alignment: end;
                     TextButton { label: "Back to the meeting thread"; clicked => { root.call-thread-toggle(); } }
@@ -1417,8 +1432,8 @@ export component AppWindow inherits Window {
                             Text { text: root.side-title; font-size: 16px; font-weight: 600; color: Theme.text; vertical-alignment: center; horizontal-stretch: 1; }
                             VerticalLayout {
                                 alignment: center;
-                                if !(root.call-here && root.call-thread-shown): TextButton { label: "Close"; clicked => { root.close-thread(); } }
-                                if root.call-here && root.call-thread-shown: TextButton { label: "Show the channel"; clicked => { root.call-thread-toggle(); } }
+                                if !(root.call-staged && root.call-thread-shown): TextButton { label: "Close"; clicked => { root.close-thread(); } }
+                                if root.call-staged && root.call-thread-shown: TextButton { label: "Show the channel"; clicked => { root.call-thread-toggle(); } }
                             }
                         }
                     }
@@ -1734,5 +1749,34 @@ export component AppWindow inherits Window {
             root.jump-to-date(date.year, date.month, date.day);
         }
         canceled => { self.close(); }
+    }
+    if root.call-windowed: CallWindow {
+        rect: root.call-window-fitted(root.call-window);
+        title: root.call-room-name;
+        moved(from, dx, dy) => { return root.call-window-moved(from, dx, dy); }
+        resized(from, edge, dx, dy) => { return root.call-window-resized(from, edge, dx, dy); }
+        cornered(from, corner) => { return root.call-window-cornered(from, corner); }
+        chosen(rect) => { root.call-window-chosen(rect); }
+        expand => { root.call-expand(); }
+        CallStage {
+            y: 36px;
+            width: parent.width;
+            height: parent.height - 36px;
+            tiles: root.call-tiles;
+            status: root.call-status;
+            encrypted: root.call-encrypted;
+            microphone: root.call-microphone;
+            camera: root.call-camera;
+            sharing: root.call-sharing;
+            tile-width(n, w, h) => { return root.call-tile-width(n, w, h); }
+            toggle-microphone => { root.call-toggle-microphone(); }
+            toggle-camera => { root.call-toggle-camera(); }
+            toggle-screen => { root.call-toggle-screen(); }
+            device-menu: root.call-device-menu;
+            device-sections: root.call-device-sections;
+            open-devices(which) => { root.call-open-devices(which); }
+            pick-device(kind, id) => { root.call-pick-device(kind, id); }
+            leave => { root.leave-call(); }
+        }
     }
 }

@@ -49,6 +49,14 @@ isViewablePdf
 shouldMirror
 countCallPeople
 currentDeviceId
+fitWindow
+defaultCallWindow
+moveWindow
+placeInCorner
+resizeWindow
+parseCallWindow
+placeCall
+isCallFloating
 toCallLine
 ringAsks
 isRinging

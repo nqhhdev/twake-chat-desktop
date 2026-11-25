@@ -99,8 +99,8 @@ M5 (first part, calls, ADR-018):
   Secret project).
 - The room header offers « 📞 Call » and « 🎥 Video », or « Join the call (n people) » when a
   call goes on. In a call the stage takes the width (grid of 16:9 tiles, the web's
-  `tileWidth`), the conversation a 380 px column; a band offers « Back to the call » from
-  another room.
+  `tileWidth`), the conversation a 380 px column. Leaving the room floats the call (see
+  « Call window » below).
 - Ringing: whoever starts a call sends a ring (MSC4075, in the clear even in an encrypted
   room, as the web); the others get a banner « alice is calling you in Design » with Decline
   and Answer (web rules `ringAsks`, `isRinging`). A decline tells the caller (« Call
@@ -128,6 +128,17 @@ M5 (first part, calls, ADR-018):
   new one). A system that gives no speakers shows no Speaker section (web). Not tried with
   two real devices in a run; a camera is known by its index, so unplugging one may move the
   pick to the next. The web's background choices under the camera come with the blur.
+- Call window (2026-11-25), as the web's `FloatingCall` and `CallWindow` (D571): leaving the
+  room of the call, or « ⧉ Detach the call » in its controls, floats the call in a window
+  over the app; coming back to the room does not put it back (`placeCall`,
+  `isCallFloating`). Dragged by its bar, resized by its edges and corners, never smaller
+  than 320 × 260 nor out of the app (`fitWindow`, `moveWindow`, `resizeWindow`); its menu
+  « Move and resize » offers Full screen (back in the room) and the four corners
+  (`placeInCorner`). Where it was left is kept in `call-window.json` of the data folder
+  (web `localStorage`), read with `parseCallWindow`; the first time it opens above the
+  composer on the right (`defaultCallWindow`). Below 900 px wide the app shows a band with
+  Expand and Leave instead (web: a phone). The window was not dragged in a run (no
+  automated pointer moves), only built and its rules replayed.
 - Two apps (alice, bob) joined the same call in a clear room and in an encrypted one; in the
   encrypted one each device sent its key to the other and received the other's. Leaving or
   quitting empties the membership (delayed leave).
@@ -165,7 +176,7 @@ Seeds: `dev/seed.sh`, `dev/seed-media.py`, `dev/seed-m2.py`, `dev/seed-large.sh`
 
 - Calls: not heard or seen. Mic sound and the decryption of the media were not checked (no
   one spoke), and the camera never opened: macOS gives no answer to an unbundled debug
-  binary (needs `NSCameraUsageDescription`, M8). No raised hands, call window, background blur (rest of M5). The
+  binary (needs `NSCameraUsageDescription`, M8). No raised hands, pop-out window, background blur (rest of M5). The
   membership is not renewed after 4 h; a membership left by a crash is not cleared at start
   (the web's `#leaveVanishedCalls`); the old « encrypted » flag of a call is ignored (the
   room decides). The composer is cramped in the 380 px column.
@@ -235,5 +246,6 @@ M4 is done apart from the gaps above (the GIF picker moved to M6: it goes throug
 twake-common-proxy). M5 has started: joining calls with audio, camera and E2EE keys works
 on the local stack, and so do ringing, declining, the call line and the call thread. Screen
 share is built but not yet seen working (it needs someone to answer the system's picker).
-Next in M5: the call window (picture in picture), then raised hands and captions through
-Meet, then background blur. See rust/PLAN.md.
+Next in M5: the pop-out of the call into a native window of its own, always on top
+(picture in picture), then raised hands and captions through Meet, then background blur.
+See rust/PLAN.md.
