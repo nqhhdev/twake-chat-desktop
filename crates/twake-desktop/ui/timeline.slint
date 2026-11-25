@@ -180,6 +180,8 @@ export component MessageLine inherits Rectangle {
     callback end-poll(string);
     callback pin(string, bool);
     callback save-message(string, bool);
+    // Someone else's message, to the server's administrators (web `message-report`)
+    callback report(string);
     height: layout.preferred-height;
 
     hover := TouchArea {
@@ -563,6 +565,7 @@ export component MessageLine inherits Rectangle {
             if entry.can-pin: ActionButton { label: "📌"; symbol: Icons.pin; tip: entry.pinned ? "Unpin" : "Pin"; clicked => { root.pin(entry.id, !entry.pinned); } }
             if entry.can-act: ActionButton { label: "🔖"; symbol: Icons.bookmark; tip: entry.saved ? "Remove from saved" : "Save for later"; clicked => { root.save-message(entry.id, !entry.saved); } }
             if entry.can-edit: ActionButton { label: "✎"; symbol: Icons.edit; tip: "Edit"; clicked => { root.edit(entry.id); } }
+            if entry.can-act && !entry.own: ActionButton { label: "⚑"; symbol: Icons.flag; tip: "Report"; clicked => { root.report(entry.id); } }
             if entry.can-delete: ActionButton { label: "🗑"; symbol: Icons.delete; tip: "Delete"; clicked => { root.delete(entry.id); } }
         }
     }

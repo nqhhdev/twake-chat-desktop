@@ -35,6 +35,7 @@ icons! {
     set_pip = "pip.enter",
     set_fullscreen = "arrow.up.left.and.arrow.down.right",
     set_move = "arrow.up.and.down.and.arrow.left.and.right",
+    set_flag = "flag",
     set_attach = "paperclip",
     set_poll = "chart.bar.fill",
     set_emoji = "face.smiling",

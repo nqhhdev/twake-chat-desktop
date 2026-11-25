@@ -966,6 +966,9 @@ export component AppWindow inherits Window {
     callback end-poll(string, bool);
     callback pin(string, bool);
     callback save-message(string, bool);
+    callback report-message(string);
+    callback report-room();
+    callback block-user();
     callback open-pinned();
     in property <int> pinned-count;
     // the side panel shows the pinned messages, not a thread
@@ -1362,6 +1365,7 @@ export component AppWindow inherits Window {
                         end-poll(id) => { root.end-poll(id, false); }
                         pin(id, on) => { root.pin(id, on); }
                         save-message(id, on) => { root.save-message(id, on); }
+                        report(id) => { root.report-message(id); }
                     }
                 }
                 if root.typing-text != "": HorizontalLayout {
@@ -1432,6 +1436,8 @@ export component AppWindow inherits Window {
                 set-role(user, role) => { root.member-set-role(user, role); }
                 leave => { root.leave-room(); }
                 delete-chat => { root.delete-chat(); }
+                report => { root.report-room(); }
+                block => { root.block-user(); }
             }
             if !root.activity-open && root.current-room-id != "" && root.search-open && !root.thread-open && !root.info-open: SearchPane {
                 width: 380px;
@@ -1491,6 +1497,7 @@ export component AppWindow inherits Window {
                             end-poll(id) => { root.end-poll(id, true); }
                             pin(id, on) => { root.pin(id, on); }
                         save-message(id, on) => { root.save-message(id, on); }
+                        report(id) => { root.report-message(id); }
                         }
                     }
                     thread-composer := Composer {

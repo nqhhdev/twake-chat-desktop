@@ -172,3 +172,37 @@ pub async fn encrypt(room: &Room) -> Result<(), String> {
 pub async fn leave(room: &Room) -> Result<(), String> {
     room.leave().await.map_err(|e| e.to_string())
 }
+
+/// Reports the room to the administrators of the server (web `saveRoomReport`).
+pub async fn report_room(room: &Room, reason: Option<String>) -> Result<(), String> {
+    room.report_room(reason.unwrap_or_default())
+        .await
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
+/// Reports a message of the room; the score the web sends for older servers is optional
+/// since Matrix 1.13 and matrix-sdk sends none.
+pub async fn report_message(
+    room: &Room,
+    event_id: &str,
+    reason: Option<String>,
+) -> Result<(), String> {
+    let event_id = matrix_sdk::ruma::OwnedEventId::try_from(event_id)
+        .map_err(|_| format!("not a message id: {event_id}"))?;
+    room.report_content(event_id, reason)
+        .await
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
+/// Ignores a person for the account: the server stops sending their events.
+pub async fn block(room: &Room, user_id: &str) -> Result<(), String> {
+    let user_id = matrix_sdk::ruma::OwnedUserId::try_from(user_id)
+        .map_err(|_| format!("not a Matrix id: {user_id}"))?;
+    room.client()
+        .account()
+        .ignore_user(&user_id)
+        .await
+        .map_err(|e| e.to_string())
+}
