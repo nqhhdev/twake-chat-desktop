@@ -1,0 +1,33 @@
+[package]
+name = "twake-core"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+twake-domain.workspace = true
+twake-call.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+matrix-sdk = { version = "0.19.1", features = ["sso-login", "bundled-sqlite", "markdown", "experimental-send-custom-to-device"] }
+matrix-sdk-ui = "0.19.1"
+# CollectStrategy of the to-device keys of calls, not re-exported by matrix-sdk
+matrix-sdk-base = "0.19.1"
+eyeball-im = "0.9.1"
+imbl = "7.0.2"
+futures-util = "0.3.34"
+tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust"] }
+directories = "6"
+rand = "0.9"
+base64 = "0.22"
+open = "5"
+url = "2"
+mime = "0.3"
+mime_guess = "2"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
+# PDF pages drawn by PDFium, loaded at run time (vendor/pdfium, ADR-017)
+pdfium-render = { version = "0.9.5", default-features = false, features = ["pdfium_8125", "thread_safe"] }

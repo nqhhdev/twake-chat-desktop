@@ -1,0 +1,5131 @@
+{
+  "schema": "rust-anything/bridge@1",
+  "root": "/Users/huy.nguyenquang/Documents/Linagora/twake-chat-desktop/reference/twake-space-chat",
+  "unit": "src/domain/",
+  "language": "ts",
+  "kind": "napi",
+  "crate_name": "twake-domain-ref",
+  "exports": [
+    {
+      "name": "buildActivity",
+      "file": "src/domain/activity.ts",
+      "line": 57,
+      "params": [
+        {
+          "name": "mentions",
+          "ts_type": "readonly ActivityMention[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "threads",
+          "ts_type": "readonly ActivityThread[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "reactions",
+          "ts_type": "readonly ActivityReaction[]",
+          "optional": true,
+          "rest": false
+        },
+        {
+          "name": "missedCalls",
+          "ts_type": "readonly ActivityMissedCall[]",
+          "optional": true,
+          "rest": false
+        }
+      ],
+      "returns": "Activity",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "buildFeed",
+      "file": "src/domain/activityFeed.ts",
+      "line": 47,
+      "params": [
+        {
+          "name": "activity",
+          "ts_type": "Activity | undefined",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "unread",
+          "ts_type": "readonly UnreadRoom[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "saved",
+          "ts_type": "readonly SavedMessage[]",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "FeedItem[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "filterFeed",
+      "file": "src/domain/activityFeed.ts",
+      "line": 175,
+      "params": [
+        {
+          "name": "items",
+          "ts_type": "readonly FeedItem[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "filter",
+          "ts_type": "('all' | 'unread' | 'mentions' | 'replies' | 'saved')",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "FeedItem[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "searchFeed",
+      "file": "src/domain/activityFeed.ts",
+      "line": 183,
+      "params": [
+        {
+          "name": "items",
+          "ts_type": "readonly FeedItem[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "query",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "FeedItem[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "groupByDay",
+      "file": "src/domain/activityFeed.ts",
+      "line": 204,
+      "params": [
+        {
+          "name": "items",
+          "ts_type": "readonly FeedItem[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "now",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "FeedDay[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "assistantConsentStatus",
+      "file": "src/domain/assistantConsent.ts",
+      "line": 41,
+      "params": [
+        {
+          "name": "consent",
+          "ts_type": "AssistantConsent",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "assistantId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "memberIds",
+          "ts_type": "readonly string[]",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "(| { kind: 'none' }\n  | { kind: 'pending'; request: AssistantRequest; waitingFor: string[] }\n  | { kind: 'accepted'; request: AssistantRequest }\n  | { kind: 'refused'; request: AssistantRequest; by: string })",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "requestsWaitingFor",
+      "file": "src/domain/assistantConsent.ts",
+      "line": 68,
+      "params": [
+        {
+          "name": "consent",
+          "ts_type": "AssistantConsent",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "userId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "memberIds",
+          "ts_type": "readonly string[]",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "AssistantRequest[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "peopleOf",
+      "file": "src/domain/assistantConsent.ts",
+      "line": 87,
+      "params": [
+        {
+          "name": "members",
+          "ts_type": "readonly { userId: string; isBot: boolean }[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "consent",
+          "ts_type": "AssistantConsent",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "presentRequest",
+      "file": "src/domain/assistantConsent.ts",
+      "line": 98,
+      "params": [
+        {
+          "name": "consent",
+          "ts_type": "AssistantConsent",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "members",
+          "ts_type": "readonly { userId: string; isInvited: boolean }[]",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "AssistantRequest | undefined",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "findOpenQuestion",
+      "file": "src/domain/assistantQuestion.ts",
+      "line": 56,
+      "params": [
+        {
+          "name": "messages",
+          "ts_type": "readonly Message[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "threads",
+          "ts_type": "readonly ThreadSummary[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "askerIds",
+          "ts_type": "readonly string[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "now",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "OpenQuestion | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "computeWaveform",
+      "file": "src/domain/attachment.ts",
+      "line": 41,
+      "params": [
+        {
+          "name": "samples",
+          "ts_type": "Float32Array",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "points",
+          "ts_type": "unknown",
+          "optional": true,
+          "rest": false
+        }
+      ],
+      "returns": "number[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isPlayableAudio",
+      "file": "src/domain/attachment.ts",
+      "line": 67,
+      "params": [
+        {
+          "name": "attachment",
+          "ts_type": "Attachment",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isViewablePdf",
+      "file": "src/domain/attachment.ts",
+      "line": 79,
+      "params": [
+        {
+          "name": "attachment",
+          "ts_type": "Attachment",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "canShowPdf",
+          "ts_type": "boolean",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isPreviewable",
+      "file": "src/domain/attachment.ts",
+      "line": 92,
+      "params": [
+        {
+          "name": "attachment",
+          "ts_type": "Attachment",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isGif",
+      "file": "src/domain/attachment.ts",
+      "line": 131,
+      "params": [
+        {
+          "name": "attachment",
+          "ts_type": "{ mimeType: string }",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "computeAttachmentKind",
+      "file": "src/domain/attachment.ts",
+      "line": 135,
+      "params": [
+        {
+          "name": "mimeType",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "('image' | 'video' | 'audio' | 'file')",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "inferMimeType",
+      "file": "src/domain/attachment.ts",
+      "line": 183,
+      "params": [
+        {
+          "name": "name",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "mimeType",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isSvg",
+      "file": "src/domain/attachment.ts",
+      "line": 195,
+      "params": [
+        {
+          "name": "mimeType",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "blobSafeMimeType",
+      "file": "src/domain/attachment.ts",
+      "line": 228,
+      "params": [
+        {
+          "name": "mimeType",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "svgCanvasSize",
+      "file": "src/domain/attachment.ts",
+      "line": 240,
+      "params": [
+        {
+          "name": "width",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "height",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "{ width: number; height: number }",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "thumbnailSize",
+      "file": "src/domain/attachment.ts",
+      "line": 261,
+      "params": [
+        {
+          "name": "media",
+          "ts_type": "{ mimeType: string; size: number }",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "dimensions",
+          "ts_type": "{ width: number; height: number }",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "{ width: number; height: number } | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "botOf",
+      "file": "src/domain/bot.ts",
+      "line": 22,
+      "params": [
+        {
+          "name": "answer",
+          "ts_type": "(MyBot | 'not_activated' | 'recovery_needed' | null)",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "MyBot | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "botIdOf",
+      "file": "src/domain/bot.ts",
+      "line": 27,
+      "params": [
+        {
+          "name": "userId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "ownsBot",
+      "file": "src/domain/bot.ts",
+      "line": 37,
+      "params": [
+        {
+          "name": "ownUserId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "botUserId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "myBotUserId",
+          "ts_type": "string | null",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "offersCommandsOf",
+      "file": "src/domain/bot.ts",
+      "line": 51,
+      "params": [
+        {
+          "name": "ownUserId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "botUserId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "myBotUserId",
+          "ts_type": "string | null",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "creatorId",
+          "ts_type": "string | null",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "findCommandQuery",
+      "file": "src/domain/botCommand.ts",
+      "line": 32,
+      "params": [
+        {
+          "name": "text",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "caret",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "{ start: number; query: string } | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "matchCommands",
+      "file": "src/domain/botCommand.ts",
+      "line": 43,
+      "params": [
+        {
+          "name": "commands",
+          "ts_type": "readonly BotCommand[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "query",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "BotCommand[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "findLocalCommand",
+      "file": "src/domain/botCommand.ts",
+      "line": 73,
+      "params": [
+        {
+          "name": "text",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "'discardsession' | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "prepareCommandText",
+      "file": "src/domain/botCommand.ts",
+      "line": 88,
+      "params": [
+        {
+          "name": "text",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "commands",
+          "ts_type": "readonly BotCommand[]",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "PreparedText",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "prepareOutgoing",
+      "file": "src/domain/botCommand.ts",
+      "line": 129,
+      "params": [
+        {
+          "name": "text",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "mentions",
+          "ts_type": "readonly Mention[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "commands",
+          "ts_type": "readonly BotCommand[]",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "OutgoingMessage",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "shouldMirror",
+      "file": "src/domain/call.ts",
+      "line": 70,
+      "params": [
+        {
+          "name": "tile",
+          "ts_type": "Pick<CallTile, 'isLocal' | 'isScreen' | 'facingMode'>",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "recordingModeOf",
+      "file": "src/domain/call.ts",
+      "line": 96,
+      "params": [
+        {
+          "name": "isRecording",
+          "ts_type": "boolean",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "metadata",
+          "ts_type": "string | undefined",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "('screen_recording' | 'transcript') | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "currentDeviceId",
+      "file": "src/domain/call.ts",
+      "line": 143,
+      "params": [
+        {
+          "name": "devices",
+          "ts_type": "readonly MediaDevice[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "activeId",
+          "ts_type": "string | null",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "countCallPeople",
+      "file": "src/domain/call.ts",
+      "line": 156,
+      "params": [
+        {
+          "name": "members",
+          "ts_type": "readonly CallMember[]",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "number",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "ringAsks",
+      "file": "src/domain/call.ts",
+      "line": 177,
+      "params": [
+        {
+          "name": "ring",
+          "ts_type": "CallRing | undefined",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "members",
+          "ts_type": "readonly CallMember[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "ownUserId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "isDirect",
+          "ts_type": "boolean",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "now",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isRinging",
+      "file": "src/domain/call.ts",
+      "line": 201,
+      "params": [
+        {
+          "name": "members",
+          "ts_type": "readonly CallMember[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "ownUserId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "isDirect",
+          "ts_type": "boolean",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "isJoined",
+          "ts_type": "boolean",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "leftAt",
+          "ts_type": "number | null",
+          "optional": true,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "findCallThread",
+      "file": "src/domain/call.ts",
+      "line": 237,
+      "params": [
+        {
+          "name": "messages",
+          "ts_type": "readonly Pick<Message, 'id' | 'sentAt' | 'isCallThreadRoot'>[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "now",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "toCallLine",
+      "file": "src/domain/callLine.ts",
+      "line": 20,
+      "params": [
+        {
+          "name": "content",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "isOwn",
+          "ts_type": "boolean",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "CallLine | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "fitWindow",
+      "file": "src/domain/callWindow.ts",
+      "line": 33,
+      "params": [
+        {
+          "name": "rect",
+          "ts_type": "WindowRect",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "screen",
+          "ts_type": "WindowViewport",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "WindowRect",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "defaultCallWindow",
+      "file": "src/domain/callWindow.ts",
+      "line": 47,
+      "params": [
+        {
+          "name": "screen",
+          "ts_type": "WindowViewport",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "WindowRect",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "moveWindow",
+      "file": "src/domain/callWindow.ts",
+      "line": 60,
+      "params": [
+        {
+          "name": "rect",
+          "ts_type": "WindowRect",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "dx",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "dy",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "screen",
+          "ts_type": "WindowViewport",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "WindowRect",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "placeInCorner",
+      "file": "src/domain/callWindow.ts",
+      "line": 69,
+      "params": [
+        {
+          "name": "rect",
+          "ts_type": "WindowRect",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "corner",
+          "ts_type": "('top-left' | 'top-right' | 'bottom-left' | 'bottom-right')",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "screen",
+          "ts_type": "WindowViewport",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "WindowRect",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "resizeWindow",
+      "file": "src/domain/callWindow.ts",
+      "line": 105,
+      "params": [
+        {
+          "name": "rect",
+          "ts_type": "WindowRect",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "edge",
+          "ts_type": "('n' | 's' | 'e' | 'w' | 'nw' | 'ne' | 'sw' | 'se')",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "dx",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "dy",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "screen",
+          "ts_type": "WindowViewport",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "WindowRect",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "parseCallWindow",
+      "file": "src/domain/callWindow.ts",
+      "line": 139,
+      "params": [
+        {
+          "name": "stored",
+          "ts_type": "string | null",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "WindowRect | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "placeCall",
+      "file": "src/domain/callWindow.ts",
+      "line": 172,
+      "params": [
+        {
+          "name": "state",
+          "ts_type": "CallPlacement",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "now",
+          "ts_type": "{ shownRoomId: string | null; callRoomId: string | null }",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "CallPlacement",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isCallFloating",
+      "file": "src/domain/callWindow.ts",
+      "line": 190,
+      "params": [
+        {
+          "name": "state",
+          "ts_type": "CallPlacement",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "callRoomId",
+          "ts_type": "string | null",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "parseClientConfig",
+      "file": "src/domain/clientConfig.ts",
+      "line": 34,
+      "params": [
+        {
+          "name": "raw",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "ClientConfig",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "readComposerStyle",
+      "file": "src/domain/composerStyle.ts",
+      "line": 14,
+      "params": [
+        {
+          "name": "content",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "(typeof COMPOSER_STYLES)[number]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "parseInvitationTarget",
+      "file": "src/domain/contact.ts",
+      "line": 35,
+      "params": [
+        {
+          "name": "input",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "{ contact: string; medium: ('email' | 'msisdn') } | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "groupByInitial",
+      "file": "src/domain/contact.ts",
+      "line": 51,
+      "params": [
+        {
+          "name": "people",
+          "ts_type": "readonly ({ displayName: string })[]",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "{ letter: string; people: ({ displayName: string })[] }[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "parseContactsVisibility",
+      "file": "src/domain/contactsVisibility.ts",
+      "line": 10,
+      "params": [
+        {
+          "name": "value",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "('private' | 'contacts' | 'public') | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "emptyCardOf",
+      "file": "src/domain/conversationParts.ts",
+      "line": 40,
+      "params": [
+        {
+          "name": "facts",
+          "ts_type": "EmptyCardFacts<(Pick<Room, 'kind'>)>",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "EmptyCard<(Pick<Room, 'kind'>)> | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "footerOf",
+      "file": "src/domain/conversationParts.ts",
+      "line": 92,
+      "params": [
+        {
+          "name": "facts",
+          "ts_type": "FooterFacts",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "(| { kind: 'gone' }\n  /** A blocked person: « Unblock user » (D186). */\n  | { kind: 'blocked'; userId: string }\n  /** A voice message being recorded. */\n  | { kind: 'recorder' }\n  | { kind: 'composer' }\n  /** An upgraded room is read-only: the new one takes over. */\n  | { kind: 'replaced'; replacedBy: string }\n  /** The composer stays, disabled, its hint saying why. */\n  | { kind: 'cannot-post' }) | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "timelineHeadOf",
+      "file": "src/domain/conversationParts.ts",
+      "line": 142,
+      "params": [
+        {
+          "name": "facts",
+          "ts_type": "TimelineHeadFacts",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "TimelineHead",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "headOverWindow",
+      "file": "src/domain/conversationParts.ts",
+      "line": 171,
+      "params": [
+        {
+          "name": "head",
+          "ts_type": "TimelineHead",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "hiddenAbove",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "TimelineHead",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isLandingRoom",
+      "file": "src/domain/conversationView.ts",
+      "line": 16,
+      "params": [
+        {
+          "name": "room",
+          "ts_type": "Pick<Room, 'isSpace'> | undefined",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "isEmbedded",
+          "ts_type": "boolean",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "mayPostIn",
+      "file": "src/domain/conversationView.ts",
+      "line": 33,
+      "params": [
+        {
+          "name": "facts",
+          "ts_type": "PostingFacts",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isDirectRoom",
+      "file": "src/domain/conversationView.ts",
+      "line": 44,
+      "params": [
+        {
+          "name": "room",
+          "ts_type": "Pick<Room, 'kind'> | undefined",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "directUserId",
+          "ts_type": "string | undefined",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "peerStateOf",
+      "file": "src/domain/conversationView.ts",
+      "line": 73,
+      "params": [
+        {
+          "name": "facts",
+          "ts_type": "PeerFacts<(Member)>",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "PeerState<(Member)>",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "splitsCallChat",
+      "file": "src/domain/conversationView.ts",
+      "line": 97,
+      "params": [
+        {
+          "name": "facts",
+          "ts_type": "{\n  isInCall: boolean\n  isDirect: boolean\n  isVoice: boolean\n  mayPost: boolean\n}",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isEncryptedConversation",
+      "file": "src/domain/conversationView.ts",
+      "line": 107,
+      "params": [
+        {
+          "name": "room",
+          "ts_type": "Pick<Room, 'isEncrypted' | 'isSpace'> | undefined",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isAwaitingRoom",
+      "file": "src/domain/conversationView.ts",
+      "line": 127,
+      "params": [
+        {
+          "name": "facts",
+          "ts_type": "WaitingFacts",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isEmptyConversation",
+      "file": "src/domain/conversationView.ts",
+      "line": 146,
+      "params": [
+        {
+          "name": "messageCount",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "hasOutgoing",
+          "ts_type": "boolean",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isCardInlineIn",
+      "file": "src/domain/conversationView.ts",
+      "line": 159,
+      "params": [
+        {
+          "name": "lineCount",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "hasPredecessor",
+          "ts_type": "boolean",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "roomNameOf",
+      "file": "src/domain/conversationView.ts",
+      "line": 170,
+      "params": [
+        {
+          "name": "sources",
+          "ts_type": "readonly ({ name?: string } | null | undefined)[]",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string | undefined",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "assistantOfferIn",
+      "file": "src/domain/conversationView.ts",
+      "line": 190,
+      "params": [
+        {
+          "name": "facts",
+          "ts_type": "AssistantFacts",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "'invite' | 'pending' | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "hasAssistantIn",
+      "file": "src/domain/conversationView.ts",
+      "line": 214,
+      "params": [
+        {
+          "name": "room",
+          "ts_type": "Pick<Room, 'hasAssistant'> | undefined",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "consent",
+          "ts_type": "AssistantConsent",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "members",
+          "ts_type": "readonly { userId: string; isInvited: boolean }[]",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "offersAddContact",
+      "file": "src/domain/conversationView.ts",
+      "line": 237,
+      "params": [
+        {
+          "name": "facts",
+          "ts_type": "AddContactFacts",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "matchPlaceOf",
+      "file": "src/domain/conversationView.ts",
+      "line": 260,
+      "params": [
+        {
+          "name": "messageIds",
+          "ts_type": "readonly string[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "focusEventId",
+          "ts_type": "string | null",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "{ index: number; hasOlder: boolean; hasNewer: boolean }",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "readDeletedChats",
+      "file": "src/domain/deletedChats.ts",
+      "line": 13,
+      "params": [
+        {
+          "name": "content",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "Readonly<\n  Partial<Record<string, { before_ts: number }>>\n>",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isChatHidden",
+      "file": "src/domain/deletedChats.ts",
+      "line": 26,
+      "params": [
+        {
+          "name": "deleted",
+          "ts_type": "Readonly<\n  Partial<Record<string, { before_ts: number }>>\n>",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "roomId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "lastActivityAt",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "withoutDeleted",
+      "file": "src/domain/deletedChats.ts",
+      "line": 36,
+      "params": [
+        {
+          "name": "deleted",
+          "ts_type": "Readonly<\n  Partial<Record<string, { before_ts: number }>>\n>",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "roomId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "messages",
+          "ts_type": "readonly Message[]",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "readonly Message[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isAfterDeletion",
+      "file": "src/domain/deletedChats.ts",
+      "line": 48,
+      "params": [
+        {
+          "name": "deleted",
+          "ts_type": "Readonly<\n  Partial<Record<string, { before_ts: number }>>\n>",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "roomId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "at",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "readDismissedQuestions",
+      "file": "src/domain/dismissedQuestions.ts",
+      "line": 12,
+      "params": [
+        {
+          "name": "content",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "Readonly<Record<string, number>>",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "withDismissedQuestion",
+      "file": "src/domain/dismissedQuestions.ts",
+      "line": 22,
+      "params": [
+        {
+          "name": "dismissed",
+          "ts_type": "Readonly<Record<string, number>>",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "id",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "closesAt",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "now",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "Readonly<Record<string, number>>",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "findEmojiQuery",
+      "file": "src/domain/emojiShortcode.ts",
+      "line": 65,
+      "params": [
+        {
+          "name": "text",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "caret",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "{ start: number; query: string } | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isEmojiDrawable",
+      "file": "src/domain/emojiSupport.ts",
+      "line": 31,
+      "params": [
+        {
+          "name": "emoji",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "max",
+          "ts_type": "unknown",
+          "optional": true,
+          "rest": false
+        },
+        {
+          "name": "flags",
+          "ts_type": "boolean",
+          "optional": true,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "hasInk",
+      "file": "src/domain/emojiSupport.ts",
+      "line": 57,
+      "params": [
+        {
+          "name": "pixels",
+          "ts_type": "ArrayLike<number>",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "hasColour",
+      "file": "src/domain/emojiSupport.ts",
+      "line": 69,
+      "params": [
+        {
+          "name": "pixels",
+          "ts_type": "ArrayLike<number>",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isDrawn",
+      "file": "src/domain/emojiSupport.ts",
+      "line": 88,
+      "params": [
+        {
+          "name": "sample",
+          "ts_type": "ArrayLike<number>",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "blank",
+          "ts_type": "ArrayLike<number>",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "undecryptableHelpKey",
+      "file": "src/domain/encryption.ts",
+      "line": 24,
+      "params": [
+        {
+          "name": "reason",
+          "ts_type": "(| 'missing_keys'\n  | 'historical'\n  | 'before_joined'\n  | 'withheld'\n  | 'untrusted_sender'\n  | 'unknown')",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "isDeviceVerified",
+          "ts_type": "boolean",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "normalizeRecoveryKey",
+      "file": "src/domain/encryption.ts",
+      "line": 62,
+      "params": [
+        {
+          "name": "input",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isNotificationService",
+      "file": "src/domain/encryption.ts",
+      "line": 142,
+      "params": [
+        {
+          "name": "device",
+          "ts_type": "Pick<Device, 'name'>",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "readFolders",
+      "file": "src/domain/folders.ts",
+      "line": 68,
+      "params": [
+        {
+          "name": "content",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "Folder[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "writeFolders",
+      "file": "src/domain/folders.ts",
+      "line": 106,
+      "params": [
+        {
+          "name": "folders",
+          "ts_type": "readonly Folder[]",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "{\n  folders: object[]\n}",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "withHiddenBuiltins",
+      "file": "src/domain/folders.ts",
+      "line": 136,
+      "params": [
+        {
+          "name": "folders",
+          "ts_type": "readonly Folder[]",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "Folder[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "listFolders",
+      "file": "src/domain/folders.ts",
+      "line": 158,
+      "params": [
+        {
+          "name": "saved",
+          "ts_type": "readonly Folder[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "entries",
+          "ts_type": "readonly Fileable[]",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "Folder[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "folderChatTypeOf",
+      "file": "src/domain/folders.ts",
+      "line": 179,
+      "params": [
+        {
+          "name": "room",
+          "ts_type": "Fileable['room']",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "('direct' | 'group' | 'broadcast' | 'bot') | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isInFolder",
+      "file": "src/domain/folders.ts",
+      "line": 196,
+      "params": [
+        {
+          "name": "entry",
+          "ts_type": "Fileable",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "folder",
+          "ts_type": "Folder",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isRecommendationTaken",
+      "file": "src/domain/folders.ts",
+      "line": 208,
+      "params": [
+        {
+          "name": "type",
+          "ts_type": "('direct' | 'group' | 'broadcast' | 'bot')",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "folders",
+          "ts_type": "readonly Folder[]",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "formatDuration",
+      "file": "src/domain/format.ts",
+      "line": 4,
+      "params": [
+        {
+          "name": "milliseconds",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "fitPreview",
+      "file": "src/domain/format.ts",
+      "line": 21,
+      "params": [
+        {
+          "name": "dimensions",
+          "ts_type": "Attachment['dimensions']",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "maxSide",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "emptyRatio",
+          "ts_type": "number",
+          "optional": true,
+          "rest": false
+        }
+      ],
+      "returns": "{ width: number; height: number }",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isRecord",
+      "file": "src/domain/json.ts",
+      "line": 2,
+      "params": [
+        {
+          "name": "value",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "value is Record<string, unknown>",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "readText",
+      "file": "src/domain/json.ts",
+      "line": 7,
+      "params": [
+        {
+          "name": "source",
+          "ts_type": "Record<string, unknown>",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "key",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "readTexts",
+      "file": "src/domain/json.ts",
+      "line": 16,
+      "params": [
+        {
+          "name": "source",
+          "ts_type": "Record<string, unknown>",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "key",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "readBoolean",
+      "file": "src/domain/json.ts",
+      "line": 28,
+      "params": [
+        {
+          "name": "source",
+          "ts_type": "Record<string, unknown>",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "key",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "fallback",
+          "ts_type": "boolean",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isJumboEmoji",
+      "file": "src/domain/jumboEmoji.ts",
+      "line": 10,
+      "params": [
+        {
+          "name": "text",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isLikelyIn",
+      "file": "src/domain/languageGuess.ts",
+      "line": 69,
+      "params": [
+        {
+          "name": "text",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "prompt",
+          "ts_type": "(| 'correct-grammar'\n  | 'make-shorter'\n  | 'expand-context'\n  | 'emojify'\n  | 'transform-to-bullets'\n  | 'change-tone-professional'\n  | 'change-tone-casual'\n  | 'change-tone-polite'\n  | 'translate-french'\n  | 'translate-english'\n  | 'translate-russian'\n  | 'translate-vietnamese'\n  | 'summarize')",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "autoTranslationOf",
+      "file": "src/domain/languageGuess.ts",
+      "line": 81,
+      "params": [
+        {
+          "name": "message",
+          "ts_type": "Message",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "prompt",
+          "ts_type": "(| 'correct-grammar'\n  | 'make-shorter'\n  | 'expand-context'\n  | 'emojify'\n  | 'transform-to-bullets'\n  | 'change-tone-professional'\n  | 'change-tone-casual'\n  | 'change-tone-polite'\n  | 'translate-french'\n  | 'translate-english'\n  | 'translate-russian'\n  | 'translate-vietnamese'\n  | 'summarize') | null",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "(| 'correct-grammar'\n  | 'make-shorter'\n  | 'expand-context'\n  | 'emojify'\n  | 'transform-to-bullets'\n  | 'change-tone-professional'\n  | 'change-tone-casual'\n  | 'change-tone-polite'\n  | 'translate-french'\n  | 'translate-english'\n  | 'translate-russian'\n  | 'translate-vietnamese'\n  | 'summarize') | undefined",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "parseGeoUri",
+      "file": "src/domain/location.ts",
+      "line": 11,
+      "params": [
+        {
+          "name": "uri",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "Location | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "openStreetMapUrl",
+      "file": "src/domain/location.ts",
+      "line": 20,
+      "params": [
+        {
+          "name": "arg0",
+          "ts_type": "Location",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "avatarThumbnailSize",
+      "file": "src/domain/mediaUrl.ts",
+      "line": 10,
+      "params": [
+        {
+          "name": "size",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "number",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "thumbnailMediaUrl",
+      "file": "src/domain/mediaUrl.ts",
+      "line": 19,
+      "params": [
+        {
+          "name": "homeserverUrl",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "mxcUrl",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "size",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "method",
+          "ts_type": "'crop' | 'scale'",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "pickAttendees",
+      "file": "src/domain/meeting.ts",
+      "line": 16,
+      "params": [
+        {
+          "name": "members",
+          "ts_type": "readonly { userId: string; isBot: boolean }[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "addressBook",
+          "ts_type": "readonly Contact[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "ownUserId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "MeetingAttendees",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "newEventUrl",
+      "file": "src/domain/meeting.ts",
+      "line": 34,
+      "params": [
+        {
+          "name": "calendarUrl",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "emails",
+          "ts_type": "readonly string[]",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "readCreatedMeeting",
+      "file": "src/domain/meeting.ts",
+      "line": 64,
+      "params": [
+        {
+          "name": "value",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "CreatedMeeting | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "meetingMessageText",
+      "file": "src/domain/meeting.ts",
+      "line": 89,
+      "params": [
+        {
+          "name": "meeting",
+          "ts_type": "CreatedMeeting",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "lang",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "senderZone",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "describeMeetingTime",
+      "file": "src/domain/meetingTime.ts",
+      "line": 10,
+      "params": [
+        {
+          "name": "startTs",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "endTs",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "now",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "language",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "describePeople",
+      "file": "src/domain/meetingTime.ts",
+      "line": 39,
+      "params": [
+        {
+          "name": "names",
+          "ts_type": "readonly string[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "total",
+          "ts_type": "unknown",
+          "optional": true,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "matchMembers",
+      "file": "src/domain/mention.ts",
+      "line": 19,
+      "params": [
+        {
+          "name": "members",
+          "ts_type": "readonly ({ userId: string; name: string; matrixName?: string })[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "query",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "ownUserId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "limit",
+          "ts_type": "number",
+          "optional": true,
+          "rest": false
+        }
+      ],
+      "returns": "({ userId: string; name: string; matrixName?: string })[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "mentionText",
+      "file": "src/domain/mention.ts",
+      "line": 56,
+      "params": [
+        {
+          "name": "member",
+          "ts_type": "{\n  name: string\n  matrixName?: string\n}",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "keepPresentMentions",
+      "file": "src/domain/mention.ts",
+      "line": 65,
+      "params": [
+        {
+          "name": "text",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "mentions",
+          "ts_type": "readonly Mention[]",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "Mention[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "namePattern",
+      "file": "src/domain/mention.ts",
+      "line": 89,
+      "params": [
+        {
+          "name": "name",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "matchRooms",
+      "file": "src/domain/mention.ts",
+      "line": 125,
+      "params": [
+        {
+          "name": "rooms",
+          "ts_type": "readonly (LinkableRoom)[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "query",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "limit",
+          "ts_type": "number",
+          "optional": true,
+          "rest": false
+        }
+      ],
+      "returns": "(LinkableRoom)[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "roomMentionRef",
+      "file": "src/domain/mention.ts",
+      "line": 152,
+      "params": [
+        {
+          "name": "room",
+          "ts_type": "LinkableRoom",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "roomMentionText",
+      "file": "src/domain/mention.ts",
+      "line": 157,
+      "params": [
+        {
+          "name": "room",
+          "ts_type": "LinkableRoom",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isRoomMention",
+      "file": "src/domain/mention.ts",
+      "line": 162,
+      "params": [
+        {
+          "name": "mention",
+          "ts_type": "Mention",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isEveryoneMention",
+      "file": "src/domain/mention.ts",
+      "line": 170,
+      "params": [
+        {
+          "name": "mention",
+          "ts_type": "Mention",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "offersEveryone",
+      "file": "src/domain/mention.ts",
+      "line": 179,
+      "params": [
+        {
+          "name": "query",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "describeEmote",
+      "file": "src/domain/message.ts",
+      "line": 76,
+      "params": [
+        {
+          "name": "senderName",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "text",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "bareEmoji",
+      "file": "src/domain/message.ts",
+      "line": 109,
+      "params": [
+        {
+          "name": "emoji",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "countsAsUnread",
+      "file": "src/domain/message.ts",
+      "line": 158,
+      "params": [
+        {
+          "name": "message",
+          "ts_type": "Message",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "findFirstUnreadId",
+      "file": "src/domain/message.ts",
+      "line": 169,
+      "params": [
+        {
+          "name": "messages",
+          "ts_type": "readonly Message[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "unreadCount",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isSameDay",
+      "file": "src/domain/message.ts",
+      "line": 202,
+      "params": [
+        {
+          "name": "a",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "b",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isSelectable",
+      "file": "src/domain/message.ts",
+      "line": 207,
+      "params": [
+        {
+          "name": "message",
+          "ts_type": "Message",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "startsGroup",
+      "file": "src/domain/message.ts",
+      "line": 218,
+      "params": [
+        {
+          "name": "messages",
+          "ts_type": "readonly Message[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "index",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "groupAlbums",
+      "file": "src/domain/message.ts",
+      "line": 260,
+      "params": [
+        {
+          "name": "messages",
+          "ts_type": "readonly Message[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "breakBefore",
+          "ts_type": "string | null",
+          "optional": true,
+          "rest": false
+        },
+        {
+          "name": "hidesGifs",
+          "ts_type": "boolean",
+          "optional": true,
+          "rest": false
+        }
+      ],
+      "returns": "Message[][]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "startsDay",
+      "file": "src/domain/message.ts",
+      "line": 290,
+      "params": [
+        {
+          "name": "messages",
+          "ts_type": "readonly Message[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "index",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isTranslatable",
+      "file": "src/domain/message.ts",
+      "line": 303,
+      "params": [
+        {
+          "name": "message",
+          "ts_type": "Message",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isEditable",
+      "file": "src/domain/message.ts",
+      "line": 313,
+      "params": [
+        {
+          "name": "message",
+          "ts_type": "Message",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "shouldNotify",
+      "file": "src/domain/notifications.ts",
+      "line": 45,
+      "params": [
+        {
+          "name": "message",
+          "ts_type": "IncomingMessage",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "level",
+          "ts_type": "('all' | 'mentions' | 'none')",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "settings",
+          "ts_type": "NotificationSettings",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "messageLink",
+      "file": "src/domain/permalink.ts",
+      "line": 7,
+      "params": [
+        {
+          "name": "origin",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "roomId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "eventId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "roomLink",
+      "file": "src/domain/permalink.ts",
+      "line": 16,
+      "params": [
+        {
+          "name": "origin",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "roomId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "userPermalink",
+      "file": "src/domain/permalink.ts",
+      "line": 21,
+      "params": [
+        {
+          "name": "userId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "roomPermalink",
+      "file": "src/domain/permalink.ts",
+      "line": 26,
+      "params": [
+        {
+          "name": "aliasOrId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "parsePermalink",
+      "file": "src/domain/permalink.ts",
+      "line": 49,
+      "params": [
+        {
+          "name": "href",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "appOrigin",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "(| { kind: 'user'; userId: string }\n  | {\n      kind: 'room'\n      roomId: string\n      eventId: string | null\n      /** The servers to join through, named by the link (`?via=`). */\n      via: readonly string[]\n    }) | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "parseRoomAddress",
+      "file": "src/domain/permalink.ts",
+      "line": 107,
+      "params": [
+        {
+          "name": "text",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "ownServer",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "{ roomId: string; via: readonly string[] } | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "readSeenSteps",
+      "file": "src/domain/personalizedSteps.ts",
+      "line": 27,
+      "params": [
+        {
+          "name": "content",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "parseSeenSteps",
+      "file": "src/domain/personalizedSteps.ts",
+      "line": 36,
+      "params": [
+        {
+          "name": "stored",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "unionSteps",
+      "file": "src/domain/personalizedSteps.ts",
+      "line": 46,
+      "params": [
+        {
+          "name": "lists",
+          "ts_type": "readonly (readonly string[])[]",
+          "optional": true,
+          "rest": true
+        }
+      ],
+      "returns": "string[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "tallyPoll",
+      "file": "src/domain/poll.ts",
+      "line": 54,
+      "params": [
+        {
+          "name": "poll",
+          "ts_type": "Pick<Poll, 'answers' | 'maxSelections'>",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "responses",
+          "ts_type": "readonly PollResponse[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "endedAt",
+          "ts_type": "number | null",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "userId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "Pick<Poll, 'votes' | 'voters' | 'totalVotes' | 'ownAnswerIds'>",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "pressAnswer",
+      "file": "src/domain/poll.ts",
+      "line": 90,
+      "params": [
+        {
+          "name": "poll",
+          "ts_type": "Pick<Poll, 'maxSelections' | 'ownAnswerIds'>",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "answerId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "readonly string[] | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "readNewPoll",
+      "file": "src/domain/poll.ts",
+      "line": 106,
+      "params": [
+        {
+          "name": "question",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "answers",
+          "ts_type": "readonly string[]",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "{ question: string; answers: string[] } | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "computeRoomUnread",
+      "file": "src/domain/readState.ts",
+      "line": 74,
+      "params": [
+        {
+          "name": "state",
+          "ts_type": "RoomReadState",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "flags",
+          "ts_type": "RoomFlags",
+          "optional": true,
+          "rest": false
+        }
+      ],
+      "returns": "UnreadCount",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "computeSilentUnread",
+      "file": "src/domain/readState.ts",
+      "line": 93,
+      "params": [
+        {
+          "name": "state",
+          "ts_type": "RoomReadState",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "flags",
+          "ts_type": "RoomFlags",
+          "optional": true,
+          "rest": false
+        }
+      ],
+      "returns": "number",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isUnread",
+      "file": "src/domain/readState.ts",
+      "line": 113,
+      "params": [
+        {
+          "name": "count",
+          "ts_type": "UnreadCount",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "computeTotalUnread",
+      "file": "src/domain/readState.ts",
+      "line": 125,
+      "params": [
+        {
+          "name": "counts",
+          "ts_type": "readonly UnreadCount[]",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "UnreadCount",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "computeReceiptTargets",
+      "file": "src/domain/readState.ts",
+      "line": 141,
+      "params": [
+        {
+          "name": "state",
+          "ts_type": "RoomReadState",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "ReceiptTarget[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isRoomUnread",
+      "file": "src/domain/readState.ts",
+      "line": 154,
+      "params": [
+        {
+          "name": "unread",
+          "ts_type": "UnreadCount",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "silentCount",
+          "ts_type": "number | undefined",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "shownUnreadCount",
+      "file": "src/domain/readState.ts",
+      "line": 166,
+      "params": [
+        {
+          "name": "entry",
+          "ts_type": "{ unread: UnreadCount; silentCount?: number } | undefined",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "number",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "chooseReceiptEvent",
+      "file": "src/domain/readState.ts",
+      "line": 178,
+      "params": [
+        {
+          "name": "orderedIds",
+          "ts_type": "readonly string[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "unreadCount",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "shownId",
+          "ts_type": "string | null",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "emptyReadState",
+      "file": "src/domain/readState.ts",
+      "line": 190,
+      "params": [
+        {
+          "name": "roomId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "RoomReadState",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "makeReadRoomState",
+      "file": "src/domain/readState.ts",
+      "line": 198,
+      "params": [
+        {
+          "name": "state",
+          "ts_type": "RoomReadState",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "RoomReadState",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "hasGifsOff",
+      "file": "src/domain/room.ts",
+      "line": 92,
+      "params": [
+        {
+          "name": "room",
+          "ts_type": "Room",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "offersScribe",
+      "file": "src/domain/room.ts",
+      "line": 101,
+      "params": [
+        {
+          "name": "room",
+          "ts_type": "Room",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "spaceOfRoom",
+      "file": "src/domain/room.ts",
+      "line": 116,
+      "params": [
+        {
+          "name": "room",
+          "ts_type": "Pick<Room, 'id' | 'isSpace' | 'parentSpaceIds'>",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string | undefined",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "canBeListenedTo",
+      "file": "src/domain/room.ts",
+      "line": 122,
+      "params": [
+        {
+          "name": "room",
+          "ts_type": "Room",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "computeRoomKind",
+      "file": "src/domain/room.ts",
+      "line": 132,
+      "params": [
+        {
+          "name": "inputs",
+          "ts_type": "RoomKindInputs",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "('direct' | 'discussion' | 'broadcast')",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "canPost",
+      "file": "src/domain/room.ts",
+      "line": 139,
+      "params": [
+        {
+          "name": "room",
+          "ts_type": "Room",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "userPowerLevel",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "findSpaceGeneral",
+      "file": "src/domain/room.ts",
+      "line": 149,
+      "params": [
+        {
+          "name": "rooms",
+          "ts_type": "readonly Room[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "spaceId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "Room | undefined",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "readArchive",
+      "file": "src/domain/roomArchive.ts",
+      "line": 17,
+      "params": [
+        {
+          "name": "content",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "ArchivedRoom[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "withArchived",
+      "file": "src/domain/roomArchive.ts",
+      "line": 32,
+      "params": [
+        {
+          "name": "rooms",
+          "ts_type": "readonly ArchivedRoom[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "roomId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "room",
+          "ts_type": "Omit<ArchivedRoom, 'roomId'> | null",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "ArchivedRoom[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "toRoomLines",
+      "file": "src/domain/roomLine.ts",
+      "line": 52,
+      "params": [
+        {
+          "name": "events",
+          "ts_type": "readonly RoomEvent[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "messageTimes",
+          "ts_type": "readonly number[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "listenerId",
+          "ts_type": "string | null",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "deleted",
+          "ts_type": "Readonly<\n  Partial<Record<string, { before_ts: number }>>\n>",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "roomId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "(| (Omit<RoomEvent, 'kind'> & { kind: RoomEvent['kind'] | 'added' })\n  | { id: string; at: number; kind: 'group'; lines: readonly (| (Omit<RoomEvent, 'kind'> & { kind: RoomEvent['kind'] | 'added' })\n  | { id: string; at: number; kind: 'group'; lines: readonly (| (Omit<RoomEvent, 'kind'> & { kind: RoomEvent['kind'] | 'added' })\n  | { id: string; at: number; kind: 'group'; lines: readonly (| (Omit<RoomEvent, 'kind'> & { kind: RoomEvent['kind'] | 'added' })\n  | { id: string; at: number; kind: 'group'; lines: readonly RoomLine[] })[] })[] })[] })[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "folderView",
+      "file": "src/domain/roomListView.ts",
+      "line": 15,
+      "params": [
+        {
+          "name": "folder",
+          "ts_type": "Folder",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "(| 'all'\n  | ('unread' | 'broadcasts' | 'directs' | 'spaces' | 'favourites')\n  // A folder of the user: `folder:<name>` (D238)\n  | `folder:${string}`)",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isInView",
+      "file": "src/domain/roomListView.ts",
+      "line": 26,
+      "params": [
+        {
+          "name": "entry",
+          "ts_type": "(Viewable)",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "view",
+          "ts_type": "(| 'all'\n  | ('unread' | 'broadcasts' | 'directs' | 'spaces' | 'favourites')\n  // A folder of the user: `folder:<name>` (D238)\n  | `folder:${string}`)",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "all",
+          "ts_type": "readonly (Viewable)[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "folders",
+          "ts_type": "readonly Folder[]",
+          "optional": true,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isOnOtherServer",
+      "file": "src/domain/roomManagement.ts",
+      "line": 58,
+      "params": [
+        {
+          "name": "userId",
+          "ts_type": "string | null",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "ownUserId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "levelOfRole",
+      "file": "src/domain/roomManagement.ts",
+      "line": 103,
+      "params": [
+        {
+          "name": "role",
+          "ts_type": "('admin' | 'moderator' | 'member')",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "number",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "computeRole",
+      "file": "src/domain/roomManagement.ts",
+      "line": 111,
+      "params": [
+        {
+          "name": "powerLevel",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "('admin' | 'moderator' | 'member')",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isRoomOwner",
+      "file": "src/domain/roomManagement.ts",
+      "line": 174,
+      "params": [
+        {
+          "name": "permissions",
+          "ts_type": "RoomPermissions",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "canManageMember",
+      "file": "src/domain/roomManagement.ts",
+      "line": 179,
+      "params": [
+        {
+          "name": "member",
+          "ts_type": "RoomMemberDetail",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "permissions",
+          "ts_type": "RoomPermissions",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "isSelf",
+          "ts_type": "boolean",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "canChangeRole",
+      "file": "src/domain/roomManagement.ts",
+      "line": 196,
+      "params": [
+        {
+          "name": "member",
+          "ts_type": "RoomMemberDetail",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "permissions",
+          "ts_type": "RoomPermissions",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "isSelf",
+          "ts_type": "boolean",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "assignableRoles",
+      "file": "src/domain/roomManagement.ts",
+      "line": 211,
+      "params": [
+        {
+          "name": "member",
+          "ts_type": "RoomMemberDetail",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "permissions",
+          "ts_type": "RoomPermissions",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "isSelf",
+          "ts_type": "boolean",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "('admin' | 'moderator' | 'member')[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "canBanMember",
+      "file": "src/domain/roomManagement.ts",
+      "line": 224,
+      "params": [
+        {
+          "name": "member",
+          "ts_type": "RoomMemberDetail",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "permissions",
+          "ts_type": "RoomPermissions",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "isSelf",
+          "ts_type": "boolean",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "canSetReadOnly",
+      "file": "src/domain/roomManagement.ts",
+      "line": 241,
+      "params": [
+        {
+          "name": "member",
+          "ts_type": "RoomMemberDetail",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "permissions",
+          "ts_type": "RoomPermissions",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "isSelf",
+          "ts_type": "boolean",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "ownershipAction",
+      "file": "src/domain/roomManagement.ts",
+      "line": 259,
+      "params": [
+        {
+          "name": "permissions",
+          "ts_type": "RoomPermissions",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "'transfer' | 'addOwner' | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "canTakeOwnership",
+      "file": "src/domain/roomManagement.ts",
+      "line": 267,
+      "params": [
+        {
+          "name": "member",
+          "ts_type": "RoomMemberDetail",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "permissions",
+          "ts_type": "RoomPermissions",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "isSelf",
+          "ts_type": "boolean",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "canTransferTo",
+      "file": "src/domain/roomManagement.ts",
+      "line": 279,
+      "params": [
+        {
+          "name": "member",
+          "ts_type": "RoomMemberDetail",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "permissions",
+          "ts_type": "RoomPermissions",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "isSelf",
+          "ts_type": "boolean",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "hasStaffRole",
+      "file": "src/domain/roomManagement.ts",
+      "line": 295,
+      "params": [
+        {
+          "name": "member",
+          "ts_type": "RoomMemberDetail",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "permissionRoleOf",
+      "file": "src/domain/roomManagement.ts",
+      "line": 299,
+      "params": [
+        {
+          "name": "member",
+          "ts_type": "RoomMemberDetail",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "permissions",
+          "ts_type": "Pick<RoomPermissions, 'readOnlyLevel' | 'defaultLevel'>",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "(('admin' | 'moderator' | 'member') | 'readOnly')",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "givenRoles",
+      "file": "src/domain/roomManagement.ts",
+      "line": 314,
+      "params": [
+        {
+          "name": "permissions",
+          "ts_type": "Pick<\n    RoomPermissions,\n    'ownPowerLevel' | 'readOnlyLevel' | 'defaultLevel'\n  >",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "(('admin' | 'moderator' | 'member') | 'readOnly')[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isValidSlug",
+      "file": "src/domain/roomManagement.ts",
+      "line": 452,
+      "params": [
+        {
+          "name": "slug",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "canHavePublicPage",
+      "file": "src/domain/roomManagement.ts",
+      "line": 461,
+      "params": [
+        {
+          "name": "room",
+          "ts_type": "Room",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "publicPagePath",
+      "file": "src/domain/roomManagement.ts",
+      "line": 476,
+      "params": [
+        {
+          "name": "room",
+          "ts_type": "Room",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "suggestSlug",
+      "file": "src/domain/roomManagement.ts",
+      "line": 483,
+      "params": [
+        {
+          "name": "name",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isValidColor",
+      "file": "src/domain/roomManagement.ts",
+      "line": 493,
+      "params": [
+        {
+          "name": "color",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "parseMatrixUserId",
+      "file": "src/domain/roomManagement.ts",
+      "line": 502,
+      "params": [
+        {
+          "name": "text",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "toPreviewText",
+      "file": "src/domain/roomPreview.ts",
+      "line": 52,
+      "params": [
+        {
+          "name": "text",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "roomIdOfRoute",
+      "file": "src/domain/roomRoute.ts",
+      "line": 5,
+      "params": [
+        {
+          "name": "routeId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "rooms",
+          "ts_type": "readonly { id: string; alias?: string | null }[]",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "readSavedRefs",
+      "file": "src/domain/savedMessages.ts",
+      "line": 21,
+      "params": [
+        {
+          "name": "content",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "SavedRef[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "withSaved",
+      "file": "src/domain/savedMessages.ts",
+      "line": 35,
+      "params": [
+        {
+          "name": "refs",
+          "ts_type": "readonly SavedRef[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "roomId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "eventId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "isSaved",
+          "ts_type": "boolean",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "now",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "SavedRef[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "readAutoTranslate",
+      "file": "src/domain/scribe.ts",
+      "line": 39,
+      "params": [
+        {
+          "name": "content",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "(| 'correct-grammar'\n  | 'make-shorter'\n  | 'expand-context'\n  | 'emojify'\n  | 'transform-to-bullets'\n  | 'change-tone-professional'\n  | 'change-tone-casual'\n  | 'change-tone-polite'\n  | 'translate-french'\n  | 'translate-english'\n  | 'translate-russian'\n  | 'translate-vietnamese'\n  | 'summarize') | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "normalizeForSearch",
+      "file": "src/domain/search.ts",
+      "line": 4,
+      "params": [
+        {
+          "name": "text",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isClosedQuery",
+      "file": "src/domain/search.ts",
+      "line": 12,
+      "params": [
+        {
+          "name": "query",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "holdsWord",
+      "file": "src/domain/search.ts",
+      "line": 18,
+      "params": [
+        {
+          "name": "haystack",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "word",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "whole",
+          "ts_type": "boolean",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "toIndexedMessage",
+      "file": "src/domain/search.ts",
+      "line": 52,
+      "params": [
+        {
+          "name": "roomId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "message",
+          "ts_type": "Message",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "IndexedMessage | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isLocalEchoId",
+      "file": "src/domain/search.ts",
+      "line": 73,
+      "params": [
+        {
+          "name": "messageId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isEmptyFilter",
+      "file": "src/domain/search.ts",
+      "line": 78,
+      "params": [
+        {
+          "name": "filter",
+          "ts_type": "SearchFilter",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "matchesFilter",
+      "file": "src/domain/search.ts",
+      "line": 87,
+      "params": [
+        {
+          "name": "entry",
+          "ts_type": "IndexedMessage",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "filter",
+          "ts_type": "SearchFilter",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isServiceUrl",
+      "file": "src/domain/serviceUrl.ts",
+      "line": 7,
+      "params": [
+        {
+          "name": "value",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "extractLinks",
+      "file": "src/domain/sharedContent.ts",
+      "line": 6,
+      "params": [
+        {
+          "name": "text",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "computeSharedContent",
+      "file": "src/domain/sharedContent.ts",
+      "line": 36,
+      "params": [
+        {
+          "name": "messages",
+          "ts_type": "readonly Message[]",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "SharedContent",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "roomBadgeCount",
+      "file": "src/domain/spaceBadges.ts",
+      "line": 16,
+      "params": [
+        {
+          "name": "unread",
+          "ts_type": "UnreadCount",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "number",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "computeSpaceBadges",
+      "file": "src/domain/spaceBadges.ts",
+      "line": 26,
+      "params": [
+        {
+          "name": "entries",
+          "ts_type": "readonly { room: Room; unread: UnreadCount }[]",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "SpaceBadge[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "canMoveToSpace",
+      "file": "src/domain/spaceChoices.ts",
+      "line": 59,
+      "params": [
+        {
+          "name": "room",
+          "ts_type": "Pick<Room, 'kind' | 'isSpace'>",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "permissions",
+          "ts_type": "Pick<RoomPermissions, 'canEditSettings' | 'isManagedBySpace'>",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "arrangeRooms",
+      "file": "src/domain/spaceTree.ts",
+      "line": 23,
+      "params": [
+        {
+          "name": "items",
+          "ts_type": "readonly ({ room: Room; tag?: string | null })[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "pinnedFirst",
+          "ts_type": "boolean",
+          "optional": true,
+          "rest": false
+        }
+      ],
+      "returns": "ArrangedRooms<({ room: Room; tag?: string | null })>",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "staysInTree",
+      "file": "src/domain/spaceTree.ts",
+      "line": 79,
+      "params": [
+        {
+          "name": "item",
+          "ts_type": "{\n  room: Room\n  tag?: string | null\n}",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "parentSpaceOf",
+      "file": "src/domain/spaceTree.ts",
+      "line": 114,
+      "params": [
+        {
+          "name": "item",
+          "ts_type": "({ room: Room })",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "items",
+          "ts_type": "readonly ({ room: Room })[]",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "({ room: Room }) | undefined",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "nonBlank",
+      "file": "src/domain/text.ts",
+      "line": 2,
+      "params": [
+        {
+          "name": "text",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "stripBidi",
+      "file": "src/domain/text.ts",
+      "line": 11,
+      "params": [
+        {
+          "name": "text",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "normalizeStatus",
+      "file": "src/domain/text.ts",
+      "line": 23,
+      "params": [
+        {
+          "name": "text",
+          "ts_type": "string | null",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "isNameTooLong",
+      "file": "src/domain/text.ts",
+      "line": 31,
+      "params": [
+        {
+          "name": "name",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "presenceOfPreset",
+      "file": "src/domain/text.ts",
+      "line": 46,
+      "params": [
+        {
+          "name": "preset",
+          "ts_type": "(typeof STATUS_PRESETS)[number]",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "'online' | 'unavailable' | 'offline'",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "computeThreadTitle",
+      "file": "src/domain/thread.ts",
+      "line": 40,
+      "params": [
+        {
+          "name": "rootText",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "sortThreadsByActivity",
+      "file": "src/domain/thread.ts",
+      "line": 48,
+      "params": [
+        {
+          "name": "threads",
+          "ts_type": "readonly ThreadSummary[]",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "ThreadSummary[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "readThreadPrefs",
+      "file": "src/domain/threadFollow.ts",
+      "line": 22,
+      "params": [
+        {
+          "name": "content",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "ThreadPrefEntry[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "withThreadPref",
+      "file": "src/domain/threadFollow.ts",
+      "line": 36,
+      "params": [
+        {
+          "name": "entries",
+          "ts_type": "readonly ThreadPrefEntry[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "roomId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "threadId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "pref",
+          "ts_type": "('follow' | 'unfollow' | 'mute')",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "ThreadPrefEntry[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "resolveThreadFollow",
+      "file": "src/domain/threadFollow.ts",
+      "line": 49,
+      "params": [
+        {
+          "name": "isParticipating",
+          "ts_type": "boolean",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "pref",
+          "ts_type": "('follow' | 'unfollow' | 'mute') | undefined",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "ThreadFollow",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "timelineWindowOf",
+      "file": "src/domain/timelineWindow.ts",
+      "line": 45,
+      "params": [
+        {
+          "name": "messages",
+          "ts_type": "readonly ({ id: string; sentAt: number })[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "lines",
+          "ts_type": "readonly ({ at: number })[] | undefined",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "start",
+          "ts_type": "(string | typeof FROM_OLDEST | null)",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "reach",
+          "ts_type": "WindowReach",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "TimelineWindow<({ id: string; sentAt: number }), ({ at: number })>",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "olderStartOf",
+      "file": "src/domain/timelineWindow.ts",
+      "line": 73,
+      "params": [
+        {
+          "name": "messages",
+          "ts_type": "readonly { id: string }[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "hiddenAbove",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "(string | typeof FROM_OLDEST | null)",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "commonSettingsUrlFor",
+      "file": "src/domain/twakeServices.ts",
+      "line": 72,
+      "params": [
+        {
+          "name": "settings",
+          "ts_type": "CommonSettings",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "userId",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "findWebLinks",
+      "file": "src/domain/webLinks.ts",
+      "line": 24,
+      "params": [
+        {
+          "name": "text",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "{ index: number; url: string }[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "toHref",
+      "file": "src/domain/webLinks.ts",
+      "line": 46,
+      "params": [
+        {
+          "name": "url",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    }
+  ],
+  "classes": [],
+  "js_only": [
+    {
+      "name": "shownTimelineOf",
+      "file": "src/domain/conversationParts.ts",
+      "line": 188,
+      "reason": "generic over `L`: values of any shape, functions included"
+    },
+    {
+      "name": "buildEmojiCatalog",
+      "file": "src/domain/emojiCatalog.ts",
+      "line": 37,
+      "reason": "uses `EmojiCatalog`, which has function members"
+    },
+    {
+      "name": "matchEmojis",
+      "file": "src/domain/emojiShortcode.ts",
+      "line": 43,
+      "reason": "takes or returns a function"
+    },
+    {
+      "name": "newestDrawnVersion",
+      "file": "src/domain/emojiSupport.ts",
+      "line": 47,
+      "reason": "takes or returns a function"
+    },
+    {
+      "name": "mentionPattern",
+      "file": "src/domain/mention.ts",
+      "line": 103,
+      "reason": "takes or returns a RegExp"
+    },
+    {
+      "name": "withEveryone",
+      "file": "src/domain/mention.ts",
+      "line": 191,
+      "reason": "generic over `T`: values of any shape, functions included"
+    },
+    {
+      "name": "chatsInCommon",
+      "file": "src/domain/room.ts",
+      "line": 170,
+      "reason": "takes or returns a function"
+    },
+    {
+      "name": "buildSpaceChoices",
+      "file": "src/domain/spaceChoices.ts",
+      "line": 18,
+      "reason": "takes or returns a function"
+    }
+  ]
+}

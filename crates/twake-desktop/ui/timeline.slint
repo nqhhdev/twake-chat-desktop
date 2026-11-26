@@ -1,0 +1,569 @@
+// The timeline: one line per row (message, day, read marker, event), as the web's
+// ui/MessageItem and ds/MessageBubble.
+import { Theme } from "theme.slint";
+import { Avatar, TextButton, Icon, Icons } from "parts.slint";
+
+export struct PollAnswerRow {
+    id: string,
+    text: string,
+    votes: int,
+    own: bool,
+    // share of the votes, 0 to 1 (0 while results are hidden)
+    share: float,
+}
+
+export struct ReactionChip {
+    key: string,
+    count: int,
+    own: bool,
+}
+
+// kind: 0 message, 1 day divider, 2 read marker, 3 small event line
+export struct Row {
+    kind: int,
+    id: string,
+    sender: string,
+    initials: string,
+    tint: color,
+    body: styled-text,
+    plain: string,
+    time: string,
+    own: bool,
+    // first message of a run by the same sender: shows name and avatar
+    head: bool,
+    edited: bool,
+    // "sending", "failed" or ""
+    status: string,
+    // shown instead of the body: deleted, unsupported, cannot decrypt
+    notice: string,
+    emote: bool,
+    avatar: image,
+    has-avatar: bool,
+    // "image", "video", "audio", "file" or "" for a text
+    attachment-kind: string,
+    attachment-key: string,
+    attachment-name: string,
+    attachment-info: string,
+    media: image,
+    has-media: bool,
+    media-width: int,
+    media-height: int,
+    reactions: [ReactionChip],
+    has-reply: bool,
+    reply-sender: string,
+    reply-text: string,
+    thread-count: int,
+    thread-text: string,
+    // sent (has an event id): it can be reacted to, answered, opened as a thread
+    can-act: bool,
+    can-edit: bool,
+    can-delete: bool,
+    has-poll: bool,
+    poll-answers: [PollAnswerRow],
+    // "3 votes · ended", "Results after the vote"
+    poll-status: string,
+    poll-can-end: bool,
+    poll-ended: bool,
+    pinned: bool,
+    // The first web link, as the homeserver previews it (never in an encrypted room)
+    has-preview: bool,
+    preview-url: string,
+    preview-title: string,
+    preview-text: string,
+    preview-site: string,
+    preview-image: image,
+    has-preview-image: bool,
+    // a banner on top of the card, else a square beside its text
+    preview-wide: bool,
+    // An audio file or a voice message the timeline plays (web `VoicePlayer`)
+    playable-audio: bool,
+    is-voice: bool,
+    attachment-mime: string,
+    duration-ms: int,
+    // bar heights from 0 to 1; empty: a plain progress line
+    waveform: [float],
+    // The message a search opened in context
+    highlight: bool,
+    can-pin: bool,
+    // saved for later (the Activity's « Saved »)
+    saved: bool,
+    // an animated image playing: its frame in Animations.frames, 1-based (0: none)
+    anim: int,
+}
+
+// The frames shown of the animated images (src/gifs.rs): one entry per GIF playing.
+export global Animations {
+    in-out property <[image]> frames;
+}
+
+// The sound playing (one at a time), set from Rust (src/audio.rs).
+export global AudioState {
+    in-out property <string> key;
+    in-out property <bool> playing;
+    in-out property <int> position;
+    in-out property <int> duration;
+    // m:ss
+    public pure function clock(ms: int) -> string {
+        let seconds = floor(max(0, ms) / 1000);
+        let rest = mod(seconds, 60);
+        return floor(seconds / 60) + ":" + (rest < 10 ? "0" : "") + rest;
+    }
+}
+
+// The web's quick reactions (ui/MessageItem.tsx, QUICK_REACTIONS).
+export global QuickReactions {
+    out property <[string]> keys: ["💜", "👍", "👎", "😂", "😮", "😢"];
+}
+
+component ActionButton inherits Rectangle {
+    // The emoji where the OS has no `symbol`
+    in property <string> label;
+    in property <image> symbol;
+    in property <string> tip;
+    callback clicked();
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: touch.has-hover ? Theme.hover : transparent;
+    accessible-role: button;
+    accessible-label: tip;
+    accessible-action-default => { clicked(); }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    Icon { source: root.symbol; fallback: root.label; size: 16px; }
+}
+
+component Chip inherits Rectangle {
+    in property <ReactionChip> chip;
+    callback clicked();
+    height: 26px;
+    width: t.preferred-width + 16px;
+    border-radius: 13px;
+    background: chip.own ? Theme.primary.transparentize(0.8) : Theme.panel;
+    border-width: 1px;
+    border-color: chip.own ? Theme.primary : Theme.line;
+    accessible-role: button;
+    accessible-label: chip.key + " " + chip.count;
+    accessible-action-default => { clicked(); }
+    TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    t := Text {
+        text: chip.key + " " + chip.count;
+        font-size: 12px;
+        color: Theme.text;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+export component MessageLine inherits Rectangle {
+    in property <Row> entry;
+    in property <length> list-width;
+    // in the thread panel: no thread summary, no "Thread" action
+    in property <bool> in-thread;
+    callback link-clicked(string);
+    callback open-attachment(string, string);
+    callback view-image(string, string);
+    callback play-audio(string, string, int);
+    callback seek-audio(string, float);
+    callback save-attachment(string, string);
+    callback react(string, string);
+    callback reply(string);
+    callback edit(string);
+    callback delete(string);
+    callback open-thread(string);
+    callback vote(string, string);
+    callback end-poll(string);
+    callback pin(string, bool);
+    callback save-message(string, bool);
+    height: layout.preferred-height;
+
+    hover := TouchArea {
+        layout := VerticalLayout {
+            padding-left: 16px;
+            padding-right: 16px;
+            padding-top: entry.head ? 10px : 2px;
+            padding-bottom: 2px;
+            if entry.kind == 1: HorizontalLayout {
+                padding-top: 8px;
+                padding-bottom: 8px;
+                alignment: center;
+                Rectangle {
+                    border-radius: 12px;
+                    background: Theme.panel;
+                    height: 24px;
+                    width: day.preferred-width + 20px;
+                    day := Text { text: entry.plain; color: Theme.text-secondary; font-size: 12px; }
+                }
+            }
+            if entry.kind == 2: HorizontalLayout {
+                spacing: 8px;
+                padding-top: 6px;
+                padding-bottom: 6px;
+                Rectangle { height: 1px; background: Theme.error; y: 8px; }
+                Text { text: "New"; color: Theme.error; font-size: 11px; font-weight: 600; }
+            }
+            if entry.kind == 3: Text {
+                text: entry.plain;
+                color: Theme.text-secondary;
+                font-size: 12px;
+                horizontal-alignment: center;
+            }
+            if entry.kind == 0: HorizontalLayout {
+                spacing: 8px;
+                alignment: entry.own ? end : start;
+                if !entry.own: VerticalLayout {
+                    alignment: start;
+                    width: 32px;
+                    if entry.head: Avatar {
+                        initials: entry.initials;
+                        tint: entry.tint;
+                        size: 32px;
+                        picture: entry.avatar;
+                        has-picture: entry.has-avatar;
+                    }
+                }
+                VerticalLayout {
+                    spacing: 4px;
+                    alignment: start;
+                    bubble := Rectangle {
+                        max-width: min(520px, root.list-width * 0.75);
+                        background: entry.own ? Theme.bubble-own : Theme.bubble-other;
+                        border-radius: Theme.radius;
+                        border-width: entry.highlight ? 2px : 0px;
+                        border-color: Theme.primary;
+                        accessible-role: text;
+                        accessible-label: entry.sender + ": " + entry.plain;
+                        VerticalLayout {
+                            padding: 10px;
+                            padding-top: 8px;
+                            padding-bottom: 6px;
+                            spacing: 4px;
+                            if entry.head && !entry.own: Text {
+                                text: entry.sender;
+                                color: entry.tint;
+                                font-size: 13px;
+                                font-weight: 600;
+                            }
+                            if entry.has-reply: Rectangle {
+                                border-radius: 8px;
+                                background: Theme.background.transparentize(0.4);
+                                HorizontalLayout {
+                                    padding: 6px;
+                                    spacing: 6px;
+                                    Rectangle { width: 3px; border-radius: 2px; background: Theme.primary; }
+                                    VerticalLayout {
+                                        Text { text: entry.reply-sender; color: Theme.primary; font-size: 12px; font-weight: 600; }
+                                        Text {
+                                            text: entry.reply-text;
+                                            color: Theme.text-secondary;
+                                            font-size: 12px;
+                                            overflow: elide;
+                                        }
+                                    }
+                                }
+                            }
+                            if entry.notice != "": Text {
+                                text: entry.notice;
+                                color: Theme.text-secondary;
+                                font-italic: true;
+                                wrap: word-wrap;
+                            }
+                            if entry.notice == "" && entry.attachment-kind == "image": Rectangle {
+                                width: entry.media-width * 1px;
+                                height: entry.media-height * 1px;
+                                border-radius: 12px;
+                                clip: true;
+                                background: Theme.line;
+                                accessible-role: image;
+                                accessible-label: entry.attachment-name;
+                                if entry.has-media || entry.anim > 0: Image {
+                                    width: parent.width;
+                                    height: parent.height;
+                                    source: entry.anim > 0 ? Animations.frames[entry.anim - 1] : entry.media;
+                                    image-fit: cover;
+                                }
+                                TouchArea {
+                                    mouse-cursor: pointer;
+                                    clicked => { root.view-image(entry.attachment-key, entry.attachment-name); }
+                                }
+                            }
+                            if entry.notice == "" && entry.playable-audio: HorizontalLayout {
+                                property <bool> current: AudioState.key == entry.attachment-key;
+                                property <float> progress: current && AudioState.duration > 0 ? AudioState.position / AudioState.duration : 0;
+                                spacing: 10px;
+                                min-width: 260px;
+                                accessible-role: groupbox;
+                                accessible-label: (entry.is-voice ? "Voice message, " : entry.attachment-name + ", ") + AudioState.clock(entry.duration-ms);
+                                VerticalLayout {
+                                    alignment: center;
+                                    Rectangle {
+                                        width: 36px;
+                                        height: 36px;
+                                        border-radius: 18px;
+                                        background: Theme.primary;
+                                        accessible-role: button;
+                                        accessible-label: current && AudioState.playing ? "Pause" : "Play";
+                                        accessible-action-default => { root.play-audio(entry.attachment-key, entry.attachment-mime, entry.duration-ms); }
+                                        TouchArea { mouse-cursor: pointer; clicked => { root.play-audio(entry.attachment-key, entry.attachment-mime, entry.duration-ms); } }
+                                        Icon {
+                                            source: current && AudioState.playing ? Icons.pause : Icons.play;
+                                            fallback: current && AudioState.playing ? "⏸" : "▶";
+                                            color: Theme.on-primary;
+                                            size: 14px;
+                                        }
+                                    }
+                                }
+                                VerticalLayout {
+                                    alignment: center;
+                                    horizontal-stretch: 1;
+                                    spacing: 2px;
+                                    if !entry.is-voice: Text { text: entry.attachment-name; color: Theme.text; font-size: 12px; overflow: elide; }
+                                    bars := Rectangle {
+                                        height: entry.waveform.length > 0 ? 28px : 12px;
+                                        TouchArea {
+                                            mouse-cursor: pointer;
+                                            clicked => { root.seek-audio(entry.attachment-key, self.mouse-x / self.width); }
+                                        }
+                                        if entry.waveform.length == 0: Rectangle {
+                                            y: (parent.height - 4px) / 2;
+                                            height: 4px;
+                                            border-radius: 2px;
+                                            background: Theme.line;
+                                            Rectangle {
+                                                x: 0;
+                                                width: parent.width * progress;
+                                                border-radius: 2px;
+                                                background: Theme.primary;
+                                            }
+                                        }
+                                        for level[i] in entry.waveform: Rectangle {
+                                            x: i * parent.width / entry.waveform.length;
+                                            width: max(1px, parent.width / entry.waveform.length - 2px);
+                                            height: max(3px, parent.height * level);
+                                            y: (parent.height - self.height) / 2;
+                                            border-radius: 1px;
+                                            background: (i + 0.5) / entry.waveform.length <= progress ? Theme.primary : Theme.text-secondary.transparentize(0.6);
+                                        }
+                                    }
+                                }
+                                VerticalLayout {
+                                    alignment: center;
+                                    Text {
+                                        text: current && (AudioState.playing || AudioState.position > 0) ? AudioState.clock(AudioState.position) : AudioState.clock(current && AudioState.duration > 0 ? AudioState.duration : entry.duration-ms);
+                                        color: Theme.text-secondary;
+                                        font-size: 12px;
+                                    }
+                                }
+                            }
+                            if entry.notice == "" && entry.attachment-kind != "" && entry.attachment-kind != "image" && !entry.playable-audio: HorizontalLayout {
+                                spacing: 10px;
+                                min-width: 220px;
+                                Rectangle {
+                                    width: 40px;
+                                    height: 40px;
+                                    border-radius: 8px;
+                                    background: Theme.primary.transparentize(0.85);
+                                    Icon {
+                                        source: entry.attachment-kind == "video" ? Icons.film : entry.attachment-kind == "audio" ? Icons.music : Icons.file;
+                                        fallback: entry.attachment-kind == "video" ? "🎬" : entry.attachment-kind == "audio" ? "🎵" : "📄";
+                                        color: Theme.primary;
+                                        size: 20px;
+                                    }
+                                }
+                                VerticalLayout {
+                                    alignment: center;
+                                    horizontal-stretch: 1;
+                                    Text { text: entry.attachment-name; color: Theme.text; font-weight: 600; overflow: elide; }
+                                    Text { text: entry.attachment-info; color: Theme.text-secondary; font-size: 12px; }
+                                }
+                                VerticalLayout {
+                                    alignment: center;
+                                    TextButton {
+                                        label: "Open";
+                                        clicked => { root.open-attachment(entry.attachment-key, entry.attachment-name); }
+                                    }
+                                }
+                                VerticalLayout {
+                                    alignment: center;
+                                    TextButton {
+                                        label: "Save";
+                                        clicked => { root.save-attachment(entry.attachment-key, entry.attachment-name); }
+                                    }
+                                }
+                            }
+                            if entry.has-poll: VerticalLayout {
+                                spacing: 6px;
+                                min-width: 280px;
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    VerticalLayout { alignment: start; Icon { source: Icons.poll; fallback: "📊"; color: Theme.primary; } }
+                                    Text { text: entry.plain; color: Theme.text; font-weight: 600; wrap: word-wrap; horizontal-stretch: 1; }
+                                }
+                                for answer in entry.poll-answers: Rectangle {
+                                    height: 36px;
+                                    border-radius: 8px;
+                                    border-width: 1px;
+                                    border-color: answer.own ? Theme.primary : Theme.line;
+                                    background: Theme.background;
+                                    clip: true;
+                                    accessible-role: button;
+                                    accessible-label: answer.text + (answer.own ? ", your vote" : "");
+                                    Rectangle {
+                                        x: 0;
+                                        width: parent.width * answer.share;
+                                        background: Theme.primary.transparentize(0.82);
+                                    }
+                                    TouchArea {
+                                        mouse-cursor: entry.poll-ended ? default : pointer;
+                                        clicked => { if !entry.poll-ended { root.vote(entry.id, answer.id); } }
+                                    }
+                                    HorizontalLayout {
+                                        padding-left: 10px;
+                                        padding-right: 10px;
+                                        if answer.own: VerticalLayout { alignment: center; Icon { source: Icons.check; fallback: "✓"; color: Theme.primary; size: 14px; } }
+                                        Text { text: answer.text; color: Theme.text; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
+                                        if answer.share > 0 || entry.poll-ended: Text { text: answer.votes; color: Theme.text-secondary; vertical-alignment: center; }
+                                    }
+                                }
+                                HorizontalLayout {
+                                    Text { text: entry.poll-status; color: Theme.text-secondary; font-size: 12px; vertical-alignment: center; horizontal-stretch: 1; }
+                                    if entry.poll-can-end: TextButton { label: "End poll"; clicked => { root.end-poll(entry.id); } }
+                                }
+                            }
+                            if entry.notice == "" && entry.plain != "" && !entry.has-poll: StyledText {
+                                text: entry.body;
+                                default-color: Theme.text;
+                                link-color: Theme.primary;
+                                selectable: true;
+                                link-clicked(url) => { root.link-clicked(url); }
+                            }
+                            // The link preview card (web `LinkPreviewCard`)
+                            if entry.has-preview: Rectangle {
+                                border-radius: 8px;
+                                background: Theme.background;
+                                border-width: 1px;
+                                border-color: Theme.line;
+                                clip: true;
+                                accessible-role: button;
+                                accessible-label: entry.preview-title != "" ? entry.preview-title : entry.preview-url;
+                                accessible-action-default => { root.link-clicked(entry.preview-url); }
+                                TouchArea { mouse-cursor: pointer; clicked => { root.link-clicked(entry.preview-url); } }
+                                VerticalLayout {
+                                    if entry.preview-wide && entry.has-preview-image: Image {
+                                        // A banner cut to 120 px, as the web (D508)
+                                        height: 120px;
+                                        source: entry.preview-image;
+                                        image-fit: cover;
+                                    }
+                                    HorizontalLayout {
+                                        padding: 8px;
+                                        spacing: 10px;
+                                        Rectangle { width: 3px; border-radius: 1.5px; background: Theme.primary; }
+                                        VerticalLayout {
+                                            spacing: 2px;
+                                            horizontal-stretch: 1;
+                                            if entry.preview-site != "": Text { text: entry.preview-site; color: Theme.text-secondary; font-size: 11px; overflow: elide; }
+                                            if entry.preview-title != "": Text { text: entry.preview-title; color: Theme.primary; font-weight: 600; wrap: word-wrap; overflow: elide; max-height: 40px; }
+                                            if entry.preview-text != "": Text { text: entry.preview-text; color: Theme.text; font-size: 12px; wrap: word-wrap; overflow: elide; max-height: 48px; }
+                                        }
+                                        if !entry.preview-wide && entry.has-preview-image: Image {
+                                            width: 56px;
+                                            height: 56px;
+                                            source: entry.preview-image;
+                                            image-fit: cover;
+                                        }
+                                    }
+                                }
+                            }
+                            HorizontalLayout {
+                                alignment: end;
+                                spacing: 4px;
+                                if entry.pinned: VerticalLayout { alignment: center; accessible-role: image; accessible-label: "Pinned"; Icon { source: Icons.pin; fallback: "📌"; size: 11px; } }
+                                if entry.edited: Text { text: "edited"; color: Theme.text-secondary; font-size: 11px; }
+                                Text { text: entry.time; color: Theme.text-secondary; font-size: 11px; }
+                                if entry.status == "sending": VerticalLayout { alignment: center; Icon { source: Icons.clock; fallback: "◷"; size: 11px; } }
+                                if entry.status == "failed": Text { text: "Not sent"; color: Theme.error; font-size: 11px; }
+                            }
+                        }
+                    }
+                    if entry.reactions.length > 0: HorizontalLayout {
+                        spacing: 4px;
+                        alignment: entry.own ? end : start;
+                        for chip in entry.reactions: Chip {
+                            chip: chip;
+                            clicked => { root.react(entry.id, chip.key); }
+                        }
+                    }
+                    if entry.thread-count > 0 && !root.in-thread: Rectangle {
+                        height: 30px;
+                        border-radius: 8px;
+                        background: thread-touch.has-hover ? Theme.hover : transparent;
+                        accessible-role: button;
+                        accessible-label: entry.thread-count + " replies";
+                        thread-touch := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { root.open-thread(entry.id); }
+                        }
+                        HorizontalLayout {
+                            padding-left: 6px;
+                            padding-right: 6px;
+                            spacing: 6px;
+                            Text {
+                                text: entry.thread-count == 1 ? "1 reply" : entry.thread-count + " replies";
+                                color: Theme.primary;
+                                font-weight: 600;
+                                font-size: 13px;
+                                vertical-alignment: center;
+                                horizontal-stretch: 0;
+                            }
+                            Text {
+                                text: entry.thread-text;
+                                color: Theme.text-secondary;
+                                font-size: 12px;
+                                overflow: elide;
+                                vertical-alignment: center;
+                                horizontal-stretch: 1;
+                                max-width: 320px;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Hover actions (mouse only), over the top of the bubble: quick reactions, reply,
+    // thread, and edit / delete on one's own messages.
+    if entry.kind == 0 && entry.can-act && hover.has-hover: Rectangle {
+        x: entry.own ? 16px : root.width - self.width - 16px;
+        y: 0px;
+        height: 36px;
+        width: actions.preferred-width + 8px;
+        border-radius: 10px;
+        background: Theme.background;
+        border-width: 1px;
+        border-color: Theme.line;
+        drop-shadow-blur: 6px;
+        drop-shadow-color: #0000001a;
+        actions := HorizontalLayout {
+            padding: 3px;
+            spacing: 2px;
+            for key in QuickReactions.keys: ActionButton {
+                label: key;
+                tip: "React " + key;
+                clicked => { root.react(entry.id, key); }
+            }
+            ActionButton { label: "↩"; symbol: Icons.reply; tip: "Reply"; clicked => { root.reply(entry.id); } }
+            if !root.in-thread: ActionButton { label: "💬"; symbol: Icons.thread; tip: "Reply in thread"; clicked => { root.open-thread(entry.id); } }
+            if entry.can-pin: ActionButton { label: "📌"; symbol: Icons.pin; tip: entry.pinned ? "Unpin" : "Pin"; clicked => { root.pin(entry.id, !entry.pinned); } }
+            if entry.can-act: ActionButton { label: "🔖"; symbol: Icons.bookmark; tip: entry.saved ? "Remove from saved" : "Save for later"; clicked => { root.save-message(entry.id, !entry.saved); } }
+            if entry.can-edit: ActionButton { label: "✎"; symbol: Icons.edit; tip: "Edit"; clicked => { root.edit(entry.id); } }
+            if entry.can-delete: ActionButton { label: "🗑"; symbol: Icons.delete; tip: "Delete"; clicked => { root.delete(entry.id); } }
+        }
+    }
+}

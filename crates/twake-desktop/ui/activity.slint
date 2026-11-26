@@ -1,0 +1,130 @@
+// The Activity (web ActivityScreen): mentions, reactions on one's messages, followed
+// threads and unread rooms, newest first under their day.
+import { ListView } from "std-widgets.slint";
+import { Theme } from "theme.slint";
+
+export struct FeedLine {
+    // A day header when true: only `title` is read
+    is-day: bool,
+    icon: string,
+    title: string,
+    quote: string,
+    time: string,
+    count: string,
+}
+
+component FilterChip inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    callback clicked();
+    height: 32px;
+    width: chip-text.preferred-width + 24px;
+    border-radius: 16px;
+    background: selected ? Theme.primary : (chip-touch.has-hover ? Theme.hover : Theme.panel);
+    accessible-role: button;
+    accessible-label: label;
+    accessible-checked: selected;
+    chip-touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    chip-text := Text { text: root.label; color: root.selected ? white : Theme.text; horizontal-alignment: center; vertical-alignment: center; }
+}
+
+export component ActivityPane inherits Rectangle {
+    in property <[FeedLine]> lines;
+    in property <string> filter;
+    in-out property <string> query;
+    callback pick-filter(string);
+    callback search(string);
+    callback open(int);
+    background: Theme.background;
+    VerticalLayout {
+        Rectangle {
+            height: 56px;
+            Rectangle { y: parent.height - 1px; height: 1px; background: Theme.line; }
+            HorizontalLayout {
+                padding-left: 24px;
+                Text { text: "Activity"; font-size: 18px; font-weight: 600; color: Theme.text; vertical-alignment: center; }
+            }
+        }
+        HorizontalLayout {
+            padding: 12px;
+            padding-left: 24px;
+            spacing: 8px;
+            alignment: start;
+            FilterChip { label: "All"; selected: root.filter == "all"; clicked => { root.pick-filter("all"); } }
+            FilterChip { label: "Unread"; selected: root.filter == "unread"; clicked => { root.pick-filter("unread"); } }
+            FilterChip { label: "Mentions"; selected: root.filter == "mentions"; clicked => { root.pick-filter("mentions"); } }
+            FilterChip { label: "Replies"; selected: root.filter == "replies"; clicked => { root.pick-filter("replies"); } }
+            FilterChip { label: "Saved"; selected: root.filter == "saved"; clicked => { root.pick-filter("saved"); } }
+            Rectangle {
+                width: 240px;
+                height: 32px;
+                border-radius: 16px;
+                background: Theme.panel;
+                input := TextInput {
+                    x: 14px;
+                    width: parent.width - 28px;
+                    vertical-alignment: center;
+                    single-line: true;
+                    color: Theme.text;
+                    text <=> root.query;
+                    accessible-label: "Search the activity";
+                    edited => { root.search(self.text); }
+                }
+                if input.text == "": Text { x: 14px; text: "Search"; color: Theme.text-secondary; vertical-alignment: center; }
+            }
+        }
+        if root.lines.length == 0: Text {
+            text: "Nothing new";
+            color: Theme.text-secondary;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            vertical-stretch: 1;
+        }
+        if root.lines.length > 0: ListView {
+            for line[i] in root.lines: Rectangle {
+                height: line.is-day ? 36px : line-layout.preferred-height;
+                background: !line.is-day && line-touch.has-hover ? Theme.hover : transparent;
+                if line.is-day: Text {
+                    x: 24px;
+                    text: line.title;
+                    font-size: 12px;
+                    font-weight: 600;
+                    color: Theme.text-secondary;
+                    vertical-alignment: center;
+                }
+                line-touch := TouchArea {
+                    enabled: !line.is-day;
+                    mouse-cursor: pointer;
+                    clicked => { root.open(i); }
+                }
+                line-layout := HorizontalLayout {
+                    visible: !line.is-day;
+                    padding-left: 24px;
+                    padding-right: 24px;
+                    padding-top: 10px;
+                    padding-bottom: 10px;
+                    spacing: 12px;
+                    accessible-role: list-item;
+                    accessible-label: line.title + ". " + line.quote;
+                    Text { width: 24px; text: line.icon; font-size: 18px; horizontal-alignment: center; }
+                    VerticalLayout {
+                        spacing: 2px;
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Text { text: line.title; color: Theme.text; font-weight: 600; overflow: elide; horizontal-stretch: 1; }
+                            if line.count != "": Rectangle {
+                                width: count-text.preferred-width + 12px;
+                                height: 20px;
+                                border-radius: 10px;
+                                background: Theme.primary;
+                                count-text := Text { text: line.count; color: white; font-size: 11px; horizontal-alignment: center; vertical-alignment: center; }
+                            }
+                            Text { text: line.time; color: Theme.text-secondary; font-size: 12px; }
+                        }
+                        if line.quote != "": Text { text: line.quote; color: Theme.text-secondary; overflow: elide; }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,52 @@
+# Minimal local Synapse for the desktop app (ADR-008). Same Synapse version as the web
+# app's e2e stack (reference/twake-space-chat/e2e/docker), without ToM or Meet: those
+# come in with the milestones that need them. Calls (M5): LiveKit and Element's token
+# service share the network of Synapse, so each reaches the others on localhost.
+services:
+  synapse:
+    image: ghcr.io/element-hq/synapse:v1.162.0
+    entrypoint: ["/start.py", "run", "--config-path=/config/homeserver.yaml"]
+    volumes:
+      - ./synapse:/config:ro
+      - synapse-data:/data
+    ports:
+      - "127.0.0.1:18008:8008"
+      # LiveKit (signalling, TCP and UDP media) and the token service
+      - "127.0.0.1:7880:7880"
+      - "127.0.0.1:7881:7881"
+      - "127.0.0.1:7882:7882/udp"
+      - "127.0.0.1:18080:8080"
+    # The test page of link previews, served from the host (dev/preview-page.sh)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8008/health"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+  livekit:
+    image: livekit/livekit-server:latest@sha256:25cd902de7cacbd5f1f779f6a6ac1eae20ba8f56b0935934ce6b0ab80d1e3d20
+    command: ["--config", "/etc/livekit.yaml"]
+    network_mode: "service:synapse"
+    volumes:
+      - ./livekit/livekit.yaml:/etc/livekit.yaml:ro
+    depends_on:
+      synapse:
+        condition: service_healthy
+  # MatrixRTC token service (MSC4195, /sfu/get): checks the OpenID token on
+  # https://localhost:8448 (self-signed, hence the skip) and hands out LiveKit tokens
+  lk-jwt:
+    image: ghcr.io/element-hq/lk-jwt-service:0.9.0
+    network_mode: "service:synapse"
+    environment:
+      LIVEKIT_URL: ws://localhost:7880
+      LIVEKIT_KEY: devkey
+      LIVEKIT_SECRET: twake-chat-dev-livekit-secret-0123456789
+      LIVEKIT_JWT_BIND: ":8080"
+      LIVEKIT_FULL_ACCESS_HOMESERVERS: localhost
+      LIVEKIT_INSECURE_SKIP_VERIFY_TLS: YES_I_KNOW_WHAT_I_AM_DOING
+    depends_on:
+      synapse:
+        condition: service_healthy
+volumes:
+  synapse-data:

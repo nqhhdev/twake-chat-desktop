@@ -16,7 +16,7 @@ cargo run --release -p twake-desktop
 ```
 
 Linux also needs the Secret Service (GNOME Keyring or KWallet) for the session, and the
-development packages of `libdbus-1`, `libxkbcommon` and `fontconfig`.
+development packages of `libdbus-1`, `libxkbcommon`, `fontconfig` and `libasound2` (ALSA).
 
 ## Local test server
 
