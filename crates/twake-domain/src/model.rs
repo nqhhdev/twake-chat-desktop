@@ -53,6 +53,12 @@ pub struct RoomSummary {
     pub unread_count: u64,
     pub mention_count: u64,
     pub is_marked_unread: bool,
+    /// Pinned to the top of the list (the `m.favourite` tag, web « Pin »).
+    #[serde(default)]
+    pub is_favourite: bool,
+    /// Its notifications are off (web « Mute »).
+    #[serde(default)]
+    pub is_muted: bool,
     pub preview: Option<RoomPreview>,
     /// Epoch milliseconds of the newest event, for ordering and the time column.
     pub last_activity: Option<i64>,
@@ -126,6 +132,9 @@ pub struct Message {
     /// It opens the thread of a call (web `isCallThreadRoot`, D105).
     #[serde(default)]
     pub is_call_thread_root: bool,
+    /// The others whose read receipt stops here (not the sender, not the user).
+    #[serde(default)]
+    pub read_receipts: Vec<ReadReceipt>,
 }
 
 /// One reaction key on a message.
@@ -193,6 +202,35 @@ pub struct RoomDetails {
     /// Joined and invited, owners and admins first, invited last.
     pub members: Vec<crate::room_management::RoomMemberDetail>,
     pub permissions: crate::room_management::RoomPermissions,
+    /// Who may join (web `RoomAccess`), and whether the public directory lists it.
+    #[serde(default)]
+    pub join_rule: crate::room_management::JoinRuleChoice,
+    #[serde(default)]
+    pub is_listed: bool,
+    /// What the user hears of it (web `notificationLevel`).
+    #[serde(default)]
+    pub notification_level: crate::room_management::NotificationLevel,
+}
+
+/// A message on the server and not deleted can be ticked to act on several at once (web
+/// `isSelectable`). `is_call_line`: the line a call leaves (web `message.call`), which this
+/// app draws apart from the messages. No send status: someone else's message, on the server.
+pub fn is_selectable(message: &Message, is_call_line: bool) -> bool {
+    message.send_status.is_none_or(|s| s == SendStatus::Sent)
+        && message.notice != Some(MessageNotice::Deleted)
+        && !is_call_line
+}
+
+/// Someone else whose read receipt stops at a message (web `MessageReader`): they read it
+/// and everything before.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReadReceipt {
+    pub user_id: String,
+    pub name: String,
+    pub avatar_url: Option<String>,
+    /// When their receipt was sent (epoch milliseconds); None if unknown.
+    pub read_at: Option<i64>,
 }
 
 /// A top-level space and every room below it.
@@ -203,4 +241,26 @@ pub struct SpaceSummary {
     pub name: String,
     pub avatar_url: Option<String>,
     pub rooms: Vec<String>,
+}
+
+#[cfg(test)]
+mod selectable_tests {
+    use super::*;
+
+    #[test]
+    fn ticks_only_messages_on_the_server() {
+        let sent = Message::default();
+        assert!(is_selectable(&sent, false));
+        assert!(!is_selectable(&sent, true));
+        let sending = Message {
+            send_status: Some(SendStatus::Sending),
+            ..Message::default()
+        };
+        assert!(!is_selectable(&sending, false));
+        let deleted = Message {
+            notice: Some(MessageNotice::Deleted),
+            ..Message::default()
+        };
+        assert!(!is_selectable(&deleted, false));
+    }
 }

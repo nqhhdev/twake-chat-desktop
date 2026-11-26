@@ -10,7 +10,7 @@ use matrix_sdk::{
     },
 };
 use twake_domain::room_management::{
-    MemberRole, RoomMemberDetail, RoomPermissions, compute_role, level_of_role,
+    JoinRuleChoice, MemberRole, RoomMemberDetail, RoomPermissions, compute_role, level_of_role,
 };
 use twake_domain::{RoomDetails, RoomKind};
 
@@ -90,7 +90,12 @@ pub async fn details(room: &Room) -> Result<RoomDetails, String> {
             .then(a.name.to_lowercase().cmp(&b.name.to_lowercase()))
     });
     let is_direct = room.is_direct().await.unwrap_or(false);
+    let (join_rule, is_listed) = access(room).await;
+    let notification_level = notification_level(room, is_direct).await;
     Ok(RoomDetails {
+        join_rule,
+        is_listed,
+        notification_level,
         room_id: room.room_id().to_string(),
         name: room
             .cached_display_name()
@@ -169,6 +174,144 @@ pub async fn encrypt(room: &Room) -> Result<(), String> {
     room.enable_encryption().await.map_err(|e| e.to_string())
 }
 
+/// Who may join, and whether the directory lists the room (web `readRoomAccess`): a room
+/// with no rule is invite-only (the SDK's default), `private` reads as invite, a directory
+/// that cannot be read counts as not listing it.
+async fn access(room: &Room) -> (JoinRuleChoice, bool) {
+    use matrix_sdk::ruma::api::client::directory::get_room_visibility;
+    use matrix_sdk::ruma::api::client::room::Visibility;
+    use matrix_sdk::ruma::events::room::join_rules::JoinRule;
+    #[allow(deprecated)]
+    let rule = match room.join_rule() {
+        None | Some(JoinRule::Invite) | Some(JoinRule::Private) => JoinRuleChoice::Invite,
+        Some(JoinRule::Knock) => JoinRuleChoice::Knock,
+        Some(JoinRule::Public) => JoinRuleChoice::Public,
+        Some(_) => JoinRuleChoice::Other,
+    };
+    let request = get_room_visibility::v3::Request::new(room.room_id().to_owned());
+    let listed = room
+        .client()
+        .send(request)
+        .await
+        .is_ok_and(|r| r.visibility == Visibility::Public);
+    (rule, listed)
+}
+
+/// What the user hears of the room: their own choice, else the server's default for a room
+/// of its kind (encrypted or not, of two people or more).
+async fn notification_level(
+    room: &Room,
+    is_direct: bool,
+) -> twake_domain::room_management::NotificationLevel {
+    use matrix_sdk::notification_settings::{IsEncrypted, IsOneToOne, RoomNotificationMode};
+    use twake_domain::room_management::NotificationLevel;
+    let settings = room.client().notification_settings().await;
+    let mode = match settings
+        .get_user_defined_room_notification_mode(room.room_id())
+        .await
+    {
+        Some(mode) => mode,
+        None => {
+            let encrypted = IsEncrypted::from(room.encryption_state().is_encrypted());
+            let one_to_one = IsOneToOne::from(is_direct && room.joined_members_count() <= 2);
+            settings
+                .get_default_room_notification_mode(encrypted, one_to_one)
+                .await
+        }
+    };
+    match mode {
+        RoomNotificationMode::AllMessages => NotificationLevel::All,
+        RoomNotificationMode::MentionsAndKeywordsOnly => NotificationLevel::Mentions,
+        RoomNotificationMode::Mute => NotificationLevel::None,
+    }
+}
+
+/// Changes what the user hears of the room (web `setNotificationLevel`).
+pub async fn set_notification_level(
+    room: &Room,
+    level: twake_domain::room_management::NotificationLevel,
+) -> Result<(), String> {
+    use matrix_sdk::notification_settings::RoomNotificationMode;
+    use twake_domain::room_management::NotificationLevel;
+    let mode = match level {
+        NotificationLevel::All => RoomNotificationMode::AllMessages,
+        NotificationLevel::Mentions => RoomNotificationMode::MentionsAndKeywordsOnly,
+        NotificationLevel::None => RoomNotificationMode::Mute,
+    };
+    room.client()
+        .notification_settings()
+        .await
+        .set_room_notification_mode(room.room_id(), mode)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Changes who may join (web `changeRoomAccess`); `Other` is never set.
+pub async fn set_join_rule(room: &Room, rule: JoinRuleChoice) -> Result<(), String> {
+    use matrix_sdk::ruma::events::room::join_rules::{JoinRule, RoomJoinRulesEventContent};
+    let rule = match rule {
+        JoinRuleChoice::Invite => JoinRule::Invite,
+        JoinRuleChoice::Knock => JoinRule::Knock,
+        JoinRuleChoice::Public => JoinRule::Public,
+        JoinRuleChoice::Other => return Err("this rule is not set here".into()),
+    };
+    room.send_state_event(RoomJoinRulesEventContent::new(rule))
+        .await
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
+/// Lists the room in the public directory, or takes it off.
+pub async fn set_listed(room: &Room, listed: bool) -> Result<(), String> {
+    use matrix_sdk::ruma::api::client::directory::set_room_visibility;
+    use matrix_sdk::ruma::api::client::room::Visibility;
+    let visibility = if listed {
+        Visibility::Public
+    } else {
+        Visibility::Private
+    };
+    let request = set_room_visibility::v3::Request::new(room.room_id().to_owned(), visibility);
+    room.client()
+        .send(request)
+        .await
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
 pub async fn leave(room: &Room) -> Result<(), String> {
     room.leave().await.map_err(|e| e.to_string())
+}
+
+/// Reports the room to the administrators of the server (web `saveRoomReport`).
+pub async fn report_room(room: &Room, reason: Option<String>) -> Result<(), String> {
+    room.report_room(reason.unwrap_or_default())
+        .await
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
+/// Reports a message of the room; the score the web sends for older servers is optional
+/// since Matrix 1.13 and matrix-sdk sends none.
+pub async fn report_message(
+    room: &Room,
+    event_id: &str,
+    reason: Option<String>,
+) -> Result<(), String> {
+    let event_id = matrix_sdk::ruma::OwnedEventId::try_from(event_id)
+        .map_err(|_| format!("not a message id: {event_id}"))?;
+    room.report_content(event_id, reason)
+        .await
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
+/// Ignores a person for the account: the server stops sending their events.
+pub async fn block(room: &Room, user_id: &str) -> Result<(), String> {
+    let user_id = matrix_sdk::ruma::OwnedUserId::try_from(user_id)
+        .map_err(|_| format!("not a Matrix id: {user_id}"))?;
+    room.client()
+        .account()
+        .ignore_user(&user_id)
+        .await
+        .map_err(|e| e.to_string())
 }

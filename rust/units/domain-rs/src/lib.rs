@@ -385,17 +385,11 @@ pub fn recording_mode_of(
 
 /// `currentDeviceId`.
 #[napi(js_name = "currentDeviceId")]
-pub fn current_device_id(
-    devices: String,
-    active_id: Option<String>,
-) -> napi::Result<napi::bindgen_prelude::Either<String, ()>> {
+pub fn current_device_id(devices: String, active_id: Option<String>) -> napi::Result<String> {
     run(move || {
         let devices = crate::js::from_json(&devices)?;
         let out = port::current_device_id(devices, active_id)?;
-        Ok(out.map_or(
-            napi::bindgen_prelude::Either::B(()),
-            napi::bindgen_prelude::Either::A,
-        ))
+        crate::js::to_json(&out)
     })
 }
 
@@ -544,9 +538,10 @@ pub fn place_call(state: String, now: String) -> napi::Result<String> {
 
 /// `isCallFloating`.
 #[napi(js_name = "isCallFloating")]
-pub fn is_call_floating(state: String, call_room_id: Option<String>) -> napi::Result<bool> {
+pub fn is_call_floating(state: String, call_room_id: String) -> napi::Result<bool> {
     run(move || {
         let state = crate::js::from_json(&state)?;
+        let call_room_id = crate::js::from_json(&call_room_id)?;
         let out = port::is_call_floating(state, call_room_id)?;
         Ok(out)
     })
@@ -3871,6 +3866,7 @@ static S_CURRENT_DEVICE_ID_0: wire::Schema = wire::Schema::List(&wire::Schema::O
     ("id", wire::Schema::Str16),
     ("label", wire::Schema::Str16),
 ]));
+static S_CURRENT_DEVICE_ID_OUT: wire::Schema = wire::Schema::OptJs(&wire::Schema::Str16);
 
 /// `currentDeviceId` over the binary wire.
 #[napi(js_name = "currentDeviceIdWire")]
@@ -3880,13 +3876,7 @@ pub fn current_device_id_wire(len: u32) -> napi::Result<f64> {
             r.list(|r| wire::read_value(r, S_CURRENT_DEVICE_ID_0.inner()))?;
         let active_id: Option<String> = r.opt_js(|r| r.string16())?;
         let out = &port::current_device_id(devices, active_id)?;
-        match out {
-            Some(x0) => {
-                w.tag(1);
-                w.string16(x0);
-            }
-            None => w.tag(2),
-        }
+        wire::write_value(w, out, &S_CURRENT_DEVICE_ID_OUT)?;
         Ok(())
     })
 }
@@ -4185,13 +4175,14 @@ static S_IS_CALL_FLOATING_0: wire::Schema = wire::Schema::Obj(&[
     ("detachedRoomId", wire::Schema::OptJs(&wire::Schema::Str16)),
     ("shownRoomId", wire::Schema::OptJs(&wire::Schema::Str16)),
 ]);
+static S_IS_CALL_FLOATING_1: wire::Schema = wire::Schema::OptJs(&wire::Schema::Str16);
 
 /// `isCallFloating` over the binary wire.
 #[napi(js_name = "isCallFloatingWire")]
 pub fn is_call_floating_wire(len: u32) -> napi::Result<f64> {
     wire_io(len, |r, w| {
         let state: serde_json::Value = wire::read_value(r, &S_IS_CALL_FLOATING_0)?;
-        let call_room_id: Option<String> = r.opt_js(|r| r.string16())?;
+        let call_room_id: serde_json::Value = wire::read_value(r, &S_IS_CALL_FLOATING_1)?;
         let out = &port::is_call_floating(state, call_room_id)?;
         w.bool(*out);
         Ok(())
@@ -5007,14 +4998,9 @@ pub fn without_deleted_wire(len: u32) -> napi::Result<f64> {
     wire_io(len, |r, w| {
         let deleted: serde_json::Value = wire::read_value(r, &S_WITHOUT_DELETED_0)?;
         let room_id: String = r.string16()?;
-        let messages: Vec<serde_json::Value> =
-            r.list(|r| wire::read_value(r, S_WITHOUT_DELETED_2.inner()))?;
+        let messages: serde_json::Value = wire::read_value(r, &S_WITHOUT_DELETED_2)?;
         let out = &port::without_deleted(deleted, room_id, messages)?;
-        w.tag(1);
-        w.count(out.len());
-        for x0 in out.iter() {
-            wire::write_value(w, x0, S_WITHOUT_DELETED_OUT.inner())?;
-        }
+        wire::write_value(w, out, &S_WITHOUT_DELETED_OUT)?;
         Ok(())
     })
 }

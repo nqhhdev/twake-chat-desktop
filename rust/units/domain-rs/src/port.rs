@@ -541,12 +541,17 @@ pub fn recording_mode_of(
 }
 
 /// Port of `currentDeviceId` (`src/domain/call.ts:143`).
+/// A JSON value: `null` without a device, as the web (`?? null`), where `Option` would
+/// come back as `undefined` from an absent `activeId`.
 pub fn current_device_id(
     devices: Vec<serde_json::Value>,
     active_id: Option<String>,
-) -> Result<Option<String>, String> {
-    let _ = (&devices, &active_id);
-    unimplemented!("port `currentDeviceId` from src/domain/call.ts")
+) -> Result<serde_json::Value, String> {
+    let devices: Vec<twake_domain::call::MediaDevice> = typed(serde_json::Value::Array(devices))?;
+    Ok(
+        twake_domain::call::current_device_id(&devices, active_id.as_deref())
+            .map_or(serde_json::Value::Null, serde_json::Value::String),
+    )
 }
 
 /// Port of `countCallPeople` (`src/domain/call.ts:156`).
@@ -832,19 +837,69 @@ pub fn to_call_line(
     }
 }
 
+use twake_domain::call_window as cw;
+
+/// A recorded object of numbers, typed: a missing or non-number field is another shape.
+fn numbers<const N: usize>(value: &serde_json::Value, keys: [&str; N]) -> Result<[f64; N], String> {
+    let mut out = [0.0; N];
+    for (slot, key) in out.iter_mut().zip(keys) {
+        *slot = value
+            .get(key)
+            .and_then(crate::js::as_number)
+            .ok_or_else(|| format!("SKIP: input not of the typed shape ({key} is not a number)"))?;
+    }
+    Ok(out)
+}
+
+fn window_rect(value: &serde_json::Value) -> Result<cw::WindowRect, String> {
+    let [x, y, width, height] = numbers(value, ["x", "y", "width", "height"])?;
+    Ok(cw::WindowRect {
+        x,
+        y,
+        width,
+        height,
+    })
+}
+
+fn viewport(value: &serde_json::Value) -> Result<cw::WindowViewport, String> {
+    let [width, height] = numbers(value, ["width", "height"])?;
+    Ok(cw::WindowViewport { width, height })
+}
+
+/// NaN, ±Infinity and -0 marked as `index.cjs` reads them.
+fn window_json(rect: cw::WindowRect) -> serde_json::Value {
+    use crate::js::number;
+    serde_json::json!({
+        "x": number(rect.x),
+        "y": number(rect.y),
+        "width": number(rect.width),
+        "height": number(rect.height),
+    })
+}
+
+/// A room id of `now`: a string or null; absent or of another type, another shape.
+fn room_id_of(now: &serde_json::Value, key: &str) -> Result<Option<String>, String> {
+    match now.get(key) {
+        Some(serde_json::Value::String(id)) => Ok(Some(id.clone())),
+        Some(serde_json::Value::Null) => Ok(None),
+        _ => Err(format!("SKIP: input not of the typed shape ({key})")),
+    }
+}
+
 /// Port of `fitWindow` (`src/domain/callWindow.ts:33`).
 pub fn fit_window(
     rect: serde_json::Value,
     screen: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
-    let _ = (&rect, &screen);
-    unimplemented!("port `fitWindow` from src/domain/callWindow.ts")
+    Ok(window_json(cw::fit_window(
+        window_rect(&rect)?,
+        viewport(&screen)?,
+    )))
 }
 
 /// Port of `defaultCallWindow` (`src/domain/callWindow.ts:47`).
 pub fn default_call_window(screen: serde_json::Value) -> Result<serde_json::Value, String> {
-    let _ = &screen;
-    unimplemented!("port `defaultCallWindow` from src/domain/callWindow.ts")
+    Ok(window_json(cw::default_call_window(viewport(&screen)?)))
 }
 
 /// Port of `moveWindow` (`src/domain/callWindow.ts:60`).
@@ -854,8 +909,12 @@ pub fn move_window(
     dy: f64,
     screen: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
-    let _ = (&rect, &dx, &dy, &screen);
-    unimplemented!("port `moveWindow` from src/domain/callWindow.ts")
+    Ok(window_json(cw::move_window(
+        window_rect(&rect)?,
+        dx,
+        dy,
+        viewport(&screen)?,
+    )))
 }
 
 /// Port of `placeInCorner` (`src/domain/callWindow.ts:69`).
@@ -864,8 +923,11 @@ pub fn place_in_corner(
     corner: String,
     screen: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
-    let _ = (&rect, &corner, &screen);
-    unimplemented!("port `placeInCorner` from src/domain/callWindow.ts")
+    Ok(window_json(cw::place_in_corner(
+        window_rect(&rect)?,
+        &corner,
+        viewport(&screen)?,
+    )))
 }
 
 /// Port of `resizeWindow` (`src/domain/callWindow.ts:105`).
@@ -876,14 +938,18 @@ pub fn resize_window(
     dy: f64,
     screen: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
-    let _ = (&rect, &edge, &dx, &dy, &screen);
-    unimplemented!("port `resizeWindow` from src/domain/callWindow.ts")
+    Ok(window_json(cw::resize_window(
+        window_rect(&rect)?,
+        &edge,
+        dx,
+        dy,
+        viewport(&screen)?,
+    )))
 }
 
 /// Port of `parseCallWindow` (`src/domain/callWindow.ts:139`).
 pub fn parse_call_window(stored: Option<String>) -> Result<Option<serde_json::Value>, String> {
-    let _ = &stored;
-    unimplemented!("port `parseCallWindow` from src/domain/callWindow.ts")
+    Ok(cw::parse_call_window(stored.as_deref()).map(window_json))
 }
 
 /// Port of `placeCall` (`src/domain/callWindow.ts:172`).
@@ -891,17 +957,26 @@ pub fn place_call(
     state: serde_json::Value,
     now: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
-    let _ = (&state, &now);
-    unimplemented!("port `placeCall` from src/domain/callWindow.ts")
+    let state: cw::CallPlacement = typed(state)?;
+    let shown = room_id_of(&now, "shownRoomId")?;
+    let call = room_id_of(&now, "callRoomId")?;
+    serde_json::to_value(cw::place_call(&state, shown.as_deref(), call.as_deref()))
+        .map_err(|e| e.to_string())
 }
 
 /// Port of `isCallFloating` (`src/domain/callWindow.ts:190`).
 pub fn is_call_floating(
     state: serde_json::Value,
-    call_room_id: Option<String>,
+    call_room_id: serde_json::Value,
 ) -> Result<bool, String> {
-    let _ = (&state, &call_room_id);
-    unimplemented!("port `isCallFloating` from src/domain/callWindow.ts")
+    let state: cw::CallPlacement = typed(state)?;
+    // `string | null`: an undefined room is another shape (`undefined !== null` in JS)
+    let call_room_id = match call_room_id {
+        serde_json::Value::String(id) => Some(id),
+        serde_json::Value::Null => None,
+        _ => return Err("SKIP: input not of the typed shape (callRoomId)".into()),
+    };
+    Ok(cw::is_call_floating(&state, call_room_id.as_deref()))
 }
 
 /// Port of `parseClientConfig` (`src/domain/clientConfig.ts:34`).
@@ -912,8 +987,9 @@ pub fn parse_client_config(raw: serde_json::Value) -> Result<serde_json::Value, 
 
 /// Port of `readComposerStyle` (`src/domain/composerStyle.ts:14`).
 pub fn read_composer_style(content: serde_json::Value) -> Result<serde_json::Value, String> {
-    let _ = &content;
-    unimplemented!("port `readComposerStyle` from src/domain/composerStyle.ts")
+    Ok(serde_json::Value::String(
+        twake_domain::composer_style::read_composer_style(&content).to_string(),
+    ))
 }
 
 /// Port of `parseInvitationTarget` (`src/domain/contact.ts:35`).
@@ -1069,10 +1145,58 @@ pub fn match_place_of(
     unimplemented!("port `matchPlaceOf` from src/domain/conversationView.ts")
 }
 
+/// A recorded `DeletedChats`: an object of `{ before_ts: number }`; else another shape.
+fn deleted_chats(
+    value: &serde_json::Value,
+) -> Result<twake_domain::deleted_chats::DeletedChats, String> {
+    let skip = || "SKIP: input not of the typed shape (DeletedChats)".to_string();
+    let entries = value
+        .as_object()
+        .filter(|_| crate::js::as_number(value).is_none())
+        .ok_or_else(skip)?;
+    entries
+        .iter()
+        .map(|(room_id, entry)| {
+            let before = entry
+                .get("before_ts")
+                .and_then(crate::js::as_number)
+                .ok_or_else(skip)?;
+            Ok((room_id.clone(), before))
+        })
+        .collect()
+}
+
 /// Port of `readDeletedChats` (`src/domain/deletedChats.ts:13`).
 pub fn read_deleted_chats(content: serde_json::Value) -> Result<serde_json::Value, String> {
-    let _ = &content;
-    unimplemented!("port `readDeletedChats` from src/domain/deletedChats.ts")
+    use serde_json::Value;
+    // `typeof content === 'object'`: a marked number is a number
+    let entries: Vec<(String, &Value)> = match &content {
+        Value::Object(o) if crate::js::as_number(&content).is_none() => {
+            o.iter().map(|(k, v)| (k.clone(), v)).collect()
+        }
+        Value::Array(a) => a
+            .iter()
+            .enumerate()
+            .map(|(i, v)| (i.to_string(), v))
+            .collect(),
+        _ => Vec::new(),
+    };
+    let plain = twake_domain::deleted_chats::read_deleted_chats(&content);
+    // NaN and ±Infinity are numbers too, which JSON cannot carry to the domain
+    let marked = |entry: &Value| {
+        entry
+            .get("before_ts")
+            .is_some_and(|b| b.is_object() && crate::js::as_number(b).is_some())
+    };
+    // The entries as they were given, as `Object.fromEntries` keeps them
+    let kept: serde_json::Map<String, Value> = entries
+        .into_iter()
+        .filter(|(key, entry)| {
+            crate::js::as_number(entry).is_none() && (plain.contains_key(key) || marked(entry))
+        })
+        .map(|(k, v)| (k, v.clone()))
+        .collect();
+    Ok(Value::Object(kept))
 }
 
 /// Port of `isChatHidden` (`src/domain/deletedChats.ts:26`).
@@ -1081,18 +1205,42 @@ pub fn is_chat_hidden(
     room_id: String,
     last_activity_at: f64,
 ) -> Result<bool, String> {
-    let _ = (&deleted, &room_id, &last_activity_at);
-    unimplemented!("port `isChatHidden` from src/domain/deletedChats.ts")
+    let deleted = deleted_chats(&deleted)?;
+    Ok(twake_domain::deleted_chats::is_chat_hidden(
+        &deleted,
+        &room_id,
+        last_activity_at,
+    ))
 }
 
 /// Port of `withoutDeleted` (`src/domain/deletedChats.ts:36`).
 pub fn without_deleted(
     deleted: serde_json::Value,
     room_id: String,
-    messages: Vec<serde_json::Value>,
-) -> Result<Vec<serde_json::Value>, String> {
-    let _ = (&deleted, &room_id, &messages);
-    unimplemented!("port `withoutDeleted` from src/domain/deletedChats.ts")
+    messages: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let deleted = deleted_chats(&deleted)?;
+    // No entry: the very messages given back, whatever they are
+    if !deleted.contains_key(&room_id) {
+        return Ok(messages);
+    }
+    let serde_json::Value::Array(items) = &messages else {
+        return Err("TypeError: messages.filter is not a function".into());
+    };
+    let typed_messages: Vec<twake_domain::Message> = typed(messages.clone())?;
+    let kept = twake_domain::deleted_chats::without_deleted(&deleted, &room_id, &typed_messages);
+    // The messages as they were given
+    Ok(serde_json::Value::Array(
+        kept.into_iter()
+            .map(|m| {
+                let index = typed_messages
+                    .iter()
+                    .position(|t| std::ptr::eq(t, m))
+                    .expect("a message of the list");
+                items[index].clone()
+            })
+            .collect(),
+    ))
 }
 
 /// Port of `isAfterDeletion` (`src/domain/deletedChats.ts:48`).
@@ -1101,8 +1249,10 @@ pub fn is_after_deletion(
     room_id: String,
     at: f64,
 ) -> Result<bool, String> {
-    let _ = (&deleted, &room_id, &at);
-    unimplemented!("port `isAfterDeletion` from src/domain/deletedChats.ts")
+    let deleted = deleted_chats(&deleted)?;
+    Ok(twake_domain::deleted_chats::is_after_deletion(
+        &deleted, &room_id, at,
+    ))
 }
 
 /// Port of `readDismissedQuestions` (`src/domain/dismissedQuestions.ts:12`).
@@ -1535,8 +1685,30 @@ pub fn is_same_day(a: f64, b: f64) -> Result<bool, String> {
 
 /// Port of `isSelectable` (`src/domain/message.ts:207`).
 pub fn is_selectable(message: serde_json::Value) -> Result<bool, String> {
-    let _ = &message;
-    unimplemented!("port `isSelectable` from src/domain/message.ts")
+    use twake_domain::{MessageNotice, SendStatus};
+    // The three fields the rule reads, typed; the app's `Message` is a subset of the web's,
+    // so the rest of the recorded message is not read
+    let skip = |field: &str| format!("SKIP: input not of the typed shape ({field})");
+    let send_status = match message.get("sendStatus").and_then(serde_json::Value::as_str) {
+        Some("sent") => SendStatus::Sent,
+        Some("sending") => SendStatus::Sending,
+        Some("failed") => SendStatus::Failed,
+        _ => return Err(skip("sendStatus")),
+    };
+    // Any notice but « deleted » (unsupported, a missed or legacy call) reads the same here
+    let notice = match message.get("notice") {
+        Some(serde_json::Value::Null) => None,
+        Some(serde_json::Value::String(n)) if n == "deleted" => Some(MessageNotice::Deleted),
+        Some(serde_json::Value::String(_)) => Some(MessageNotice::Unsupported),
+        _ => return Err(skip("notice")),
+    };
+    let is_call = message.get("call").is_some_and(|c| !coerce::is_falsy(c));
+    let typed_message = twake_domain::Message {
+        send_status: Some(send_status),
+        notice,
+        ..twake_domain::Message::default()
+    };
+    Ok(twake_domain::model::is_selectable(&typed_message, is_call))
 }
 
 /// Port of `startsGroup` (`src/domain/message.ts:218`).
@@ -1597,14 +1769,12 @@ pub fn room_link(origin: String, room_id: String) -> Result<String, String> {
 
 /// Port of `userPermalink` (`src/domain/permalink.ts:21`).
 pub fn user_permalink(user_id: String) -> Result<String, String> {
-    let _ = &user_id;
-    unimplemented!("port `userPermalink` from src/domain/permalink.ts")
+    Ok(twake_domain::permalink::user_permalink(&user_id))
 }
 
 /// Port of `roomPermalink` (`src/domain/permalink.ts:26`).
 pub fn room_permalink(alias_or_id: String) -> Result<String, String> {
-    let _ = &alias_or_id;
-    unimplemented!("port `roomPermalink` from src/domain/permalink.ts")
+    Ok(twake_domain::permalink::room_permalink(&alias_or_id))
 }
 
 /// Port of `parsePermalink` (`src/domain/permalink.ts:49`).
@@ -2000,8 +2170,7 @@ pub fn given_roles(permissions: serde_json::Value) -> Result<Vec<String>, String
 
 /// Port of `isValidSlug` (`src/domain/roomManagement.ts:452`).
 pub fn is_valid_slug(slug: String) -> Result<bool, String> {
-    let _ = &slug;
-    unimplemented!("port `isValidSlug` from src/domain/roomManagement.ts")
+    Ok(twake_domain::room_management::is_valid_slug(&slug))
 }
 
 /// Port of `canHavePublicPage` (`src/domain/roomManagement.ts:461`).
@@ -2018,8 +2187,7 @@ pub fn public_page_path(room: serde_json::Value) -> Result<Option<String>, Strin
 
 /// Port of `suggestSlug` (`src/domain/roomManagement.ts:483`).
 pub fn suggest_slug(name: String) -> Result<String, String> {
-    let _ = &name;
-    unimplemented!("port `suggestSlug` from src/domain/roomManagement.ts")
+    Ok(twake_domain::room_management::suggest_slug(&name))
 }
 
 /// Port of `isValidColor` (`src/domain/roomManagement.ts:493`).
@@ -2156,8 +2324,45 @@ pub fn extract_links(text: String) -> Result<Vec<String>, String> {
 pub fn compute_shared_content(
     messages: Vec<serde_json::Value>,
 ) -> Result<serde_json::Value, String> {
-    let _ = &messages;
-    unimplemented!("port `computeSharedContent` from src/domain/sharedContent.ts")
+    use serde_json::{Value, json};
+    let typed_messages: Vec<twake_domain::Message> = typed(Value::Array(messages.clone()))?;
+    let content = twake_domain::shared_content::compute_shared_content(&typed_messages);
+    // The web returns the fields as it was given them: read back from the raw message
+    let raw = |message: &twake_domain::Message| -> &Value {
+        let index = typed_messages
+            .iter()
+            .position(|m| std::ptr::eq(m, message))
+            .expect("a message of the list");
+        &messages[index]
+    };
+    let field = |m: &Value, key: &str| m.get(key).cloned().unwrap_or_else(crate::js::undefined);
+    let item = |message: &twake_domain::Message| {
+        let m = raw(message);
+        json!({
+            "messageId": field(m, "id"),
+            "attachment": field(m, "attachment"),
+            "senderName": field(m, "senderName"),
+            "sentAt": field(m, "sentAt"),
+        })
+    };
+    let links: Vec<Value> = content
+        .links
+        .iter()
+        .map(|link| {
+            let m = raw(link.message);
+            json!({
+                "messageId": field(m, "id"),
+                "url": link.url,
+                "senderName": field(m, "senderName"),
+                "sentAt": field(m, "sentAt"),
+            })
+        })
+        .collect();
+    Ok(json!({
+        "media": content.media.iter().map(|m| item(m)).collect::<Vec<_>>(),
+        "links": links,
+        "files": content.files.iter().map(|m| item(m)).collect::<Vec<_>>(),
+    }))
 }
 
 /// Port of `roomBadgeCount` (`src/domain/spaceBadges.ts:16`).
@@ -2179,8 +2384,16 @@ pub fn can_move_to_space(
     room: serde_json::Value,
     permissions: serde_json::Value,
 ) -> Result<bool, String> {
-    let _ = (&room, &permissions);
-    unimplemented!("port `canMoveToSpace` from src/domain/spaceChoices.ts")
+    // The four fields the rule reads, of their web types; anything else is another shape
+    let skip = || "SKIP: input not of the typed shape".to_string();
+    let kind = room.get("kind").and_then(serde_json::Value::as_str).ok_or_else(skip)?;
+    let flag = |value: &serde_json::Value, key: &str| value.get(key).and_then(serde_json::Value::as_bool).ok_or_else(skip);
+    Ok(twake_domain::space_choices::can_move_to_space(
+        kind == "direct",
+        flag(&room, "isSpace")?,
+        flag(&permissions, "isManagedBySpace")?,
+        flag(&permissions, "canEditSettings")?,
+    ))
 }
 
 /// Port of `arrangeRooms` (`src/domain/spaceTree.ts:23`).
@@ -2227,8 +2440,7 @@ pub fn normalize_status(text: Option<String>) -> Result<Option<String>, String> 
 
 /// Port of `isNameTooLong` (`src/domain/text.ts:31`).
 pub fn is_name_too_long(name: String) -> Result<bool, String> {
-    let _ = &name;
-    unimplemented!("port `isNameTooLong` from src/domain/text.ts")
+    Ok(twake_domain::room_management::is_name_too_long(&name))
 }
 
 /// Port of `presenceOfPreset` (`src/domain/text.ts:46`).

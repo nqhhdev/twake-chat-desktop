@@ -92,6 +92,18 @@ pub enum Command {
     Recover {
         key: String,
     },
+    /// « Autoplay animated images », kept in the account data ([`Event::Autoplay`]).
+    SetAutoplay(bool),
+    /// The composer: "new" or "classic", kept in the account data ([`Event::ComposerStyle`]).
+    SetComposerStyle(String),
+    /// « Verify with another device » ([`Event::Verification`]).
+    VerifyDevice,
+    /// « Verify » on another device's request.
+    AcceptVerification,
+    /// « Not now », a close: the verification stops.
+    CancelVerification,
+    /// « They match » (true) or « They differ ».
+    ConfirmVerification(bool),
     SignOut,
     /// Decode the image of `key` (see [`crate::mxc_key`] and `Attachment::source`) at this
     /// size in pixels, cropped to fill it or scaled to fit.
@@ -127,6 +139,48 @@ pub enum Command {
         duration_ms: u64,
         /// Values from 0 to 1.
         waveform: Vec<f32>,
+    },
+    /// Send a message that failed again (web `retryMessage`); `id`: its transaction id, as
+    /// the timeline gives a local echo.
+    RetrySend {
+        id: String,
+    },
+    /// Drop a message that failed (web `discardMessage`).
+    DiscardSend {
+        id: String,
+    },
+    /// The spaces a room may go to ([`Event::SpaceChoices`]).
+    SpaceChoices {
+        room_id: String,
+    },
+    /// Put a room in a space, or in none (web `saveRoomSpace`).
+    MoveToSpace {
+        room_id: String,
+        space_id: Option<String>,
+    },
+    /// The public directory of the homeserver ([`Event::PublicRooms`]).
+    PublicRooms,
+    /// Join a room of the directory, or ask to (on request): [`Event::RoomCreated`] once
+    /// joined, a notice once asked.
+    JoinPublic {
+        room_id: String,
+        on_approval: bool,
+    },
+    /// The edit history of a message of the open room ([`Event::MessageVersions`]).
+    MessageVersions {
+        event_id: String,
+    },
+    /// Send messages of the open room again to these rooms, in this order
+    /// ([`Event::Forwarded`]).
+    Forward {
+        event_ids: Vec<String>,
+        to_rooms: Vec<String>,
+    },
+    /// Delete a chat for the user alone up to `before_ts`, or bring it back with None
+    /// ([`Event::DeletedChats`], D186).
+    DeleteChat {
+        room_id: String,
+        before_ts: Option<f64>,
     },
     /// Save a message of the open room for later, or forget it ([`Event::Saved`]).
     SaveMessage {
@@ -169,6 +223,10 @@ pub enum Command {
     CallCamera(bool),
     /// Share a screen (the system's picker chooses it) or stop sharing it.
     CallScreen(bool),
+    /// The devices of these kinds, read now ([`Event::CallDevices`]).
+    CallDevices(Vec<crate::calls::DeviceKind>),
+    /// Use this device of the call from now on.
+    CallSwitchDevice(crate::calls::DeviceKind, String),
     /// The frames of an animated image (GIF) of `key`, scaled to fit this size in pixels
     /// ([`Event::Animation`]).
     FetchAnimation {
@@ -192,8 +250,9 @@ pub enum Command {
         multiple: bool,
         thread: bool,
     },
+    /// Pin or unpin messages of the open room, in one update of the pinned list.
     Pin {
-        id: String,
+        ids: Vec<String>,
         pinned: bool,
     },
     /// Open the pinned messages of the open room in the side panel ([`Event::Thread`] with
@@ -234,12 +293,8 @@ pub enum Command {
         action: RoomAction,
     },
     /// Create a room and invite people to it; opens it ([`Event::RoomCreated`]).
-    CreateRoom {
-        name: String,
-        topic: String,
-        invite: Vec<String>,
-        encrypted: bool,
-    },
+    /// A new room of one kind (web `createRoom`): [`Event::RoomCreated`] once made.
+    CreateRoom(twake_domain::room_management::NewRoom),
     /// Open the direct message with someone, created when there is none (in the clear, as
     /// the web: encryption is a switch of the room).
     OpenDirect {
@@ -261,6 +316,25 @@ pub enum RoomAction {
     Join,
     /// Leave the room, or decline an invitation.
     Leave,
+    /// Report the room to the server's administrators, with a reason (web `reportRoom`).
+    Report(Option<String>),
+    /// Report a message of the room, with a reason (web `reportMessage`).
+    ReportMessage(String, Option<String>),
+    /// Block a person: their messages no longer come (`m.ignored_user_list`, web
+    /// `ignorePerson`).
+    Block(String),
+    /// Who may join the room (web `changeRoomAccess`, D516).
+    SetJoinRule(twake_domain::room_management::JoinRuleChoice),
+    /// List the room in the public directory, or take it off.
+    SetListed(bool),
+    /// What the user hears of the room (web `setNotificationLevel`).
+    SetNotificationLevel(twake_domain::room_management::NotificationLevel),
+    /// Read up to its last message (web « Mark as read » of a room row).
+    MarkRead,
+    /// Marked unread for later (MSC2867, web « Mark as unread »).
+    MarkUnread,
+    /// Pinned to the top of the list, or not (the `m.favourite` tag, web « Pin »).
+    SetFavourite(bool),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -332,6 +406,32 @@ pub enum Event {
     },
     /// The saved messages, newest first, after each change.
     Saved(Vec<SavedEntry>),
+    /// The composer the user chose: "new" or "classic" (web `readComposerStyle`, D681).
+    ComposerStyle(String),
+    /// Where the verification of one's devices stands.
+    Verification(crate::verification::VerificationPhase),
+    /// The server is reachable, or not (web `OfflineBanner`): the sync service's offline mode.
+    Connection {
+        online: bool,
+    },
+    /// The spaces a room may go to, depth first ([`Command::SpaceChoices`]).
+    SpaceChoices {
+        room_id: String,
+        choices: Vec<twake_domain::space_choices::SpaceChoice>,
+    },
+    /// The rooms of the public directory.
+    PublicRooms(Vec<crate::directory::PublicRoom>),
+    /// The versions of a message, oldest first; empty when it could not be read.
+    MessageVersions {
+        event_id: String,
+        versions: Vec<crate::versions::MessageVersion>,
+    },
+    /// A message went to these rooms ([`Command::Forward`]).
+    Forwarded {
+        to_rooms: Vec<String>,
+    },
+    /// The chats deleted for the user alone, after each change (D186).
+    DeletedChats(twake_domain::deleted_chats::DeletedChats),
     /// The bytes of a file asked with [`Command::FetchFile`]; None when it failed.
     FileData {
         key: String,
@@ -351,6 +451,8 @@ pub enum Event {
     },
     /// The people of the call grid, the user first.
     CallTiles(Vec<crate::calls::CallTile>),
+    /// The devices of a device menu ([`Command::CallDevices`]).
+    CallDevices(Vec<crate::calls::CallDeviceList>),
     /// A new picture of the video of `identity` (a [`crate::calls::CallTile`]).
     CallFrame {
         identity: String,
@@ -483,6 +585,8 @@ struct State {
     call: Option<crate::calls::CallHandle>,
     /// The rooms whose ring the user declines, for the call watcher.
     declines: Option<mpsc::UnboundedSender<String>>,
+    /// The verification of one's devices under way (web `DeviceVerificationDialog`).
+    verifier: crate::verification::Verifier,
 }
 
 struct OpenRoom {
@@ -756,6 +860,132 @@ async fn run(mut commands: mpsc::UnboundedReceiver<Command>, emit: Emit) {
                     });
                 }
             }
+            Command::RetrySend { id } => {
+                if let Some(open) = &state.open {
+                    let timelines = open_timelines(open);
+                    let emit = emit.clone();
+                    tokio::spawn(async move {
+                        if let Some(handle) = send_handle(&timelines, &id).await
+                            && let Err(e) = handle.unwedge().await
+                        {
+                            emit(Event::Error(format!("not sent again: {e}")));
+                        }
+                    });
+                }
+            }
+            Command::DiscardSend { id } => {
+                if let Some(open) = &state.open {
+                    let timelines = open_timelines(open);
+                    let emit = emit.clone();
+                    tokio::spawn(async move {
+                        if let Some(handle) = send_handle(&timelines, &id).await
+                            && let Err(e) = handle.abort().await
+                        {
+                            emit(Event::Error(format!("not discarded: {e}")));
+                        }
+                    });
+                }
+            }
+            Command::SpaceChoices { room_id } => {
+                if let Some(client) = state.client.clone() {
+                    let emit = emit.clone();
+                    tokio::spawn(async move {
+                        let choices = crate::space_links::space_choices(&client, &room_id).await;
+                        emit(Event::SpaceChoices { room_id, choices });
+                    });
+                }
+            }
+            Command::MoveToSpace { room_id, space_id } => {
+                if let Some(client) = state.client.clone() {
+                    let emit = emit.clone();
+                    tokio::spawn(async move {
+                        let moved = crate::space_links::move_room_to_space(
+                            &client,
+                            &room_id,
+                            space_id.as_deref(),
+                        )
+                        .await;
+                        match moved {
+                            Ok(()) => emit(Event::Notice(
+                                if space_id.is_some() {
+                                    "Moved to the space"
+                                } else {
+                                    "Taken out of its space"
+                                }
+                                .into(),
+                            )),
+                            Err(e) => emit(Event::Error(format!("not moved: {e}"))),
+                        }
+                    });
+                }
+            }
+            Command::PublicRooms => {
+                if let Some(client) = state.client.clone() {
+                    let emit = emit.clone();
+                    tokio::spawn(async move {
+                        emit(Event::PublicRooms(crate::directory::all(&client).await));
+                    });
+                }
+            }
+            Command::JoinPublic {
+                room_id,
+                on_approval,
+            } => {
+                if let Some(client) = state.client.clone() {
+                    let emit = emit.clone();
+                    tokio::spawn(async move {
+                        match crate::directory::join(&client, &room_id, on_approval).await {
+                            Ok(true) => emit(Event::RoomCreated { room_id }),
+                            Ok(false) => emit(Event::Notice("Request sent".into())),
+                            Err(e) => emit(Event::Error(format!("not joined: {e}"))),
+                        }
+                    });
+                }
+            }
+            Command::MessageVersions { event_id } => {
+                if let Some(open) = &state.open {
+                    let room = open.timeline.room().clone();
+                    let mut timelines = vec![open.timeline.clone()];
+                    timelines.extend(open.thread.as_ref().map(|t| t.timeline.clone()));
+                    let emit = emit.clone();
+                    tokio::spawn(async move {
+                        let versions =
+                            crate::versions::versions(&room, &timelines, &event_id).await;
+                        emit(Event::MessageVersions { event_id, versions });
+                    });
+                }
+            }
+            Command::Forward {
+                event_ids,
+                to_rooms,
+            } => {
+                if let (Some(client), Some(open)) = (state.client.clone(), &state.open) {
+                    // A reply of the open thread is in the thread's timeline only
+                    let mut timelines = vec![open.timeline.clone()];
+                    timelines.extend(open.thread.as_ref().map(|t| t.timeline.clone()));
+                    let emit = emit.clone();
+                    tokio::spawn(async move {
+                        match crate::forward::forward(&client, &timelines, &event_ids, &to_rooms)
+                            .await
+                        {
+                            Ok(to_rooms) => emit(Event::Forwarded { to_rooms }),
+                            Err(e) => emit(Event::Error(format!("not forwarded: {e}"))),
+                        }
+                    });
+                }
+            }
+            Command::DeleteChat { room_id, before_ts } => {
+                if let Some(client) = state.client.clone() {
+                    let emit = emit.clone();
+                    tokio::spawn(async move {
+                        let done =
+                            crate::deleted_chats::set(&client, &emit, &room_id, before_ts).await;
+                        if let Err(e) = done {
+                            emit(Event::Error(format!("chat not deleted: {e}")));
+                        }
+                    });
+                }
+            }
             Command::SaveMessage { event_id, saved } => {
                 if let (Some(client), Some(index), Some(open)) =
                     (state.client.clone(), state.index.clone(), &state.open)
@@ -845,6 +1075,16 @@ async fn run(mut commands: mpsc::UnboundedReceiver<Command>, emit: Emit) {
                     call.send(crate::calls::CallCommand::Screen(on));
                 }
             }
+            Command::CallDevices(kinds) => {
+                if let Some(call) = &state.call {
+                    call.send(crate::calls::CallCommand::Devices(kinds));
+                }
+            }
+            Command::CallSwitchDevice(kind, id) => {
+                if let Some(call) = &state.call {
+                    call.send(crate::calls::CallCommand::SwitchDevice(kind, id));
+                }
+            }
             Command::FetchAnimation { key, width, height } => {
                 if let Some(client) = state.client.clone() {
                     let emit = emit.clone();
@@ -909,16 +1149,18 @@ async fn run(mut commands: mpsc::UnboundedReceiver<Command>, emit: Emit) {
                     });
                 }
             }
-            Command::Pin { id, pinned } => {
-                if let (Some(open), Ok(event_id)) = (&state.open, OwnedEventId::try_from(id)) {
+            Command::Pin { ids, pinned } => {
+                if let Some(open) = &state.open {
                     let room = open.timeline.room().clone();
+                    let event_ids: Vec<OwnedEventId> = ids
+                        .into_iter()
+                        .filter_map(|id| OwnedEventId::try_from(id).ok())
+                        .collect();
                     let emit = emit.clone();
                     tokio::spawn(async move {
-                        let done = if pinned {
-                            room.pin_event(&event_id).await
-                        } else {
-                            room.unpin_event(&event_id).await
-                        };
+                        // One update: pinning one by one would each read the list before the
+                        // other's change came back (web `setPinned`)
+                        let done = set_pinned(&room, &event_ids, pinned).await;
                         if let Err(e) = done {
                             emit(Event::Error(format!(
                                 "not {}: {e}",
@@ -958,16 +1200,11 @@ async fn run(mut commands: mpsc::UnboundedReceiver<Command>, emit: Emit) {
                     tokio::spawn(room_action(room, action, emit));
                 }
             }
-            Command::CreateRoom {
-                name,
-                topic,
-                invite,
-                encrypted,
-            } => {
+            Command::CreateRoom(room) => {
                 if let Some(client) = state.client.clone() {
                     let emit = emit.clone();
                     tokio::spawn(async move {
-                        match create_room(&client, name, topic, invite, encrypted).await {
+                        match crate::room_creation::create(&client, room).await {
                             Ok(room_id) => emit(Event::RoomCreated { room_id }),
                             Err(e) => emit(Event::Error(format!("room not created: {e}"))),
                         }
@@ -1019,6 +1256,66 @@ async fn run(mut commands: mpsc::UnboundedReceiver<Command>, emit: Emit) {
                         }
                     });
                 }
+            }
+            Command::SetAutoplay(enabled) => {
+                if let Some(client) = state.client.clone() {
+                    let emit = emit.clone();
+                    tokio::spawn(async move {
+                        let content = serde_json::json!({ "enabled": enabled });
+                        match crate::account_prefs::set(&client, "app.twake.chat.autoplay", content)
+                            .await
+                        {
+                            Ok(()) => emit(Event::Autoplay(Some(enabled))),
+                            Err(e) => emit(Event::Error(format!("not saved: {e}"))),
+                        }
+                    });
+                }
+            }
+            Command::SetComposerStyle(style) => {
+                if let Some(client) = state.client.clone() {
+                    let emit = emit.clone();
+                    tokio::spawn(async move {
+                        let content = serde_json::json!({ "style": style });
+                        let kind = twake_domain::composer_style::COMPOSER_STYLE_TYPE;
+                        match crate::account_prefs::set(&client, kind, content).await {
+                            Ok(()) => emit(Event::ComposerStyle(style)),
+                            Err(e) => emit(Event::Error(format!("not saved: {e}"))),
+                        }
+                    });
+                }
+            }
+            Command::VerifyDevice => {
+                if let Some(client) = state.client.clone() {
+                    let verifier = state.verifier.clone();
+                    let emit = emit.clone();
+                    tokio::spawn(async move {
+                        if let Err(e) = verifier.start(&client, emit.clone()).await {
+                            emit(Event::Error(format!("verification: {e}")));
+                        }
+                    });
+                }
+            }
+            Command::AcceptVerification => {
+                let verifier = state.verifier.clone();
+                let emit = emit.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = verifier.accept().await {
+                        emit(Event::Error(format!("verification: {e}")));
+                    }
+                });
+            }
+            Command::CancelVerification => {
+                let verifier = state.verifier.clone();
+                tokio::spawn(async move { verifier.cancel().await });
+            }
+            Command::ConfirmVerification(matching) => {
+                let verifier = state.verifier.clone();
+                let emit = emit.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = verifier.confirm(matching).await {
+                        emit(Event::Error(format!("verification: {e}")));
+                    }
+                });
             }
             Command::Recover { key } => {
                 if let Some(client) = &state.client {
@@ -1111,7 +1408,12 @@ async fn start_session(state: &mut State, client: Client, emit: &Emit) {
     if let Err(e) = client.event_cache().subscribe() {
         emit(Event::Error(format!("event cache: {e}")));
     }
-    let sync = match SyncService::builder(client.clone()).build().await {
+    // Offline mode: a sync that fails waits for the server and comes back by itself
+    let sync = match SyncService::builder(client.clone())
+        .with_offline_mode()
+        .build()
+        .await
+    {
         Ok(sync) => sync,
         Err(e) => {
             emit(Event::Error(format!("sync: {e}")));
@@ -1119,6 +1421,21 @@ async fn start_session(state: &mut State, client: Client, emit: &Emit) {
         }
     };
     sync.start().await;
+    // Whether the server is reachable (web `OfflineBanner`)
+    let states = sync.state();
+    let connection_emit = emit.clone();
+    state.tasks.push(tokio::spawn(async move {
+        use matrix_sdk_ui::sync_service::State;
+        let mut states = states;
+        let mut online = true;
+        while let Some(now) = states.next().await {
+            let next = !matches!(now, State::Offline | State::Error(_));
+            if next != online {
+                online = next;
+                connection_emit(Event::Connection { online });
+            }
+        }
+    }));
     let service = sync.room_list_service();
     state.tasks.push(tokio::spawn(rooms::run(
         client.clone(),
@@ -1139,6 +1456,10 @@ async fn start_session(state: &mut State, client: Client, emit: &Emit) {
         client.clone(),
         emit.clone(),
     )));
+    state.tasks.push(tokio::spawn(crate::deleted_chats::start(
+        client.clone(),
+        emit.clone(),
+    )));
     let (declines, declined) = mpsc::unbounded_channel();
     state.declines = Some(declines);
     state.tasks.push(tokio::spawn(crate::calls::watch_calls(
@@ -1150,6 +1471,13 @@ async fn start_session(state: &mut State, client: Client, emit: &Emit) {
     state
         .tasks
         .push(tokio::spawn(watch_encryption(client.clone(), emit.clone())));
+    state.verifier.listen(&client, emit.clone());
+    state
+        .tasks
+        .push(tokio::spawn(crate::account_prefs::watch_composer_style(
+            client.clone(),
+            emit.clone(),
+        )));
     state.tasks.push(tokio::spawn(watch_tokens(client.clone())));
     state.tasks.push(tokio::spawn(crate::spaces::run(
         client.clone(),
@@ -1354,6 +1682,60 @@ async fn watch_tokens(client: Client) {
     }
 }
 
+/// The timelines of the open room and of its open thread.
+fn open_timelines(open: &OpenRoom) -> Vec<Arc<Timeline>> {
+    let mut timelines = vec![open.timeline.clone()];
+    timelines.extend(open.thread.as_ref().map(|t| t.timeline.clone()));
+    timelines
+}
+
+/// The send handle of the local echo `transaction_id` in one of `timelines`.
+async fn send_handle(
+    timelines: &[Arc<Timeline>],
+    transaction_id: &str,
+) -> Option<matrix_sdk::send_queue::SendHandle> {
+    for timeline in timelines {
+        for item in timeline.items().await {
+            if let Some(event) = item.as_event()
+                && event
+                    .transaction_id()
+                    .is_some_and(|t| t.as_str() == transaction_id)
+            {
+                return event.local_echo_send_handle();
+            }
+        }
+    }
+    None
+}
+
+/// The pinned list of `room` with `event_ids` added (in order, at its end) or taken off.
+async fn set_pinned(
+    room: &matrix_sdk::Room,
+    event_ids: &[OwnedEventId],
+    pinned: bool,
+) -> matrix_sdk::Result<()> {
+    use matrix_sdk::ruma::events::room::pinned_events::RoomPinnedEventsEventContent;
+    let mut list = match room.pinned_event_ids() {
+        Some(list) => list,
+        None => room.load_pinned_events().await?.unwrap_or_default(),
+    };
+    let before = list.clone();
+    if pinned {
+        for id in event_ids {
+            if !list.contains(id) {
+                list.push(id.clone());
+            }
+        }
+    } else {
+        list.retain(|id| !event_ids.contains(id));
+    }
+    if list != before {
+        room.send_state_event(RoomPinnedEventsEventContent::new(list))
+            .await?;
+    }
+    Ok(())
+}
+
 async fn room_action(room: matrix_sdk::Room, action: RoomAction, emit: Emit) {
     use crate::room_admin as admin;
     let room_id = room.room_id().to_string();
@@ -1382,11 +1764,72 @@ async fn room_action(room: matrix_sdk::Room, action: RoomAction, emit: Emit) {
             "Joined".into(),
         ),
         RoomAction::Leave => (admin::leave(&room).await, "Left the room".into()),
+        RoomAction::Report(reason) => (
+            admin::report_room(&room, reason.clone()).await,
+            "Room reported".into(),
+        ),
+        RoomAction::ReportMessage(event_id, reason) => (
+            admin::report_message(&room, event_id, reason.clone()).await,
+            "Message reported".into(),
+        ),
+        // Nothing said when it worked (web)
+        RoomAction::Block(user) => (admin::block(&room, user).await, String::new()),
+        RoomAction::SetJoinRule(rule) => (
+            admin::set_join_rule(&room, *rule).await,
+            "Access changed".into(),
+        ),
+        RoomAction::MarkRead => (
+            async {
+                let _ = room.set_unread_flag(false).await;
+                let timeline = room.timeline().await.map_err(|e| e.to_string())?;
+                timeline
+                    .mark_as_read(ReceiptType::Read)
+                    .await
+                    .map(|_| ())
+                    .map_err(|e| e.to_string())
+            }
+            .await,
+            String::new(),
+        ),
+        RoomAction::MarkUnread => (
+            room.set_unread_flag(true).await.map_err(|e| e.to_string()),
+            String::new(),
+        ),
+        RoomAction::SetFavourite(on) => (
+            room.set_is_favourite(*on, None)
+                .await
+                .map_err(|e| e.to_string()),
+            String::new(),
+        ),
+        RoomAction::SetNotificationLevel(level) => (
+            admin::set_notification_level(&room, *level).await,
+            String::new(),
+        ),
+        RoomAction::SetListed(listed) => (
+            admin::set_listed(&room, *listed).await,
+            if *listed {
+                "Listed in the directory".into()
+            } else {
+                "Taken off the directory".into()
+            },
+        ),
     };
     match result {
         Ok(()) => {
-            emit(Event::Notice(done));
-            if matches!(action, RoomAction::Leave) {
+            if !done.is_empty() {
+                emit(Event::Notice(done));
+            }
+            if matches!(
+                action,
+                RoomAction::Report(_)
+                    | RoomAction::ReportMessage(..)
+                    | RoomAction::Block(_)
+                    | RoomAction::MarkRead
+                    | RoomAction::MarkUnread
+                    | RoomAction::SetFavourite(_)
+            ) {
+                // Nothing of the room changed
+            } else if matches!(action, RoomAction::Leave) {
                 emit(Event::RoomLeft { room_id });
             } else if matches!(action, RoomAction::Join) {
                 emit(Event::RoomCreated { room_id });
@@ -1396,47 +1839,6 @@ async fn room_action(room: matrix_sdk::Room, action: RoomAction, emit: Emit) {
         }
         Err(e) => emit(Event::Error(e)),
     }
-}
-
-async fn create_room(
-    client: &Client,
-    name: String,
-    topic: String,
-    invite: Vec<String>,
-    encrypted: bool,
-) -> Result<String, String> {
-    use matrix_sdk::ruma::{
-        UserId,
-        api::client::room::create_room::v3::{Request, RoomPreset},
-        events::{InitialStateEvent, room::encryption::RoomEncryptionEventContent},
-    };
-    let mut request = Request::new();
-    request.name = Some(name.trim().to_string()).filter(|n| !n.is_empty());
-    request.topic = Some(topic.trim().to_string()).filter(|t| !t.is_empty());
-    request.preset = Some(RoomPreset::PrivateChat);
-    // Everyone may join a call: the membership is a state event, which the default
-    // power levels keep to moderators (web `powerLevelsOverride`)
-    request.power_level_content_override = matrix_sdk::ruma::serde::Raw::from_json_string(
-        serde_json::json!({ "events": { crate::calls::CALL_MEMBER_TYPE: 0 } }).to_string(),
-    )
-    .ok();
-    request.invite = invite
-        .iter()
-        .map(|u| UserId::parse(u.trim()).map_err(|_| format!("« {u} » is not a Matrix id")))
-        .collect::<Result<_, _>>()?;
-    if encrypted {
-        request.initial_state = vec![
-            InitialStateEvent::with_empty_state_key(
-                RoomEncryptionEventContent::with_recommended_defaults(),
-            )
-            .to_raw_any(),
-        ];
-    }
-    let room = client
-        .create_room(request)
-        .await
-        .map_err(|e| e.to_string())?;
-    Ok(room.room_id().to_string())
 }
 
 async fn open_direct(client: &Client, user_id: &str) -> Result<String, String> {

@@ -18,6 +18,45 @@ export struct CallTileRow {
     ready: bool,
 }
 
+// One device of a menu, the one in use checked (web `MenuRadio`)
+export struct DeviceRow {
+    id: string,
+    label: string,
+    checked: bool,
+}
+
+// The devices of one kind: "microphone", "speaker" or "camera" (web `CallDeviceList`)
+export struct DeviceSection {
+    kind: string,
+    title: string,
+    rows: [DeviceRow],
+}
+
+// The arrow beside a control, which opens its devices (web `CallView`, `CallDeviceMenu`)
+component CallArrow inherits Rectangle {
+    in property <string> label;
+    in property <bool> open;
+    callback clicked();
+    width: 24px;
+    height: 48px;
+    border-radius: 12px;
+    background: open ? Theme.primary : touch.has-hover ? #4a4a50 : #3a3a40;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-action-default => { clicked(); }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    Text {
+        text: "▴";
+        color: #ffffff;
+        font-size: 14px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
 component CallButton inherits Rectangle {
     in property <string> icon;
     // The icon of the OS; `icon` is its emoji where the OS has none
@@ -104,11 +143,20 @@ export component CallStage inherits Rectangle {
     in property <bool> microphone;
     in property <bool> camera;
     in property <bool> sharing;
+    // In its room: a control detaches the call into its window (web `call-detach`)
+    in property <bool> can-detach;
+    // The devices of the menu open: "audio" (microphones, speakers), "video" (cameras) or ""
+    in property <string> device-menu;
+    in property <[DeviceSection]> device-sections;
     // The width of a tile that fits them all (web `tileWidth`), computed in Rust
     pure callback tile-width(int, length, length) -> length;
     callback toggle-microphone();
     callback toggle-camera();
     callback toggle-screen();
+    // Opens a device menu ("audio", "video"), or closes it ("")
+    callback open-devices(string);
+    callback pick-device(string, string);
+    callback detach();
     callback leave();
     background: #18181b;
     accessible-role: groupbox;
@@ -163,19 +211,35 @@ export component CallStage inherits Rectangle {
             accessible-label: "Encrypted call";
             Icon { source: Icons.lock; fallback: "🔒"; color: #ffffff; }
         }
-        CallButton {
-            icon: root.microphone ? "🎤" : "🔇";
-            symbol: root.microphone ? Icons.mic : Icons.mic-off;
-            label: "Microphone";
-            off: !root.microphone;
-            clicked => { root.toggle-microphone(); }
+        HorizontalLayout {
+            spacing: 2px;
+            CallButton {
+                icon: root.microphone ? "🎤" : "🔇";
+                symbol: root.microphone ? Icons.mic : Icons.mic-off;
+                label: "Microphone";
+                off: !root.microphone;
+                clicked => { root.toggle-microphone(); }
+            }
+            CallArrow {
+                label: "Microphone and speaker";
+                open: root.device-menu == "audio";
+                clicked => { root.open-devices(root.device-menu == "audio" ? "" : "audio"); }
+            }
         }
-        CallButton {
-            icon: "📷";
-            symbol: Icons.video;
-            label: "Camera";
-            off: !root.camera;
-            clicked => { root.toggle-camera(); }
+        HorizontalLayout {
+            spacing: 2px;
+            CallButton {
+                icon: "📷";
+                symbol: Icons.video;
+                label: "Camera";
+                off: !root.camera;
+                clicked => { root.toggle-camera(); }
+            }
+            CallArrow {
+                label: "Cameras";
+                open: root.device-menu == "video";
+                clicked => { root.open-devices(root.device-menu == "video" ? "" : "video"); }
+            }
         }
         CallButton {
             icon: "🖥️";
@@ -185,10 +249,386 @@ export component CallStage inherits Rectangle {
             pressed: root.sharing;
             clicked => { root.toggle-screen(); }
         }
+        if root.can-detach: CallButton {
+            icon: "⧉";
+            symbol: Icons.pip;
+            label: "Detach the call";
+            clicked => { root.detach(); }
+        }
         CallButton {
             label: "Leave the call";
             danger: true;
             clicked => { root.leave(); }
         }
+    }
+    if root.device-menu != "": TouchArea {
+        clicked => { root.open-devices(""); }
+    }
+    if root.device-menu != "" && root.device-sections.length > 0: Rectangle {
+        width: 300px;
+        height: menu-list.preferred-height;
+        x: (root.width - self.width) / 2;
+        y: root.height - 72px - self.height - 8px;
+        border-radius: 10px;
+        background: Theme.background;
+        border-width: 1px;
+        border-color: Theme.line;
+        drop-shadow-blur: 12px;
+        drop-shadow-color: #00000030;
+        accessible-role: list;
+        accessible-label: "Devices";
+        // Holds the clicks: they do not reach the TouchArea that closes the menu
+        TouchArea { }
+        menu-list := VerticalLayout {
+            padding: 6px;
+            for section in root.device-sections: VerticalLayout {
+                HorizontalLayout {
+                    padding-left: 8px;
+                    Text {
+                        height: 28px;
+                        text: section.title;
+                        color: Theme.text-secondary;
+                        font-size: 12px;
+                        font-weight: 600;
+                        vertical-alignment: center;
+                    }
+                }
+                for row in section.rows: Rectangle {
+                    height: 34px;
+                    border-radius: 6px;
+                    background: row-touch.has-hover ? Theme.hover : transparent;
+                    accessible-role: checkbox;
+                    accessible-checked: row.checked;
+                    accessible-label: row.label;
+                    accessible-action-default => { root.pick-device(section.kind, row.id); }
+                    row-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.pick-device(section.kind, row.id); }
+                    }
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        spacing: 8px;
+                        Text {
+                            width: 16px;
+                            text: row.checked ? "✓" : "";
+                            color: Theme.primary;
+                            vertical-alignment: center;
+                        }
+                        Text {
+                            text: row.label;
+                            color: Theme.text;
+                            vertical-alignment: center;
+                            overflow: elide;
+                        }
+                    }
+                }
+                // Not a speaker: a system that cannot choose its output says nothing (web)
+                if section.rows.length == 0: HorizontalLayout {
+                    padding-left: 32px;
+                    Text {
+                        height: 34px;
+                        text: "No device";
+                        color: Theme.text-secondary;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Where the window of a call stands and how large it is (web `WindowRect`)
+export struct CallWindowRect {
+    x: length,
+    y: length,
+    width: length,
+    height: length,
+}
+
+// A side, a corner or the bar of the window, dragged: `edge` "" moves the window, else
+// it is the side pulled ("n", "se", ...); it tells where the pointer went from the press.
+component Grip inherits TouchArea {
+    in property <string> edge;
+    // Where this grip lies in the window, so the pointer is told in the window's frame
+    in property <length> at-x;
+    in property <length> at-y;
+    callback begin(length, length);
+    callback drag(string, length, length);
+    callback end();
+    mouse-cursor: edge == "" ? MouseCursor.move
+        : edge == "n" || edge == "s" ? MouseCursor.ns-resize
+        : edge == "e" || edge == "w" ? MouseCursor.ew-resize
+        : edge == "nw" || edge == "se" ? MouseCursor.nwse-resize
+        : MouseCursor.nesw-resize;
+    pointer-event(event) => {
+        if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
+            self.begin(self.at-x + self.mouse-x, self.at-y + self.mouse-y);
+        } else if event.button == PointerEventButton.left && event.kind == PointerEventKind.up {
+            self.end();
+        }
+    }
+    moved => {
+        if self.pressed {
+            self.drag(self.edge, self.at-x + self.mouse-x, self.at-y + self.mouse-y);
+        }
+    }
+}
+
+// A line of the window's menu: an action, or a corner drawn as the part of a small window
+// it stands for (web `CallWindow` actions and their marks)
+component WindowMenuLine inherits Rectangle {
+    in property <string> label;
+    in property <image> symbol;
+    in property <string> fallback;
+    // The corner drawn: "" for an action with an icon
+    in property <string> corner;
+    callback clicked();
+    height: 36px;
+    border-radius: 6px;
+    background: touch.has-hover ? Theme.hover : transparent;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-action-default => { clicked(); }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        spacing: 10px;
+        VerticalLayout {
+            alignment: center;
+            if root.corner == "": Icon { source: root.symbol; fallback: root.fallback; color: Theme.text; size: 18px; }
+            if root.corner != "": Rectangle {
+                width: 24px;
+                height: 18px;
+                border-radius: 3px;
+                border-width: 1.5px;
+                border-color: Theme.text;
+                Rectangle {
+                    x: root.corner == "top-left" || root.corner == "bottom-left" ? 3px : parent.width / 2;
+                    y: root.corner == "top-left" || root.corner == "top-right" ? 3px : parent.height / 2;
+                    width: parent.width / 2 - 3px;
+                    height: parent.height / 2 - 3px;
+                    border-radius: 1px;
+                    background: Theme.text;
+                }
+            }
+        }
+        Text { text: root.label; color: Theme.text; vertical-alignment: center; }
+    }
+}
+
+// The window a call floats in over the app (web `CallWindow`, `FloatingCall`, D571): dragged
+// by its bar and resized by its edges, freely, up to the edges of the app; its one button
+// opens a menu that does the same without dragging (WCAG 2.5.7): full screen, the corners.
+export component CallWindow inherits Rectangle {
+    // Where it stands, whole in the app (Rust fits it)
+    in property <CallWindowRect> rect;
+    in property <string> title;
+    // The rect at the press, moved or resized by the pointer (web `moveWindow`,
+    // `resizeWindow`), and put in a corner (web `placeInCorner`), computed in Rust
+    pure callback moved(CallWindowRect, length, length) -> CallWindowRect;
+    pure callback resized(CallWindowRect, string, length, length) -> CallWindowRect;
+    pure callback cornered(CallWindowRect, string) -> CallWindowRect;
+    // Let go, or put in a corner: kept for the next call
+    callback chosen(CallWindowRect);
+    callback expand();
+    // Out of the app, into a window of its own above the others (web `popOutCall`, D618)
+    callback pop-out();
+    property <bool> dragging;
+    property <CallWindowRect> from;
+    property <CallWindowRect> live;
+    property <length> press-x;
+    property <length> press-y;
+    property <bool> menu-open;
+    property <CallWindowRect> shown: dragging ? live : rect;
+    x: shown.x;
+    y: shown.y;
+    width: shown.width;
+    height: shown.height;
+    border-radius: 12px;
+    background: #18181b;
+    clip: true;
+    drop-shadow-blur: 24px;
+    drop-shadow-color: #00000060;
+    accessible-role: groupbox;
+    accessible-label: title;
+
+    function begin(px: length, py: length) {
+        self.from = self.shown;
+        self.live = self.shown;
+        // In the app's frame: the window moves under the pointer
+        self.press-x = self.shown.x + px;
+        self.press-y = self.shown.y + py;
+        self.dragging = true;
+        self.menu-open = false;
+    }
+    function drag(edge: string, px: length, py: length) {
+        if !self.dragging { return; }
+        if edge == "" {
+            self.live = self.moved(self.from, self.shown.x + px - self.press-x, self.shown.y + py - self.press-y);
+        } else {
+            self.live = self.resized(self.from, edge, self.shown.x + px - self.press-x, self.shown.y + py - self.press-y);
+        }
+    }
+    function end() {
+        if !self.dragging { return; }
+        self.dragging = false;
+        self.chosen(self.live);
+    }
+
+    // The bar: the title, and the button of the menu
+    bar := Rectangle {
+        y: 0;
+        height: 36px;
+        background: #26262b;
+        Grip {
+            edge: "";
+            begin(px, py) => { root.begin(px, py); }
+            drag(edge, px, py) => { root.drag(edge, px, py); }
+            end => { root.end(); }
+        }
+        HorizontalLayout {
+            padding-left: 12px;
+            padding-right: 6px;
+            spacing: 8px;
+            Text {
+                text: root.title;
+                color: #ffffff;
+                font-size: 13px;
+                font-weight: 600;
+                vertical-alignment: center;
+                overflow: elide;
+                horizontal-stretch: 1;
+            }
+            VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 28px;
+                    height: 28px;
+                    border-radius: 14px;
+                    background: menu-touch.has-hover || root.menu-open ? #4a4a50 : transparent;
+                    accessible-role: button;
+                    accessible-label: "Move and resize";
+                    accessible-action-default => { root.menu-open = !root.menu-open; }
+                    menu-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.menu-open = !root.menu-open; }
+                    }
+                    Icon { source: Icons.move; fallback: "⤢"; color: #ffffff; size: 16px; }
+                }
+            }
+        }
+    }
+    @children
+    // The edges: thin bands and their corners, above the call
+    property <length> grip: 6px;
+    Grip { edge: "n"; x: root.grip; y: 0; width: root.width - 2 * root.grip; height: root.grip; at-x: self.x; at-y: self.y;
+        begin(px, py) => { root.begin(px, py); } drag(e, px, py) => { root.drag(e, px, py); } end => { root.end(); } }
+    Grip { edge: "s"; x: root.grip; y: root.height - root.grip; width: root.width - 2 * root.grip; height: root.grip; at-x: self.x; at-y: self.y;
+        begin(px, py) => { root.begin(px, py); } drag(e, px, py) => { root.drag(e, px, py); } end => { root.end(); } }
+    Grip { edge: "w"; x: 0; y: root.grip; width: root.grip; height: root.height - 2 * root.grip; at-x: self.x; at-y: self.y;
+        begin(px, py) => { root.begin(px, py); } drag(e, px, py) => { root.drag(e, px, py); } end => { root.end(); } }
+    Grip { edge: "e"; x: root.width - root.grip; y: root.grip; width: root.grip; height: root.height - 2 * root.grip; at-x: self.x; at-y: self.y;
+        begin(px, py) => { root.begin(px, py); } drag(e, px, py) => { root.drag(e, px, py); } end => { root.end(); } }
+    Grip { edge: "nw"; x: 0; y: 0; width: 2 * root.grip; height: 2 * root.grip; at-x: self.x; at-y: self.y;
+        begin(px, py) => { root.begin(px, py); } drag(e, px, py) => { root.drag(e, px, py); } end => { root.end(); } }
+    Grip { edge: "ne"; x: root.width - 2 * root.grip; y: 0; width: 2 * root.grip; height: 2 * root.grip; at-x: self.x; at-y: self.y;
+        begin(px, py) => { root.begin(px, py); } drag(e, px, py) => { root.drag(e, px, py); } end => { root.end(); } }
+    Grip { edge: "sw"; x: 0; y: root.height - 2 * root.grip; width: 2 * root.grip; height: 2 * root.grip; at-x: self.x; at-y: self.y;
+        begin(px, py) => { root.begin(px, py); } drag(e, px, py) => { root.drag(e, px, py); } end => { root.end(); } }
+    Grip { edge: "se"; x: root.width - 2 * root.grip; y: root.height - 2 * root.grip; width: 2 * root.grip; height: 2 * root.grip; at-x: self.x; at-y: self.y;
+        begin(px, py) => { root.begin(px, py); } drag(e, px, py) => { root.drag(e, px, py); } end => { root.end(); } }
+    // The menu, under its button
+    if root.menu-open: TouchArea {
+        clicked => { root.menu-open = false; }
+    }
+    if root.menu-open: Rectangle {
+        x: root.width - self.width - 6px;
+        y: 36px;
+        width: 200px;
+        height: lines.preferred-height;
+        border-radius: 10px;
+        background: Theme.background;
+        border-width: 1px;
+        border-color: Theme.line;
+        drop-shadow-blur: 12px;
+        drop-shadow-color: #00000030;
+        TouchArea { }
+        lines := VerticalLayout {
+            padding: 6px;
+            WindowMenuLine {
+                label: "Full screen";
+                symbol: Icons.fullscreen;
+                fallback: "⛶";
+                clicked => { root.menu-open = false; root.expand(); }
+            }
+            WindowMenuLine {
+                label: "Pop out of the app";
+                symbol: Icons.pip;
+                fallback: "⧉";
+                clicked => { root.menu-open = false; root.pop-out(); }
+            }
+            Rectangle { height: 1px; background: Theme.line; }
+            for corner in [
+                { id: "top-left", label: "Top left" },
+                { id: "top-right", label: "Top right" },
+                { id: "bottom-left", label: "Bottom left" },
+                { id: "bottom-right", label: "Bottom right" },
+            ]: WindowMenuLine {
+                label: corner.label;
+                corner: corner.id;
+                clicked => {
+                    root.menu-open = false;
+                    root.chosen(root.cornered(root.rect, corner.id));
+                }
+            }
+        }
+    }
+}
+
+// The call out of the app, in a window of its own that stays above the others (web
+// `PipCall`, D618): closing it brings the call back into the app.
+export component CallPopOut inherits Window {
+    in property <string> room-name;
+    in property <[CallTileRow]> tiles;
+    in property <string> status;
+    in property <bool> encrypted;
+    in property <bool> microphone;
+    in property <bool> camera;
+    in property <bool> sharing;
+    in property <string> device-menu;
+    in property <[DeviceSection]> device-sections;
+    pure callback tile-width(int, length, length) -> length;
+    callback toggle-microphone();
+    callback toggle-camera();
+    callback toggle-screen();
+    callback open-devices(string);
+    callback pick-device(string, string);
+    callback leave();
+    title: room-name == "" ? "Call" : "Call · " + room-name;
+    always-on-top: true;
+    min-width: 320px;
+    min-height: 260px;
+    background: #18181b;
+    CallStage {
+        tiles: root.tiles;
+        status: root.status;
+        encrypted: root.encrypted;
+        microphone: root.microphone;
+        camera: root.camera;
+        sharing: root.sharing;
+        device-menu: root.device-menu;
+        device-sections: root.device-sections;
+        tile-width(n, w, h) => { return root.tile-width(n, w, h); }
+        toggle-microphone => { root.toggle-microphone(); }
+        toggle-camera => { root.toggle-camera(); }
+        toggle-screen => { root.toggle-screen(); }
+        open-devices(which) => { root.open-devices(which); }
+        pick-device(kind, id) => { root.pick-device(kind, id); }
+        leave => { root.leave(); }
     }
 }

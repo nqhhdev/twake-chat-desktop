@@ -7,18 +7,24 @@
 pub mod activity;
 pub mod attachment;
 pub mod call;
+pub mod call_window;
 pub mod composer;
+pub mod composer_style;
+pub mod deleted_chats;
 pub mod format;
 pub mod js;
 pub mod link_preview;
 pub mod mention;
 pub mod model;
+pub mod permalink;
 pub mod poll;
 pub mod rich_text;
 pub mod room_management;
 pub mod room_preview;
 pub mod saved;
 pub mod search;
+pub mod shared_content;
+pub mod space_choices;
 pub mod text_format;
 pub mod web_links;
 

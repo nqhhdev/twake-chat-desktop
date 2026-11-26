@@ -224,3 +224,41 @@ OS needs its libwebrtc build (M8). `nokhwa` 0.10 pulls `block` 0.1.6, which a fu
 reject. The camera needs an app bundle that declares its use (`NSCameraUsageDescription`): an
 unbundled debug binary never gets an answer from macOS. Key ring 255 (libwebrtc's maximum)
 where the web has 256: after 255 rotations index 255 shares a slot with 0.
+
+## ADR-019: The floating call stays in the app; the pop-out is a native window on top
+
+**Context.** The web floats a call left behind in a window of the page (D571), and pops it out
+of the tab into Document Picture-in-Picture (D618), by the window's menu or by itself when
+Chrome leaves the tab. It keeps the window's place in `localStorage`. A desktop app has no tab
+and no page storage.
+
+**Decision.**
+- The floating window lives inside the app's window, as the web's lives inside the page: its
+  rules are the web's `domain/callWindow.ts`, ported and replayed, with the app's window as
+  the screen. Below 900 px wide a band stands in for it (web: a phone).
+- « Pop out of the app » (the window's menu) opens a second Slint window, `always-on-top`, at
+  the size of the window in the app; closing it brings the call back. It shares the tiles'
+  model with the app's window and mirrors the rest after each change. There is no automatic
+  pop-out: nothing on the desktop matches leaving a tab, and popping out when the app loses
+  the focus would be a behaviour the web does not have.
+- The window's place is kept in `call-window.json` of the data folder, read with the web's
+  `parseCallWindow`.
+
+**Consequences.** The pop-out is a plain window of the OS: the system decides where it opens and
+the user moves it with the system's title bar, not with the domain's rules. Whether
+`always-on-top` holds over full-screen apps depends on each OS.
+
+## ADR-020: « Copy link » of a message copies a matrix.to link
+
+**Context.** The web copies a link to itself, `{its address}/rooms/{room}?event={message}`
+(`messageLink`, D157): anyone who follows it lands in Twake Chat on the web. An app has no
+address of its own, and the deployment's web address is only known with the client
+configuration of M6.
+
+**Decision.** « Copy link » copies `https://matrix.to/#/{room}/{message}` (`message_permalink`
+in `twake_domain::permalink`, beside the ported `roomPermalink` and `userPermalink`): any
+Matrix client opens it, and the web's own `parsePermalink` reads it back.
+
+**Consequences.** A link copied from the app opens matrix.to's chooser in a browser rather
+than the web app straight away. Once M6 reads the web's address from the client configuration,
+the app may copy the web's link instead, as the web does.

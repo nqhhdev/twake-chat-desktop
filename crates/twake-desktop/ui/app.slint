@@ -1,16 +1,18 @@
 // Twake Chat desktop: sign-in, room list and conversation (M1).
-import { ListView, ScrollView, DatePickerPopup, Date } from "std-widgets.slint";
+import { ListView, ScrollView, DatePickerPopup, Date, Palette } from "std-widgets.slint";
 import { Theme } from "theme.slint";
 import { Avatar, Badge, PrimaryButton, TextButton, Field, Suggestion, TextChange, LinkTarget, PdfPage, Icon, Icons } from "parts.slint";
 import { Switcher } from "switcher.slint";
 import { SearchHit, SearchPane } from "search.slint";
 import { FeedLine, ActivityPane } from "activity.slint";
-import { Row, ReactionChip, PollAnswerRow, MessageLine, AudioState, Animations } from "timeline.slint";
+import { Row, ReactionChip, PollAnswerRow, MessageLine, SelectionButton, AudioState, Animations } from "timeline.slint";
 export { AudioState, Animations }
 export { Icons }
-import { MemberRow, RoomInfoData, InfoPane, ConfirmDialog, CreateDialog, PollDialog } from "info.slint";
-import { CallStage, CallTileRow } from "call.slint";
-export { Row, ReactionChip, PollAnswerRow, MemberRow, RoomInfoData, Suggestion, SearchHit, FeedLine, CallTileRow }
+import { ForwardDialog, ForwardRow, MemberRow, SpaceChoiceRow, SpaceDialog, VerifyDialog, VerifyEmoji, VersionRow, VersionsDialog, RoomInfoData, InfoPane, SharedFileRow, SharedLinkRow, SharedMediaRow, ConfirmDialog, CreateDialog, PollDialog } from "info.slint";
+import { SettingsScreen } from "settings.slint";
+import { CallPopOut, CallStage, CallTileRow, CallWindow, CallWindowRect, DeviceRow, DeviceSection } from "call.slint";
+export { CallPopOut }
+export { Row, ReactionChip, PollAnswerRow, MemberRow, RoomInfoData, Suggestion, SearchHit, FeedLine, CallTileRow, CallWindowRect, DeviceRow, DeviceSection, SharedFileRow, SharedLinkRow, SharedMediaRow, ForwardRow, VersionRow, SpaceChoiceRow, VerifyEmoji }
 
 export struct SpaceItem {
     id: string,
@@ -77,8 +79,29 @@ export struct RoomRow {
     mentions: int,
     encrypted: bool,
     invite: bool,
+    // A direct message, pinned to the top (web « Pin »), its notifications off (« Mute »),
+    // marked unread
+    direct: bool,
+    favourite: bool,
+    muted: bool,
+    marked-unread: bool,
     avatar: image,
     has-avatar: bool,
+}
+
+// A line of a room row's menu (web `RoomRowMenu`)
+component RowMenuLine inherits Rectangle {
+    in property <string> label;
+    in property <bool> danger;
+    callback clicked();
+    height: 32px;
+    border-radius: 6px;
+    background: touch.has-hover ? Theme.hover : transparent;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-action-default => { clicked(); }
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    Text { x: 10px; text: root.label; color: root.danger ? Theme.error : Theme.text; vertical-alignment: center; }
 }
 
 component RoomLine inherits Rectangle {
@@ -87,6 +110,9 @@ component RoomLine inherits Rectangle {
     callback clicked();
     callback accept();
     callback decline();
+    // The menu of the row (web `RoomRowMenu`): "read", "unread", "mute", "unmute", "pin",
+    // "unpin", "leave" or "delete"
+    callback act(string);
     height: 68px;
     background: selected ? Theme.selected : touch.has-hover ? Theme.hover : transparent;
     border-radius: 12px;
@@ -115,6 +141,8 @@ component RoomLine inherits Rectangle {
                     overflow: elide;
                     horizontal-stretch: 1;
                 }
+                if room.favourite: Text { text: "📌"; font-size: 11px; vertical-alignment: center; accessible-label: "Favourite"; }
+                if room.muted: Text { text: "🔕"; font-size: 11px; vertical-alignment: center; accessible-label: "Muted"; }
                 Text { text: room.time; color: Theme.text-secondary; font-size: 12px; }
             }
             HorizontalLayout {
@@ -130,6 +158,40 @@ component RoomLine inherits Rectangle {
                 if room.unread > 0: Badge { label: room.unread > 99 ? "99+" : room.unread; }
                 if room.invite: TextButton { label: "Join"; clicked => { root.accept(); } }
                 if room.invite: TextButton { label: "Decline"; clicked => { root.decline(); } }
+            }
+        }
+    }
+    // « Options of … » on hover: read or unread, mute, pin, leave (web `RoomRowMenu`)
+    if !room.invite && touch.has-hover: Rectangle {
+        x: parent.width - self.width - 8px;
+        y: 6px;
+        width: 24px;
+        height: 24px;
+        border-radius: 12px;
+        background: more-touch.has-hover ? Theme.selected : Theme.background;
+        accessible-role: button;
+        accessible-label: "Options of " + room.name;
+        accessible-action-default => { menu.show(); }
+        more-touch := TouchArea { mouse-cursor: pointer; clicked => { menu.show(); } }
+        Text { text: "⋯"; color: Theme.text; horizontal-alignment: center; vertical-alignment: center; }
+    }
+    menu := PopupWindow {
+        x: parent.width - 200px;
+        y: 30px;
+        width: 192px;
+        Rectangle {
+            border-radius: 10px;
+            background: Theme.background;
+            border-width: 1px;
+            border-color: Theme.line;
+            drop-shadow-blur: 12px;
+            drop-shadow-color: #00000030;
+            VerticalLayout {
+                padding: 6px;
+                RowMenuLine { label: room.unread > 0 || room.marked-unread ? "Mark as read" : "Mark as unread"; clicked => { root.act(room.unread > 0 || room.marked-unread ? "read" : "unread"); } }
+                RowMenuLine { label: room.muted ? "Unmute" : "Mute"; clicked => { root.act(room.muted ? "unmute" : "mute"); } }
+                RowMenuLine { label: room.favourite ? "Unpin" : "Pin"; clicked => { root.act(room.favourite ? "unpin" : "pin"); } }
+                RowMenuLine { label: room.direct ? "Delete chat" : "Leave"; danger: true; clicked => { root.act(room.direct ? "delete" : "leave"); } }
             }
         }
     }
@@ -216,6 +278,8 @@ component Composer inherits Rectangle {
     callback record();
     callback stop-recording(bool);
     // The formats bar (web `FormatToolbar`): Markdown written around the selection
+    // The classic composer keeps the formats bar shown (web `ComposerStyle`, D681)
+    in property <bool> classic;
     in-out property <bool> formats-open;
     callback text-format(string, string, int, int) -> TextChange;
     callback paste-link(string, int, int) -> TextChange;
@@ -565,7 +629,7 @@ component Composer inherits Rectangle {
                                 }
                             }
                             // « Aa » unfolds the formats here, to its right (web FormatToolbar)
-                            if root.formats-open: HorizontalLayout {
+                            if root.formats-open || root.classic: HorizontalLayout {
                                 spacing: 2px;
                                 accessible-role: groupbox;
                                 accessible-label: "Formatting";
@@ -681,6 +745,7 @@ export component AppWindow inherits Window {
         Menu {
             title: "Twake Chat";
             MenuItem { title: "About Twake Chat"; role: MenuItemRole.about; activated => { root.show-about(); } }
+            MenuItem { title: "Settings…"; role: MenuItemRole.preferences; enabled: root.page == 2; activated => { root.open-settings(); } }
             MenuItem { title: "Hide Twake Chat"; role: MenuItemRole.hide; }
             MenuItem { title: "Hide Others"; role: MenuItemRole.hide-others; }
             MenuItem { title: "Show All"; role: MenuItemRole.show-all; }
@@ -747,6 +812,12 @@ export component AppWindow inherits Window {
     in property <bool> busy;
     in property <string> error;
     in property <string> notice;
+    // The notice's one action (« Undo » of a deleted chat), "" for none
+    in property <string> notice-action;
+    callback notice-acted();
+    // « You deleted the earlier messages on … », "" when the chat was never deleted
+    in property <string> deleted-before;
+    callback delete-chat();
     in property <string> user-id;
     in-out property <string> homeserver: "http://localhost:18008";
     in-out property <string> username;
@@ -761,6 +832,31 @@ export component AppWindow inherits Window {
     in property <bool> loading-history;
     in property <bool> history-complete;
     in property <bool> needs-recovery-key;
+    // Settings (web `SettingsScreen`)
+    in-out property <bool> settings-open;
+    in property <string> theme-mode: "system";
+    in property <bool> autoplay: true;
+    in property <string> composer-style: "new";
+    callback open-settings();
+    callback set-theme(string);
+    callback set-autoplay(bool);
+    callback set-composer(string);
+    // The theme chosen: « As the system » leaves the OS deciding
+    changed theme-mode => { root.apply-theme(); }
+    init => { root.apply-theme(); }
+    function apply-theme() {
+        Palette.color-scheme = root.theme-mode == "dark" ? ColorScheme.dark
+            : root.theme-mode == "light" ? ColorScheme.light : ColorScheme.unknown;
+    }
+    // Verifying one's devices (web `DeviceVerificationDialog`): "" when none is shown
+    in property <string> verify-phase;
+    in property <[VerifyEmoji]> verify-emojis;
+    in property <string> verify-decimals;
+    callback verify-device();
+    callback verify-accept();
+    callback verify-cancel();
+    callback verify-confirm(bool);
+    callback verify-close();
     in-out property <string> recovery-key;
     // bumped by Rust to scroll the timeline to its newest message
     in property <int> scroll-to-bottom;
@@ -911,12 +1007,33 @@ export component AppWindow inherits Window {
     in property <bool> call-microphone;
     in property <bool> call-camera;
     in property <[CallTileRow]> call-tiles;
+    in-out property <string> call-device-menu;
+    in property <[DeviceSection]> call-device-sections;
+    callback call-open-devices(string);
+    callback call-pick-device(string, string);
     property <bool> call-here: root.in-call && root.call-room-id == root.current-room-id;
+    // The call floats: its room was left, or it was detached (web `isCallFloating`, D571)
+    in property <bool> call-floating;
+    // The call is out of the app, in its own window (web `poppedOutRoomId`): neither its room
+    // nor the window over the app draws it, a band stands in for it
+    in property <bool> call-popped-out;
+    // The call in its room, taking the width (not floating)
+    property <bool> call-staged: root.call-here && !root.call-floating && !root.call-popped-out;
+    // A floating call is a window over the app when it is wide, else a band (web: a phone)
+    property <bool> call-windowed: root.in-call && root.call-floating && !root.call-popped-out && root.width >= 900px;
+    callback call-pop-out();
+    in property <CallWindowRect> call-window;
+    pure callback call-window-moved(CallWindowRect, length, length) -> CallWindowRect;
+    pure callback call-window-resized(CallWindowRect, string, length, length) -> CallWindowRect;
+    pure callback call-window-cornered(CallWindowRect, string) -> CallWindowRect;
+    pure callback call-window-fitted(CallWindowRect) -> CallWindowRect;
+    callback call-window-chosen(CallWindowRect);
+    callback call-detach();
+    callback call-expand();
     callback start-call(bool);
     callback leave-call();
     callback call-toggle-microphone();
     callback call-toggle-camera();
-    callback go-to-call();
     pure callback call-tile-width(int, length, length) -> length;
     // A call that rings for the user (web `IncomingCallBanner`): « … is calling you »
     in property <string> ring-text;
@@ -938,6 +1055,66 @@ export component AppWindow inherits Window {
     callback end-poll(string, bool);
     callback pin(string, bool);
     callback save-message(string, bool);
+    callback report-message(string);
+    callback copy-message(string);
+    callback copy-link(string);
+    callback forward-message(string);
+    callback show-versions(string);
+    callback show-seen(string);
+    in property <bool> current-room-direct;
+    in property <string> versions-title: "Edit history";
+    // Ticking messages to act on several (web `MessageSelectionBar`, D183)
+    in property <bool> selecting;
+    in property <string> selection-text;
+    in property <int> selection-count;
+    in property <bool> selection-can-forward;
+    in property <bool> selection-has-files;
+    in property <bool> selection-can-pin;
+    in property <bool> selection-unpin;
+    in property <bool> selection-can-delete;
+    callback select-message(string);
+    callback retry-send(string);
+    callback discard-send(string);
+    // The server cannot be reached (web `OfflineBanner`)
+    in property <bool> offline;
+    callback selection-close();
+    callback selection-forward();
+    callback selection-download();
+    callback selection-copy();
+    callback selection-pin();
+    callback selection-delete();
+    // « Edit history » open with these versions, newest first
+    in property <[VersionRow]> versions;
+    in-out property <bool> versions-open;
+    // « Forward to… » (web `ForwardDialog`)
+    in property <bool> forward-open;
+    in property <[ForwardRow]> forward-rows;
+    in property <bool> forward-has-picked;
+    in-out property <string> forward-filter;
+    callback forward-filter-edited(string);
+    callback forward-toggle(string);
+    callback forward-send();
+    callback forward-cancel();
+    callback report-room();
+    // The public directory (web `PublicRoomsDialog`, D42)
+    in-out property <bool> directory-shown;
+    in property <[Suggestion]> directory-items;
+    in property <string> directory-empty;
+    in-out property <int> directory-selected;
+    in-out property <string> directory-query;
+    callback directory-open();
+    callback directory-search(string);
+    callback directory-choose(int);
+    callback info-set-join-rule(string);
+    callback info-set-listed(bool);
+    callback info-move-to-space();
+    callback info-set-notification(string);
+    callback room-row-act(string, string);
+    // « Move to a Space » open with these choices
+    in-out property <bool> space-dialog-open;
+    in property <[SpaceChoiceRow]> space-choices;
+    callback space-pick(string);
+    callback block-user();
     callback open-pinned();
     in property <int> pinned-count;
     // the side panel shows the pinned messages, not a thread
@@ -960,6 +1137,9 @@ export component AppWindow inherits Window {
     in property <bool> info-open;
     in property <RoomInfoData> info;
     in property <[MemberRow]> info-members;
+    in property <[SharedMediaRow]> info-media;
+    in property <[SharedLinkRow]> info-links;
+    in property <[SharedFileRow]> info-files;
     in-out property <string> info-invite-text;
     callback open-info();
     callback close-info();
@@ -978,7 +1158,9 @@ export component AppWindow inherits Window {
     in property <string> create-mode;
     callback show-create(string);
     callback cancel-create();
-    callback create-room(string, string, string, bool);
+    callback create-room(string, string, string, string, bool, bool, string, bool, string);
+    pure callback suggest-slug(string) -> string;
+    pure callback valid-slug(string) -> bool;
     callback open-direct(string);
 
     // Confirmation of an action that cannot be undone ("" hides it)
@@ -1005,6 +1187,14 @@ export component AppWindow inherits Window {
     }
 
     if page == 2: VerticalLayout {
+        // Rare and worrying: a warning band above everything while the server is out of reach
+        if root.offline: Rectangle {
+            height: 32px;
+            background: Theme.warning-bg;
+            accessible-role: text;
+            accessible-label: "You are offline. The chat will update when the connection is back.";
+            Text { text: "You are offline. The chat will update when the connection is back."; color: Theme.text; font-size: 13px; }
+        }
         // App bar
         Rectangle {
             height: 52px;
@@ -1066,6 +1256,11 @@ export component AppWindow inherits Window {
                 VerticalLayout {
                     alignment: center;
                     TextButton { label: "Unlock"; clicked => { root.recover(root.recovery-key); } }
+                }
+                // Or trust it from a device already trusted (web `SecurityBanner`)
+                VerticalLayout {
+                    alignment: center;
+                    TextButton { label: "Verify with another device"; clicked => { root.verify-device(); } }
                 }
             }
         }
@@ -1140,6 +1335,19 @@ export component AppWindow inherits Window {
                             color: Theme.text-secondary;
                             vertical-alignment: center;
                         }
+                        // The public groups not joined yet (web `browse-public-rooms`, D206)
+                        Rectangle {
+                            x: parent.width - self.width - 6px;
+                            width: 28px;
+                            height: 28px;
+                            border-radius: 14px;
+                            background: browse-touch.has-hover ? Theme.hover : transparent;
+                            accessible-role: button;
+                            accessible-label: "Browse public groups";
+                            accessible-action-default => { root.directory-open(); }
+                            browse-touch := TouchArea { mouse-cursor: pointer; clicked => { root.directory-open(); } }
+                            Text { text: "🪐"; font-size: 14px; horizontal-alignment: center; vertical-alignment: center; }
+                        }
                     }
                     HorizontalLayout {
                         spacing: 6px;
@@ -1156,6 +1364,7 @@ export component AppWindow inherits Window {
                             clicked => { root.open-room(room.id); }
                             accept => { root.accept-invite(room.id); }
                             decline => { root.decline-invite(room.id); }
+                            act(action) => { root.room-row-act(room.id, action); }
                         }
                     }
                 }
@@ -1226,8 +1435,8 @@ export component AppWindow inherits Window {
                         Rectangle { width: 8px; }
                     }
                 }
-                // A call of another room goes on: back to it, or leave it
-                if root.in-call && !root.call-here: Rectangle {
+                // A floating call on a narrow window: back to it, or leave it
+                if root.in-call && (root.call-floating || root.call-popped-out) && !root.call-windowed: Rectangle {
                     height: 40px;
                     background: Theme.selected;
                     HorizontalLayout {
@@ -1240,7 +1449,7 @@ export component AppWindow inherits Window {
                             overflow: elide;
                             horizontal-stretch: 1;
                         }
-                        VerticalLayout { alignment: center; TextButton { label: "Back to the call"; clicked => { root.go-to-call(); } } }
+                        VerticalLayout { alignment: center; TextButton { label: "Expand"; clicked => { root.call-expand(); } } }
                         VerticalLayout { alignment: center; TextButton { label: "Leave"; clicked => { root.leave-call(); } } }
                         Rectangle { width: 8px; }
                     }
@@ -1248,7 +1457,9 @@ export component AppWindow inherits Window {
                 // In the call of this room, the call takes the width and the conversation a
                 // column on its right (web `CallLayout`, D8)
                 HorizontalLayout {
-                if root.call-here: CallStage {
+                if root.call-staged: CallStage {
+                    can-detach: true;
+                    detach => { root.call-detach(); }
                     horizontal-stretch: 1;
                     tiles: root.call-tiles;
                     status: root.call-status;
@@ -1260,22 +1471,50 @@ export component AppWindow inherits Window {
                     toggle-microphone => { root.call-toggle-microphone(); }
                     toggle-camera => { root.call-toggle-camera(); }
                     toggle-screen => { root.call-toggle-screen(); }
+                    device-menu: root.call-device-menu;
+                    device-sections: root.call-device-sections;
+                    open-devices(which) => { root.call-open-devices(which); }
+                    pick-device(kind, id) => { root.call-pick-device(kind, id); }
                     leave => { root.leave-call(); }
                 }
                 Rectangle {
                 // The thread of the call takes the place of the channel
-                property <bool> put-away: root.call-here && root.call-thread-shown && root.thread-open;
+                property <bool> put-away: root.call-staged && root.call-thread-shown && root.thread-open;
                 visible: !self.put-away;
-                min-width: root.call-here && !self.put-away ? 380px : 0px;
-                max-width: self.put-away ? 0px : root.call-here ? 380px : 100000px;
+                min-width: root.call-staged && !self.put-away ? 380px : 0px;
+                max-width: self.put-away ? 0px : root.call-staged ? 380px : 100000px;
                 // The conversation and its composer lie on one wallpaper (web ds/wallpaper.ts)
                 background: Theme.wallpaper;
                 Image { width: 100%; height: 100%; source: Theme.wallpaper-image; image-fit: cover; }
                 VerticalLayout {
-                if root.call-here && root.call-thread && !root.call-thread-shown: HorizontalLayout {
+                if root.call-staged && root.call-thread && !root.call-thread-shown: HorizontalLayout {
                     padding: 8px;
                     alignment: end;
                     TextButton { label: "Back to the meeting thread"; clicked => { root.call-thread-toggle(); } }
+                }
+                // The messages ticked: what to do with them, and the cross that leaves
+                if root.selecting: Rectangle {
+                    height: 44px;
+                    background: #26262b;
+                    accessible-role: groupbox;
+                    accessible-label: "Actions on the selected messages";
+                    HorizontalLayout {
+                        padding-left: 16px;
+                        padding-right: 8px;
+                        spacing: 4px;
+                        Text { text: root.selection-text; color: #ffffff; font-weight: 600; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
+                        VerticalLayout { alignment: center; SelectionButton { label: "Forward"; enabled: root.selection-can-forward; clicked => { root.selection-forward(); } } }
+                        if root.selection-has-files: VerticalLayout { alignment: center; SelectionButton { label: "Download"; clicked => { root.selection-download(); } } }
+                        VerticalLayout { alignment: center; SelectionButton { label: "Copy"; enabled: root.selection-count > 0; clicked => { root.selection-copy(); } } }
+                        if root.selection-can-pin: VerticalLayout { alignment: center; SelectionButton { label: root.selection-unpin ? "Unpin" : "Pin"; enabled: root.selection-count > 0; clicked => { root.selection-pin(); } } }
+                        VerticalLayout { alignment: center; SelectionButton { label: "Delete"; enabled: root.selection-can-delete; clicked => { root.selection-delete(); } } }
+                        VerticalLayout { alignment: center; SelectionButton { label: "✕"; clicked => { root.selection-close(); } } }
+                    }
+                }
+                if root.deleted-before != "": HorizontalLayout {
+                    padding: 8px;
+                    alignment: center;
+                    Text { text: root.deleted-before; color: Theme.text-secondary; font-size: 13px; }
                 }
                 timeline := ListView {
                     property <int> scroll-request: root.scroll-to-bottom;
@@ -1304,6 +1543,7 @@ export component AppWindow inherits Window {
                     }
                     for r in root.rows: MessageLine {
                         entry: r;
+                        selecting: root.selecting;
                         list-width: timeline.visible-width;
                         link-clicked(url) => { root.link-clicked(url); }
                         open-attachment(key, name) => { root.open-attachment(key, name); }
@@ -1320,6 +1560,16 @@ export component AppWindow inherits Window {
                         end-poll(id) => { root.end-poll(id, false); }
                         pin(id, on) => { root.pin(id, on); }
                         save-message(id, on) => { root.save-message(id, on); }
+                        report(id) => { root.report-message(id); }
+                        copy-message(text) => { root.copy-message(text); }
+                        copy-link(id) => { root.copy-link(id); }
+                        forward(id) => { root.forward-message(id); }
+                        versions(id) => { root.show-versions(id); }
+                        select(id) => { root.select-message(id); }
+                        retry-send(id) => { root.retry-send(id); }
+                        discard-send(id) => { root.discard-send(id); }
+                        seen(id) => { root.show-seen(id); }
+                        direct: root.current-room-direct;
                     }
                 }
                 if root.typing-text != "": HorizontalLayout {
@@ -1344,6 +1594,7 @@ export component AppWindow inherits Window {
                     caret-pos: root.caret-pos;
                     caret-serial: root.caret-serial;
                     formats-open <=> root.formats-open;
+                    classic: root.composer-style == "classic";
                     recording: root.recording && !root.recording-in-thread;
                     recording-time: root.recording-time;
                     record => { root.record-voice(false); }
@@ -1371,6 +1622,14 @@ export component AppWindow inherits Window {
                 width: 360px;
                 info: root.info;
                 members: root.info-members;
+                media: root.info-media;
+                links: root.info-links;
+                files: root.info-files;
+                open-media(key, name, video) => {
+                    if video { root.open-attachment(key, name); } else { root.view-image(key, name); }
+                }
+                open-link(url) => { root.link-clicked(url); }
+                save-file(key, name) => { root.save-attachment(key, name); }
                 invite-text <=> root.info-invite-text;
                 close => { root.close-info(); }
                 rename(name) => { root.info-rename(name); }
@@ -1381,6 +1640,13 @@ export component AppWindow inherits Window {
                 ban(user) => { root.member-ban(user); }
                 set-role(user, role) => { root.member-set-role(user, role); }
                 leave => { root.leave-room(); }
+                delete-chat => { root.delete-chat(); }
+                report => { root.report-room(); }
+                set-join-rule(rule) => { root.info-set-join-rule(rule); }
+                set-listed(listed) => { root.info-set-listed(listed); }
+                move-to-space => { root.info-move-to-space(); }
+                set-notification(level) => { root.info-set-notification(level); }
+                block => { root.block-user(); }
             }
             if !root.activity-open && root.current-room-id != "" && root.search-open && !root.thread-open && !root.info-open: SearchPane {
                 width: 380px;
@@ -1409,8 +1675,8 @@ export component AppWindow inherits Window {
                             Text { text: root.side-title; font-size: 16px; font-weight: 600; color: Theme.text; vertical-alignment: center; horizontal-stretch: 1; }
                             VerticalLayout {
                                 alignment: center;
-                                if !(root.call-here && root.call-thread-shown): TextButton { label: "Close"; clicked => { root.close-thread(); } }
-                                if root.call-here && root.call-thread-shown: TextButton { label: "Show the channel"; clicked => { root.call-thread-toggle(); } }
+                                if !(root.call-staged && root.call-thread-shown): TextButton { label: "Close"; clicked => { root.close-thread(); } }
+                                if root.call-staged && root.call-thread-shown: TextButton { label: "Show the channel"; clicked => { root.call-thread-toggle(); } }
                             }
                         }
                     }
@@ -1440,6 +1706,16 @@ export component AppWindow inherits Window {
                             end-poll(id) => { root.end-poll(id, true); }
                             pin(id, on) => { root.pin(id, on); }
                         save-message(id, on) => { root.save-message(id, on); }
+                        report(id) => { root.report-message(id); }
+                        copy-message(text) => { root.copy-message(text); }
+                        copy-link(id) => { root.copy-link(id); }
+                        forward(id) => { root.forward-message(id); }
+                        versions(id) => { root.show-versions(id); }
+                        select(id) => { root.select-message(id); }
+                        retry-send(id) => { root.retry-send(id); }
+                        discard-send(id) => { root.discard-send(id); }
+                        seen(id) => { root.show-seen(id); }
+                        direct: root.current-room-direct;
                         }
                     }
                     thread-composer := Composer {
@@ -1481,15 +1757,78 @@ export component AppWindow inherits Window {
         if root.notice != "": Rectangle {
             height: 32px;
             background: Theme.panel;
-            Text { text: root.notice; color: Theme.text-secondary; font-size: 12px; }
+            HorizontalLayout {
+                alignment: center;
+                spacing: 12px;
+                Text { text: root.notice; color: Theme.text-secondary; font-size: 12px; vertical-alignment: center; }
+                if root.notice-action != "": VerticalLayout {
+                    alignment: center;
+                    TextButton { label: root.notice-action; clicked => { root.notice-acted(); } }
+                }
+            }
         }
+    }
+
+    if root.versions-open: VersionsDialog {
+        width: root.width;
+        height: root.height;
+        versions: root.versions;
+        title: root.versions-title;
+        close => { root.versions-open = false; }
+    }
+
+    if root.settings-open: SettingsScreen {
+        width: root.width;
+        height: root.height;
+        theme-mode: root.theme-mode;
+        autoplay: root.autoplay;
+        composer-style: root.composer-style;
+        set-theme(mode) => { root.set-theme(mode); }
+        set-autoplay(on) => { root.set-autoplay(on); }
+        set-composer(style) => { root.set-composer(style); }
+        close => { root.settings-open = false; }
+    }
+
+    if root.verify-phase != "": VerifyDialog {
+        width: root.width;
+        height: root.height;
+        phase: root.verify-phase;
+        emojis: root.verify-emojis;
+        decimals: root.verify-decimals;
+        accept => { root.verify-accept(); }
+        cancel => { root.verify-cancel(); }
+        same => { root.verify-confirm(true); }
+        differ => { root.verify-confirm(false); }
+        close => { root.verify-close(); }
+    }
+
+    if root.space-dialog-open: SpaceDialog {
+        width: root.width;
+        height: root.height;
+        choices: root.space-choices;
+        pick(id) => { root.space-pick(id); }
+        cancel => { root.space-dialog-open = false; }
+    }
+
+    if root.forward-open: ForwardDialog {
+        width: root.width;
+        height: root.height;
+        rows: root.forward-rows;
+        has-picked: root.forward-has-picked;
+        filter <=> root.forward-filter;
+        filter-edited(text) => { root.forward-filter-edited(text); }
+        toggle(id) => { root.forward-toggle(id); }
+        send => { root.forward-send(); }
+        cancel => { root.forward-cancel(); }
     }
 
     if root.create-mode != "": CreateDialog {
         width: root.width;
         height: root.height;
         mode: root.create-mode;
-        create-room(name, topic, people, encrypted) => { root.create-room(name, topic, people, encrypted); }
+        create-room(kind, name, topic, people, public, encrypted, access, reactions, slug) => { root.create-room(kind, name, topic, people, public, encrypted, access, reactions, slug); }
+        suggest-slug(name) => { return root.suggest-slug(name); }
+        valid-slug(slug) => { return root.valid-slug(slug); }
         open-direct(user) => { root.open-direct(user); }
         cancel => { root.cancel-create(); }
     }
@@ -1684,6 +2023,20 @@ export component AppWindow inherits Window {
         }
     }
 
+    if root.directory-shown: Switcher {
+        width: root.width;
+        height: root.height;
+        label: "Public groups";
+        placeholder: "Search public groups";
+        empty-text: root.directory-empty;
+        items: root.directory-items;
+        selected <=> root.directory-selected;
+        query <=> root.directory-query;
+        search(text) => { root.directory-search(text); }
+        choose(i) => { root.directory-choose(i); }
+        cancel => { root.directory-shown = false; }
+    }
+
     if root.switcher-open: Switcher {
         width: root.width;
         height: root.height;
@@ -1726,5 +2079,35 @@ export component AppWindow inherits Window {
             root.jump-to-date(date.year, date.month, date.day);
         }
         canceled => { self.close(); }
+    }
+    if root.call-windowed: CallWindow {
+        rect: root.call-window-fitted(root.call-window);
+        title: root.call-room-name;
+        moved(from, dx, dy) => { return root.call-window-moved(from, dx, dy); }
+        resized(from, edge, dx, dy) => { return root.call-window-resized(from, edge, dx, dy); }
+        cornered(from, corner) => { return root.call-window-cornered(from, corner); }
+        chosen(rect) => { root.call-window-chosen(rect); }
+        expand => { root.call-expand(); }
+        pop-out => { root.call-pop-out(); }
+        CallStage {
+            y: 36px;
+            width: parent.width;
+            height: parent.height - 36px;
+            tiles: root.call-tiles;
+            status: root.call-status;
+            encrypted: root.call-encrypted;
+            microphone: root.call-microphone;
+            camera: root.call-camera;
+            sharing: root.call-sharing;
+            tile-width(n, w, h) => { return root.call-tile-width(n, w, h); }
+            toggle-microphone => { root.call-toggle-microphone(); }
+            toggle-camera => { root.call-toggle-camera(); }
+            toggle-screen => { root.call-toggle-screen(); }
+            device-menu: root.call-device-menu;
+            device-sections: root.call-device-sections;
+            open-devices(which) => { root.call-open-devices(which); }
+            pick-device(kind, id) => { root.call-pick-device(kind, id); }
+            leave => { root.leave-call(); }
+        }
     }
 }

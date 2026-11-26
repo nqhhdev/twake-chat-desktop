@@ -141,6 +141,23 @@ pub fn should_mirror(is_local: bool, is_screen: bool, faces_away: bool) -> bool 
     is_local && !is_screen && !faces_away
 }
 
+/// A microphone, speaker or camera of the system (web `MediaDevice`).
+#[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize)]
+pub struct MediaDevice {
+    pub id: String,
+    /// Empty when the system gives no name.
+    pub label: String,
+}
+
+/// The device in use. None known, or one unplugged: the first, which the system lists as
+/// its default (web `currentDeviceId`).
+pub fn current_device_id(devices: &[MediaDevice], active_id: Option<&str>) -> Option<String> {
+    match active_id {
+        Some(id) if devices.iter().any(|d| d.id == id) => Some(id.to_string()),
+        _ => devices.first().map(|d| d.id.clone()),
+    }
+}
+
 /// The people of a call, one per user, not per device: a user in the call from two
 /// devices is one person in it (web `countCallPeople`).
 pub fn count_call_people<'a>(user_ids: impl IntoIterator<Item = &'a str>) -> usize {
@@ -296,5 +313,22 @@ mod tests {
     fn counts_people_not_devices() {
         assert_eq!(count_call_people(["@a:x", "@b:x", "@a:x"]), 2);
         assert_eq!(count_call_people([]), 0);
+    }
+
+    #[test]
+    fn keeps_the_device_in_use_or_takes_the_first() {
+        let device = |id: &str| MediaDevice {
+            id: id.into(),
+            label: String::new(),
+        };
+        let devices = [device("a"), device("b")];
+        assert_eq!(current_device_id(&devices, Some("b")).as_deref(), Some("b"));
+        // Unplugged, or none chosen: the system's default, the first
+        assert_eq!(
+            current_device_id(&devices, Some("gone")).as_deref(),
+            Some("a")
+        );
+        assert_eq!(current_device_id(&devices, None).as_deref(), Some("a"));
+        assert_eq!(current_device_id(&[], Some("a")), None);
     }
 }

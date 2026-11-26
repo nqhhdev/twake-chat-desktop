@@ -7,6 +7,30 @@ pub const ADMIN_LEVEL: i64 = 100;
 /// « Admin » is 80, below the owner who keeps 100 (D706).
 pub const HANDED_OVER_OWNER_LEVEL: i64 = 80;
 
+/// Who may join a room (web `JoinRuleChoice` and `RoomAccess.joinRule`): `Other` is a rule
+/// the app tells but never sets (`restricted` to a space, D516).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum JoinRuleChoice {
+    #[default]
+    Invite,
+    Knock,
+    Public,
+    Other,
+}
+
+impl JoinRuleChoice {
+    /// The line under the member count (web `info.accessLine`).
+    pub fn access_line(self) -> &'static str {
+        match self {
+            Self::Invite => "Private · Invite only",
+            Self::Knock => "Private · On request",
+            Self::Public => "Public",
+            Self::Other => "Space members",
+        }
+    }
+}
+
 /// `MemberRole`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -186,4 +210,121 @@ mod tests {
         );
         assert!(assignable_roles(&member(100.0), &me, false).is_empty());
     }
+}
+
+/// What a new room is (web `NewRoomKind`): a group, a Broadcast feed, a space, a voice room
+/// or a Broadcast with its page.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum NewRoomKind {
+    #[default]
+    Discussion,
+    Broadcast,
+    Space,
+    Voice,
+    Page,
+}
+
+/// Who may follow a Broadcast (web `PageAccess`, D90): anyone (with its public page), on
+/// invitation, or once an administrator approves the request.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum PageAccess {
+    #[default]
+    Open,
+    Invite,
+    Approval,
+}
+
+/// What a new Broadcast adds to a room (web `NewPage`, D90).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct NewPage {
+    pub access: PageAccess,
+    /// Followers react to its posts (`m.reaction` at level 0).
+    pub allows_reactions: bool,
+    /// Its address, `#slug`, and the public page `/b/slug`; open ones only.
+    pub slug: String,
+}
+
+/// A room to create (web `NewRoom`).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct NewRoom {
+    pub name: String,
+    pub topic: String,
+    pub kind: NewRoomKind,
+    /// Created inside this space (a channel or a sub-space, D2b).
+    pub parent_space_id: Option<String>,
+    /// Marked `suggested` in its space: the General of a new space.
+    pub is_suggested: bool,
+    /// Anyone of the homeserver finds it in the directory and may join it (D42).
+    pub is_public: bool,
+    pub is_encrypted: bool,
+    pub invite: Vec<String>,
+    pub page: Option<NewPage>,
+}
+
+/// Characters of a name the user types (web `MAX_NAME_LENGTH`, D351).
+pub const MAX_NAME_LENGTH: usize = 100;
+
+/// The name, trimmed, is longer than [`MAX_NAME_LENGTH`] UTF-16 units (web `isNameTooLong`).
+pub fn is_name_too_long(name: &str) -> bool {
+    crate::js::trim(name).encode_utf16().count() > MAX_NAME_LENGTH
+}
+
+static SLUG: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+    regex::Regex::new("^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$").expect("a valid pattern")
+});
+
+/// The address of a public page: lowercase letters, digits and dashes (web `isValidSlug`).
+pub fn is_valid_slug(slug: &str) -> bool {
+    SLUG.is_match(slug)
+}
+
+/// An address made of a name: « Le Figaro ! » gives `le-figaro` (web `suggestSlug`).
+pub fn suggest_slug(name: &str) -> String {
+    use unicode_normalization::UnicodeNormalization;
+    let stripped: String = name
+        .nfd()
+        .filter(|c| !('\u{300}'..='\u{36f}').contains(c))
+        .collect();
+    let lower = stripped.to_lowercase();
+    let mut dashed = String::with_capacity(lower.len());
+    let mut in_run = false;
+    for c in lower.chars() {
+        if c.is_ascii_lowercase() || c.is_ascii_digit() {
+            dashed.push(c);
+            in_run = false;
+        } else if !in_run {
+            dashed.push('-');
+            in_run = true;
+        }
+    }
+    // ASCII only by now: 64 characters are 64 UTF-16 units
+    let cut: String = dashed.chars().take(64).collect();
+    cut.trim_matches('-').to_string()
+}
+
+#[cfg(test)]
+mod creation_tests {
+    use super::*;
+
+    #[test]
+    fn makes_an_address_of_a_name() {
+        assert_eq!(suggest_slug("Le Figaro !"), "le-figaro");
+        assert_eq!(suggest_slug("  Équipe   Ops  "), "equipe-ops");
+        assert!(is_valid_slug("le-figaro"));
+        assert!(!is_valid_slug("-le"));
+        assert!(!is_valid_slug("Le"));
+        assert!(is_name_too_long(&"a".repeat(101)));
+        assert!(!is_name_too_long(&format!("  {}  ", "a".repeat(100))));
+    }
+}
+
+/// What the user hears of a room (web `NotificationLevel`): every message, mentions only, or
+/// nothing.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum NotificationLevel {
+    #[default]
+    All,
+    Mentions,
+    None,
 }

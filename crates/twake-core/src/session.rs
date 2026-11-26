@@ -83,7 +83,8 @@ pub fn forget() {
     }
 }
 
-fn data_dir() -> PathBuf {
+/// The folder of this device's data (per profile in development).
+pub fn data_dir() -> PathBuf {
     let base = directories::ProjectDirs::from("app", "Linagora", "Twake Chat")
         .map(|dirs| dirs.data_local_dir().to_path_buf())
         .unwrap_or_else(|| std::env::temp_dir().join("twake-chat"));

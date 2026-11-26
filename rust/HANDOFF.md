@@ -37,6 +37,127 @@ M3:
 - Spaces: a rail of the top-level spaces filters the room list; chips All / Unread / People /
   Rooms.
 - Deleting a message now asks first.
+- Media, Links and Files (2026-11-25), as the web's `SharedContent`: tabs of the room info
+  after Members (a direct message has the three only), from the messages of the open room
+  (`computeSharedContent`), so they grow as its history is loaded. Media: a grid of three,
+  a picture opens in the viewer, a video in the system's player (no first frame drawn);
+  Links: the cached preview's title when there is one, a click opens the link; Files: name,
+  size and day (dd/mm/yy), a click saves it. Not yet: the GIFs of a room that has them off
+  stay shown (that switch comes with M6), the viewer shows one picture, not the room's.
+- Delete chat (2026-11-25), as the web's `deleteChat` (D186): « Delete chat » at the foot of
+  the room info asks first (the web's words), then writes `app.twake.chat.deleted_chats`
+  (shared with the web) with the later of now and the room's last activity, and marks the
+  room read; the notice says « Chat deleted » with Undo until another room opens. The room
+  leaves the list until something newer (`isChatHidden`); its timeline keeps what came
+  after (`withoutDeleted`, events too, empty days dropped) under « You deleted the earlier
+  messages on … »; search skips what came before (`isAfterDeletion`). Not like the web
+  yet: that line is pinned above the timeline, the web shows it at the head of the
+  history; the room list has no menu of its own to delete from. Not tried in a run.
+- Report and block (2026-11-25), as the web's header and message menus: « Report room »
+  (« Report » in a direct message) at the foot of the room info, « Report » in the menu of
+  someone else's message; both ask with the web's words and an optional reason, then say « Room
+  reported » / « Message reported ». « Block user » in a direct message asks, then ignores
+  the person (`m.ignored_user_list`: the server stops sending their events); nothing said
+  after, as the web. Unblocking comes with the settings (M7). Not tried in a run.
+- Message menu (2026-11-25), as the web's `MessageToolbar`: hovering a message shows the
+  quick reactions, Reply and « ⋯ », which opens the rest in the web's sections (Reply, Copy
+  message, Pin, Download file · Reply in thread, Edit · Copy link, Save · Report, Delete).
+  Copy link copies a matrix.to link (ADR-020). Not yet in it: Select, Translate and the
+  assistant. Not opened in a run.
+- Edit history (2026-11-25), as the web's `readMessageVersions` and
+  `MessageVersionsDialog`: « Edit history » in the menu of a corrected message; the first
+  text, then each correction by its author (the server's `m.replace` relations, decrypted,
+  100 at most; the edit the timeline holds when the server cannot answer), shown newest
+  first with « · current » on the newest; « The edit history could not be loaded. » when
+  nothing comes back. Not opened in a run.
+- Select several (2026-11-25), as the web's `MessageSelectionBar` (D183): « Select » in a
+  message's menu ticks it and turns the top of the conversation into a dark bar
+  (« 3 messages selected », « 2 files » when all are files); a click on a message ticks or
+  unticks it (`isSelectable`: on the server, not deleted). Forward (not with a poll),
+  Download the files, Copy (author, day and time, then the text, in timeline order),
+  Pin / Unpin all in one update of the pinned list, Delete the user's own after one
+  confirmation; ✕ leaves. Not like the web yet: Escape does not leave the mode, a
+  moderator cannot delete others' messages (anywhere in the app yet). Not tried in a run.
+- Seen (2026-11-25), as the web's `ReadTicks` and `message-seen` with its default style
+  (« ticks », D470): one's own message shows ✓ once on the server, ✓✓ in the primary colour
+  once someone read it; outside a direct message, its menu says « N Seen », which opens
+  « Seen by » (each reader and the time of their receipt). Each member's receipt comes
+  from the SDK's timeline (moved to the visible message before a reaction or a state, as
+  the web's `lastReadersOf`), the sender of a message left out; their names are read once
+  from the room's members. The web's other styles (avatars, names under messages) come
+  with the M7 settings. Not tried in a run.
+- Room access (2026-11-25), as the web's `AccessLine` and `RoomAccessSettings` (D516): the
+  room info says who may join under its member count (« Private · Invite only », « Private ·
+  On request », « Public », « Space members »; not in a direct message); its Edit view offers
+  « Who can join » and « In directory », the rule sent before the listing; an encrypted room
+  is never offered Public nor the listing unless it has them (D187); a space's rule is told,
+  never replaced. The public web page (D388) is still to do. Not tried in a run.
+- Public groups (2026-11-25), as the web's `PublicRoomsDialog` (D42): 🪐 in the search field
+  of the room list opens the spotlight of the homeserver's directory (read whole, 100 a page,
+  1000 at most): the rooms not joined, found by name (accents and case ignored), « Join · N
+  members » or « Ask to join · … » for a room on request; Enter or a press joins and opens
+  it, or sends the request (« Request sent »). Not tried in a run.
+- Move to a Space (2026-11-25), as the web's `MoveToSpaceDialog` and `moveRoomToSpace`: in
+  the room info of a room the user may edit (not a direct message), « Move to a Space »
+  lists « No space » and the spaces where the user may add rooms, sub-spaces under their
+  space (`buildSpaceChoices`, unit tested), the current one checked. Moving reads the links
+  from both ends (`m.space.parent` of the room, `m.space.child` of the joined spaces), refuses
+  before writing what the user may not do, writes what is missing, makes a restricted room's
+  rule follow its new space (invite or knock when none is left), then removes every other
+  link (best effort for a space the app has not joined). `canMoveToSpace` has no recorded
+  case of its typed shape: unit tested, not in `ported.txt`. Not tried in a run.
+- Create (2026-11-25), as the web's `CreatePage` kinds and `buildCreateRoomOptions`: « + Room »
+  now picks Group, Feed (only moderators post), Space (it comes with its General channel,
+  suggested in it), Voice room or Broadcast (who may follow: anyone with a public page,
+  invited people, or after approval; followers' reactions; the address of its page,
+  suggested from the name with `suggestSlug` and checked with `isValidSlug`). The power
+  levels are now the web's: every member joins a call, answers a bot, votes, resolves a
+  thread and answers the assistant's request, only an owner publishes the page; a public
+  room is never encrypted, a Broadcast on approval is listed. Not yet: creating inside a
+  space, the contacts of the Create page (M6); a voice room opens as any room (no voice room
+  behaviour in the app yet). Not tried in a run.
+- Offline and failed sends (2026-11-25, M7), as the web's `OfflineBanner` and
+  `message-failed`: the sync service runs in its offline mode, so a failed sync waits for
+  the server (checking `/versions`) and comes back by itself; meanwhile a warning band says
+  « You are offline. The chat will update when the connection is back. ». A message that
+  failed says « Not sent. » with Retry (the send queue unwedged) and Discard (its local
+  echo aborted). Not yet: a file going up shows no progress nor Cancel. Not tried in a run
+  (it needs the server cut off).
+
+M6, first part (2026-11-25):
+- Device verification, as the web's `DeviceVerificationDialog` without its QR codes: « Verify
+  with another device » beside the recovery key asks the user's other devices; a request from
+  another of the user's devices opens « Verify a new device » (Verify / Not now). Once ready,
+  the device that asked starts the emoji comparison (SAS), the other accepts it; the seven
+  emojis with their names (or the three numbers when the other device shows none), « They
+  match » / « They differ »; « Device verified » or « Verification stopped ». One at a time;
+  the requests of other people are not heard. Not tried in a run (it needs two devices).
+- Settings (2026-11-25, M7, first part), as the web's `AppearanceSettings`: « Settings… »
+  in the app menu (macOS' preferences place) opens Appearance: the theme (as the system,
+  light, dark; kept in `display.json` of the data folder, as the web keeps it in the
+  browser, applied with Slint's `Palette.color-scheme`); the composer (new, or classic:
+  the formats bar always shown; kept in the account data, shared with the web); « Autoplay
+  animated images » (account data, as before only read). Not like the web yet: the classic
+  composer keeps the new one's layout with its bar shown (the web puts the Send button
+  beside the field); the rest of Appearance and the other sections. Not opened in a run.
+- Notifications of a room (2026-11-25), as the web's `info.levelChoice`: the room info of
+  any member says what they hear of it, « Every message », « Mentions only » or « Nothing »,
+  with the web's help line; the user's own choice in the push rules, else the server's
+  default for a room of its kind (encrypted or not, of two people or more); a change goes
+  through matrix-sdk's notification settings. Not tried in a run.
+- Room row menu (2026-11-25), as the web's `RoomRowMenu`: « ⋯ » on a hovered row: Mark as
+  read / unread (MSC2867), Mute / Unmute, Pin / Unpin (the `m.favourite` tag; pinned rooms
+  first, 📌), Leave or, for a direct message, Delete chat (both ask first); muted rooms show
+  🔕. Not yet: Select (bulk actions on rooms). Not tried in a run.
+- Forward (2026-11-25), as the web's `ForwardDialog` and `saveForward`: « Forward » in the
+  menu opens « Forward to… », a search (accents and case ignored) over the other
+  conversations, labelled with their space, 50 at most; tick one or more, Forward, and the
+  notice says « Forwarded to … » in the order picked. The engine sends the message as shown
+  (its latest edit), from the room's or the open thread's timeline, without its reply,
+  mentions, bot command or the app's own marks (`toForwardedContent`, unit tested; an
+  encrypted file keeps its key). Not like the web yet: rooms that were replaced or whose
+  person left are not left out (the room list does not know it), GIFs go even to a room
+  that has them off (M6). Not tried in a run.
 
 M4, first part (2026-11-20):
 
@@ -99,8 +220,8 @@ M5 (first part, calls, ADR-018):
   Secret project).
 - The room header offers « 📞 Call » and « 🎥 Video », or « Join the call (n people) » when a
   call goes on. In a call the stage takes the width (grid of 16:9 tiles, the web's
-  `tileWidth`), the conversation a 380 px column; a band offers « Back to the call » from
-  another room.
+  `tileWidth`), the conversation a 380 px column. Leaving the room floats the call (see
+  « Call window » below).
 - Ringing: whoever starts a call sends a ring (MSC4075, in the clear even in an encrypted
   room, as the web); the others get a banner « alice is calling you in Design » with Decline
   and Answer (web rules `ringAsks`, `isRinging`). A decline tells the caller (« Call
@@ -121,6 +242,28 @@ M5 (first part, calls, ADR-018):
   speaking ring only), so neither does the app. The ordering is tested
   (`call::tests::puts_the_first_screen_on_the_stage`); the layout was not looked at, as no
   screen was shared in a run.
+- Device menus (2026-11-25), as the web's `CallDeviceMenu`: « ▴ » beside the microphone lists
+  the microphones and speakers, beside the camera the cameras, read at each opening; the one
+  in use checked (`currentDeviceId`: the one picked, else the system's default, the first);
+  a click switches it during the call (LiveKit's `PlatformAudio`; the camera reopens on the
+  new one). A system that gives no speakers shows no Speaker section (web). Not tried with
+  two real devices in a run; a camera is known by its index, so unplugging one may move the
+  pick to the next. The web's background choices under the camera come with the blur.
+- Call window (2026-11-25), as the web's `FloatingCall` and `CallWindow` (D571): leaving the
+  room of the call, or « ⧉ Detach the call » in its controls, floats the call in a window
+  over the app; coming back to the room does not put it back (`placeCall`,
+  `isCallFloating`). Dragged by its bar, resized by its edges and corners, never smaller
+  than 320 × 260 nor out of the app (`fitWindow`, `moveWindow`, `resizeWindow`); its menu
+  « Move and resize » offers Full screen (back in the room) and the four corners
+  (`placeInCorner`). Where it was left is kept in `call-window.json` of the data folder
+  (web `localStorage`), read with `parseCallWindow`; the first time it opens above the
+  composer on the right (`defaultCallWindow`). Below 900 px wide the app shows a band with
+  Expand and Leave instead (web: a phone). The window was not dragged in a run (no
+  automated pointer moves), only built and its rules replayed.
+- Pop-out (2026-11-25, ADR-019): « Pop out of the app » in the window's menu opens the call
+  in a window of its own that stays above the others, at the window's size; the app shows
+  the band meanwhile, and closing the pop-out (or Expand) brings the call back. No
+  automatic pop-out. Not opened in a run.
 - Two apps (alice, bob) joined the same call in a clear room and in an encrypted one; in the
   encrypted one each device sent its key to the other and received the other's. Leaving or
   quitting empties the membership (delayed leave).
@@ -158,7 +301,7 @@ Seeds: `dev/seed.sh`, `dev/seed-media.py`, `dev/seed-m2.py`, `dev/seed-large.sh`
 
 - Calls: not heard or seen. Mic sound and the decryption of the media were not checked (no
   one spoke), and the camera never opened: macOS gives no answer to an unbundled debug
-  binary (needs `NSCameraUsageDescription`, M8). No device menus, raised hands, call window, background blur (rest of M5). The
+  binary (needs `NSCameraUsageDescription`, M8). No raised hands, captions, background blur (rest of M5). The
   membership is not renewed after 4 h; a membership left by a crash is not cleared at start
   (the web's `#leaveVanishedCalls`); the old « encrypted » flag of a call is ignored (the
   room decides). The composer is cramped in the 380 px column.
@@ -228,4 +371,5 @@ M4 is done apart from the gaps above (the GIF picker moved to M6: it goes throug
 twake-common-proxy). M5 has started: joining calls with audio, camera and E2EE keys works
 on the local stack, and so do ringing, declining, the call line and the call thread. Screen
 share is built but not yet seen working (it needs someone to answer the system's picker).
-Next are the device menus. See rust/PLAN.md.
+Next in M5: raised hands and captions through Meet, then background blur. See
+rust/PLAN.md.

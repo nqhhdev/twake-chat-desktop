@@ -6,12 +6,18 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use slint::{Model, VecModel};
-use twake_core::{CallStatus, CallTile, Command, IncomingCall, Picture};
+use slint::{ComponentHandle, Model, VecModel};
+use twake_core::{
+    CallDeviceList, CallStatus, CallTile, Command, DeviceKind, IncomingCall, Picture,
+};
 use twake_domain::TimelineEntry;
 
 use crate::view::{initials, tint};
-use crate::{AppWindow, CallTileRow, STATE, send};
+use twake_domain::call_window::{self as cw, CallPlacement, WindowRect, WindowViewport};
+
+use crate::{
+    AppWindow, CallPopOut, CallTileRow, CallWindowRect, DeviceRow, DeviceSection, STATE, send,
+};
 
 /// Room between tiles (as in call.slint, web `TILE_GAP`).
 const TILE_GAP: f32 = 8.0;
@@ -37,10 +43,16 @@ struct CallUi {
     call_thread: Option<String>,
     channel_shown_for: Option<String>,
     thread_opened_for: Option<String>,
+    /// Where the call shows: in its room or in its window (web `callPlacement`, D571).
+    placement: CallPlacement,
+    /// Where the window of the call was left, kept for the next call.
+    window_rect: Option<WindowRect>,
 }
 
 thread_local! {
     static CALL: RefCell<CallUi> = RefCell::new(CallUi::default());
+    /// The call out of the app, in a window of its own (web `PipCall`).
+    static POP_OUT: RefCell<Option<CallPopOut>> = const { RefCell::new(None) };
 }
 
 /// The width of the largest 16:9 tiles that fit `count` tiles in `width` × `height`,
@@ -60,8 +72,236 @@ pub fn tile_width(count: i32, width: f32, height: f32) -> f32 {
 pub fn install(window: &AppWindow) {
     let tiles = Rc::new(VecModel::<CallTileRow>::default());
     window.set_call_tiles(slint::ModelRc::from(tiles.clone()));
-    CALL.with_borrow_mut(|c| c.tiles = Some(tiles));
+    let kept = std::fs::read_to_string(window_file()).ok();
+    CALL.with_borrow_mut(|c| {
+        c.tiles = Some(tiles);
+        c.window_rect = cw::parse_call_window(kept.as_deref());
+    });
     window.on_call_tile_width(tile_width);
+    // The window of the call follows the domain's rules (web `FloatingCall`)
+    let weak = window.as_weak();
+    window.on_call_window_moved(move |from, dx, dy| {
+        let Some(w) = weak.upgrade() else { return from };
+        to_slint(cw::move_window(
+            to_domain(from),
+            f64::from(dx),
+            f64::from(dy),
+            area(&w),
+        ))
+    });
+    let weak = window.as_weak();
+    window.on_call_window_resized(move |from, edge, dx, dy| {
+        let Some(w) = weak.upgrade() else { return from };
+        let (dx, dy) = (f64::from(dx), f64::from(dy));
+        to_slint(cw::resize_window(to_domain(from), &edge, dx, dy, area(&w)))
+    });
+    let weak = window.as_weak();
+    window.on_call_window_cornered(move |from, corner| {
+        let Some(w) = weak.upgrade() else { return from };
+        to_slint(cw::place_in_corner(to_domain(from), &corner, area(&w)))
+    });
+    // Whole in the app, as it is resized (web: on `resize`)
+    let weak = window.as_weak();
+    window.on_call_window_fitted(move |rect| {
+        let Some(w) = weak.upgrade() else { return rect };
+        to_slint(cw::fit_window(to_domain(rect), area(&w)))
+    });
+    let weak = window.as_weak();
+    window.on_call_window_chosen(move |rect| {
+        if let Some(w) = weak.upgrade() {
+            choose_window(&w, to_domain(rect));
+        }
+    });
+}
+
+/// The file the window of the call is kept in (web `localStorage`).
+fn window_file() -> std::path::PathBuf {
+    twake_core::data_dir().join("call-window.json")
+}
+
+fn to_domain(rect: CallWindowRect) -> WindowRect {
+    WindowRect {
+        x: f64::from(rect.x),
+        y: f64::from(rect.y),
+        width: f64::from(rect.width),
+        height: f64::from(rect.height),
+    }
+}
+
+#[allow(clippy::cast_possible_truncation)]
+fn to_slint(rect: WindowRect) -> CallWindowRect {
+    CallWindowRect {
+        x: rect.x as f32,
+        y: rect.y as f32,
+        width: rect.width as f32,
+        height: rect.height as f32,
+    }
+}
+
+/// The app's window, in logical pixels: the window of the call stays whole in it.
+fn area(window: &AppWindow) -> WindowViewport {
+    let w = window.window();
+    let size = w.size().to_logical(w.scale_factor());
+    WindowViewport {
+        width: f64::from(size.width),
+        height: f64::from(size.height),
+    }
+}
+
+/// The user moved or resized the window: it stays so, for this call and the next.
+fn choose_window(window: &AppWindow, rect: WindowRect) {
+    CALL.with_borrow_mut(|c| c.window_rect = Some(rect));
+    window.set_call_window(to_slint(rect));
+    // No folder or no disk: the place lasts as long as the app (web). The numbers are
+    // finite: fitted to the app's window
+    let text = format!(
+        r#"{{"x":{},"y":{},"width":{},"height":{}}}"#,
+        rect.x, rect.y, rect.width, rect.height
+    );
+    let file = window_file();
+    if let Some(folder) = file.parent() {
+        let _ = std::fs::create_dir_all(folder);
+    }
+    let _ = std::fs::write(file, text);
+}
+
+/// What the screen shows now: leaving the room of the call detaches it, coming back does
+/// not put it back (web `notePlacement`, `placeCall`).
+pub fn note_placement(window: &AppWindow) {
+    let shown = STATE.with_borrow(|s| s.current_room.clone());
+    let shown = (!shown.is_empty()).then_some(shown);
+    let floating = CALL.with_borrow_mut(|c| {
+        c.placement = cw::place_call(&c.placement, shown.as_deref(), c.room.as_deref());
+        cw::is_call_floating(&c.placement, c.room.as_deref())
+    });
+    set_floating(window, floating);
+}
+
+fn set_floating(window: &AppWindow, floating: bool) {
+    if floating {
+        // Where it was left, or its first place (web `readWindow`)
+        let rect = CALL
+            .with_borrow(|c| c.window_rect)
+            .unwrap_or_else(|| cw::default_call_window(area(window)));
+        window.set_call_window(to_slint(cw::fit_window(rect, area(window))));
+    }
+    window.set_call_floating(floating);
+}
+
+/// « Detach the call »: it floats while its room stays shown (web `detachCall`).
+pub fn detach(window: &AppWindow) {
+    CALL.with_borrow_mut(|c| c.placement.detached_room_id = c.room.clone());
+    set_floating(window, true);
+}
+
+/// « Pop out of the app »: the call in a window of its own above the others, at the size
+/// of its window in the app (web `popOutCall`, D618).
+#[allow(clippy::cast_possible_truncation)]
+pub fn pop_out(window: &AppWindow) {
+    if POP_OUT.with_borrow(Option::is_some) {
+        return;
+    }
+    let Ok(pop) = CallPopOut::new() else {
+        return;
+    };
+    let rect = CALL
+        .with_borrow(|c| c.window_rect)
+        .unwrap_or_else(|| cw::default_call_window(area(window)));
+    pop.window().set_size(slint::LogicalSize::new(
+        rect.width as f32,
+        rect.height as f32,
+    ));
+    pop.set_tiles(window.get_call_tiles());
+    pop.on_tile_width(tile_width);
+    let weak = window.as_weak();
+    pop.on_toggle_microphone(move || {
+        if let Some(w) = weak.upgrade() {
+            toggle_microphone(&w);
+        }
+    });
+    let weak = window.as_weak();
+    pop.on_toggle_camera(move || {
+        if let Some(w) = weak.upgrade() {
+            toggle_camera(&w);
+        }
+    });
+    let weak = window.as_weak();
+    pop.on_toggle_screen(move || {
+        if let Some(w) = weak.upgrade() {
+            toggle_screen(&w);
+        }
+    });
+    let weak = window.as_weak();
+    pop.on_open_devices(move |which| {
+        if let Some(w) = weak.upgrade() {
+            open_devices(&w, &which);
+        }
+    });
+    let weak = window.as_weak();
+    pop.on_pick_device(move |kind, id| {
+        if let Some(w) = weak.upgrade() {
+            pick_device(&w, &kind, &id);
+        }
+    });
+    let weak = window.as_weak();
+    pop.on_leave(move || {
+        if let Some(w) = weak.upgrade() {
+            leave(&w);
+        }
+    });
+    // Closed by the user: the call comes back, once out of the window's own handler
+    let weak = window.as_weak();
+    pop.window().on_close_requested(move || {
+        let weak = weak.clone();
+        slint::Timer::single_shot(std::time::Duration::ZERO, move || {
+            if let Some(w) = weak.upgrade() {
+                bring_back(&w);
+            }
+        });
+        slint::CloseRequestResponse::HideWindow
+    });
+    if pop.show().is_err() {
+        return;
+    }
+    POP_OUT.with_borrow_mut(|p| *p = Some(pop));
+    window.set_call_popped_out(true);
+    mirror(window);
+}
+
+/// The call back into the app: its window closed, the call ended, or « Expand ».
+pub fn bring_back(window: &AppWindow) {
+    if let Some(pop) = POP_OUT.with_borrow_mut(Option::take) {
+        let _ = pop.hide();
+    }
+    window.set_call_popped_out(false);
+}
+
+/// The window out of the app shows what the app knows of the call; the tiles are shared.
+pub fn mirror(window: &AppWindow) {
+    POP_OUT.with_borrow(|pop| {
+        let Some(pop) = pop else { return };
+        pop.set_room_name(window.get_call_room_name());
+        pop.set_status(window.get_call_status());
+        pop.set_encrypted(window.get_call_encrypted());
+        pop.set_microphone(window.get_call_microphone());
+        pop.set_camera(window.get_call_camera());
+        pop.set_sharing(window.get_call_sharing());
+        pop.set_device_menu(window.get_call_device_menu());
+        pop.set_device_sections(window.get_call_device_sections());
+    });
+}
+
+/// « Full screen », « Expand »: the call back in its room, shown (web `expandCall`).
+pub fn expand(window: &AppWindow) {
+    bring_back(window);
+    let room = CALL.with_borrow_mut(|c| {
+        c.placement.detached_room_id = None;
+        c.room.clone()
+    });
+    if let Some(room) = room {
+        window.invoke_open_room(room.into());
+    }
+    note_placement(window);
 }
 
 /// The people of the call of a room changed.
@@ -115,6 +355,7 @@ pub fn start(window: &AppWindow, video: bool) {
     window.set_call_microphone(true);
     window.set_call_camera(video);
     window.set_in_call(true);
+    note_placement(window);
     // The chat of a call started in a channel goes to a thread of its own (D105)
     let is_direct = STATE.with_borrow(|s| {
         s.rooms
@@ -185,11 +426,82 @@ fn clear(window: &AppWindow) {
     window.set_in_call(false);
     window.set_call_room_id("".into());
     window.set_call_status("".into());
+    bring_back(window);
+    note_placement(window);
 }
 
 pub fn leave(window: &AppWindow) {
     send(Command::LeaveCall);
+    window.set_call_device_menu("".into());
     clear(window);
+}
+
+/// Opens a device menu, read at each opening: one may have been plugged in since (web
+/// `loadDeviceMenu`). "audio": microphones and speakers; "video": cameras; "": closes.
+pub fn open_devices(window: &AppWindow, which: &str) {
+    window.set_call_device_menu(which.into());
+    window.set_call_device_sections(slint::ModelRc::default());
+    mirror(window);
+    let kinds = match which {
+        "audio" => vec![DeviceKind::Microphone, DeviceKind::Speaker],
+        "video" => vec![DeviceKind::Camera],
+        _ => return,
+    };
+    send(Command::CallDevices(kinds));
+}
+
+/// The devices of the menu open, read by the engine.
+pub fn devices(window: &AppWindow, lists: Vec<CallDeviceList>) {
+    if window.get_call_device_menu().is_empty() {
+        return;
+    }
+    let sections: Vec<DeviceSection> = lists.into_iter().filter_map(device_section).collect();
+    window.set_call_device_sections(Rc::new(VecModel::from(sections)).into());
+}
+
+fn device_section(list: CallDeviceList) -> Option<DeviceSection> {
+    let (kind, title) = match list.kind {
+        DeviceKind::Microphone => ("microphone", "Microphone"),
+        DeviceKind::Speaker => ("speaker", "Speaker"),
+        DeviceKind::Camera => ("camera", "Camera"),
+    };
+    // A system that cannot choose its output says nothing about it (web)
+    if list.devices.is_empty() && list.kind == DeviceKind::Speaker {
+        return None;
+    }
+    let rows: Vec<DeviceRow> = list
+        .devices
+        .iter()
+        .enumerate()
+        .map(|(rank, (id, name))| DeviceRow {
+            checked: list.active_id.as_deref() == Some(id.as_str()),
+            // Without the permission a device has no name (web)
+            label: if name.is_empty() {
+                format!("{title} {}", rank + 1).into()
+            } else {
+                name.as_str().into()
+            },
+            id: id.as_str().into(),
+        })
+        .collect();
+    Some(DeviceSection {
+        kind: kind.into(),
+        title: title.into(),
+        rows: Rc::new(VecModel::from(rows)).into(),
+    })
+}
+
+/// Uses a device of a menu from now on, and closes the menu.
+pub fn pick_device(window: &AppWindow, kind: &str, id: &str) {
+    window.set_call_device_menu("".into());
+    mirror(window);
+    let kind = match kind {
+        "microphone" => DeviceKind::Microphone,
+        "speaker" => DeviceKind::Speaker,
+        "camera" => DeviceKind::Camera,
+        _ => return,
+    };
+    send(Command::CallSwitchDevice(kind, id.to_string()));
 }
 
 pub fn toggle_microphone(window: &AppWindow) {
@@ -199,6 +511,7 @@ pub fn toggle_microphone(window: &AppWindow) {
     });
     window.set_call_microphone(on);
     send(Command::CallMicrophone(on));
+    mirror(window);
 }
 
 pub fn toggle_camera(window: &AppWindow) {
@@ -208,6 +521,7 @@ pub fn toggle_camera(window: &AppWindow) {
     });
     window.set_call_camera(on);
     send(Command::CallCamera(on));
+    mirror(window);
 }
 
 pub fn toggle_screen(window: &AppWindow) {
@@ -282,12 +596,6 @@ pub fn toggle_thread(window: &AppWindow) {
         window.invoke_close_thread();
     }
     refresh_thread(window);
-}
-
-pub fn go_to_call(window: &AppWindow) {
-    if let Some(room) = CALL.with_borrow(|c| c.room.clone()) {
-        window.invoke_open_room(room.into());
-    }
 }
 
 /// The calls that ring changed (web `useRingingRoom`).

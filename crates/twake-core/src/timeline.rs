@@ -48,42 +48,49 @@ pub async fn run(
         .map(|levels| levels.user_can_send_state(&own, StateEventType::RoomPinnedEvents))
         .unwrap_or(false);
     let (mut items, stream) = timeline.subscribe().await;
-    let send = |items: &Vector<Arc<TimelineItem>>| {
-        let ctx = Ctx {
-            own: own.clone(),
-            pinned: room
-                .pinned_event_ids()
-                .unwrap_or_default()
-                .into_iter()
-                .map(|id| id.to_string())
-                .collect(),
-            can_pin,
+    let mut readers = std::collections::HashMap::new();
+    let send =
+        |items: &Vector<Arc<TimelineItem>>,
+         readers: &std::collections::HashMap<OwnedUserId, (String, Option<String>)>| {
+            let ctx = Ctx {
+                readers: readers.clone(),
+                own: own.clone(),
+                pinned: room
+                    .pinned_event_ids()
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|id| id.to_string())
+                    .collect(),
+                can_pin,
+            };
+            let entries = map_items(items, &ctx);
+            // What the room holds now joins the search index (history pages included)
+            let indexed: Vec<twake_domain::search::IndexedMessage> = entries
+                .iter()
+                .filter_map(|entry| match entry {
+                    TimelineEntry::Message(m) => {
+                        twake_domain::search::to_indexed_message(&room_id, m)
+                    }
+                    _ => None,
+                })
+                .collect();
+            let pinned_count = ctx.pinned.len();
+            match &pane {
+                Pane::Main => emit(Event::Timeline {
+                    room_id: room_id.clone(),
+                    entries,
+                    pinned_count,
+                }),
+                Pane::Thread(root) => emit(Event::Thread {
+                    room_id: room_id.clone(),
+                    root_id: root.clone(),
+                    entries,
+                }),
+            }
+            indexed
         };
-        let entries = map_items(items, &ctx);
-        // What the room holds now joins the search index (history pages included)
-        let indexed: Vec<twake_domain::search::IndexedMessage> = entries
-            .iter()
-            .filter_map(|entry| match entry {
-                TimelineEntry::Message(m) => twake_domain::search::to_indexed_message(&room_id, m),
-                _ => None,
-            })
-            .collect();
-        let pinned_count = ctx.pinned.len();
-        match &pane {
-            Pane::Main => emit(Event::Timeline {
-                room_id: room_id.clone(),
-                entries,
-                pinned_count,
-            }),
-            Pane::Thread(root) => emit(Event::Thread {
-                room_id: room_id.clone(),
-                root_id: root.clone(),
-                entries,
-            }),
-        }
-        indexed
-    };
-    let indexed = send(&items);
+    fill_readers(&room, &items, &mut readers).await;
+    let indexed = send(&items, &readers);
     if let Some(index) = &index {
         index.save(&room_id, indexed).await;
     }
@@ -92,7 +99,8 @@ pub async fn run(
         for diff in diffs {
             diff.apply(&mut items);
         }
-        let indexed = send(&items);
+        fill_readers(&room, &items, &mut readers).await;
+        let indexed = send(&items, &readers);
         if let Some(index) = &index {
             index.save(&room_id, indexed).await;
         }
@@ -104,6 +112,31 @@ pub struct Ctx {
     pub own: OwnedUserId,
     pub pinned: HashSet<String>,
     pub can_pin: bool,
+    /// The name and picture of the members whose receipts the items hold.
+    pub readers: std::collections::HashMap<OwnedUserId, (String, Option<String>)>,
+}
+
+/// The name and picture of each member with a read receipt on `items`, read once and kept.
+async fn fill_readers(
+    room: &matrix_sdk::Room,
+    items: &Vector<Arc<TimelineItem>>,
+    known: &mut std::collections::HashMap<OwnedUserId, (String, Option<String>)>,
+) {
+    let wanted: HashSet<OwnedUserId> = items
+        .iter()
+        .filter_map(|item| item.as_event())
+        .flat_map(|event| event.read_receipts().keys().cloned())
+        .filter(|user| !known.contains_key(user))
+        .collect();
+    for user in wanted {
+        let member = room.get_member_no_sync(&user).await.ok().flatten();
+        let name = member
+            .as_ref()
+            .and_then(|m| m.display_name().map(str::to_string))
+            .unwrap_or_else(|| user.to_string());
+        let avatar = member.and_then(|m| m.avatar_url().map(|u| u.to_string()));
+        known.insert(user, (name, avatar));
+    }
 }
 
 pub fn map_items(items: &Vector<Arc<TimelineItem>>, ctx: &Ctx) -> Vec<TimelineEntry> {
@@ -287,6 +320,7 @@ fn map_event(event: &EventTimelineItem, ctx: &Ctx) -> Option<TimelineEntry> {
                 is_pinned: false,
                 can_pin: false,
                 is_call_thread_root: false,
+                read_receipts: read_receipts(event, ctx),
             };
             match &msg_like.kind {
                 MsgLikeKind::Message(m) => {
@@ -375,6 +409,30 @@ fn map_event(event: &EventTimelineItem, ctx: &Ctx) -> Option<TimelineEntry> {
         }
         _ => None,
     }
+}
+
+/// The others whose receipt stops at `event` (the SDK moves a receipt on an event that is no
+/// message to the visible one before it, as the web's `lastReadersOf`): not the user, not
+/// the sender, whose own message says they were there.
+fn read_receipts(event: &EventTimelineItem, ctx: &Ctx) -> Vec<twake_domain::ReadReceipt> {
+    event
+        .read_receipts()
+        .iter()
+        .filter(|(user, _)| **user != ctx.own && *user != event.sender())
+        .map(|(user, receipt)| {
+            let (name, avatar_url) = ctx
+                .readers
+                .get(user)
+                .cloned()
+                .unwrap_or_else(|| (user.to_string(), None));
+            twake_domain::ReadReceipt {
+                user_id: user.to_string(),
+                name,
+                avatar_url,
+                read_at: receipt.ts.map(|ts| i64::from(ts.0)),
+            }
+        })
+        .collect()
 }
 
 fn send_status(event: &EventTimelineItem) -> Option<SendStatus> {

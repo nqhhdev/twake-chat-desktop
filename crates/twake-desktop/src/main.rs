@@ -7,13 +7,19 @@ mod activity;
 mod audio;
 mod call;
 mod composer;
+mod deleted;
 mod dev;
+mod directory;
 mod formats;
+mod forward;
 mod gifs;
 mod icons;
 mod pdf;
 mod previews;
 mod search;
+mod selection;
+mod settings;
+mod shared;
 mod staged;
 mod switcher;
 mod view;
@@ -62,6 +68,11 @@ struct UiState {
     members_model: Rc<VecModel<MemberRow>>,
     /// The command a confirmation dialog runs on « yes ».
     pending: Option<Command>,
+    /// The commands sent with `pending` once confirmed (several messages deleted at once).
+    pending_more: Vec<Command>,
+    /// The chats deleted for the user alone (D186), and the one « Undo » brings back.
+    deleted: twake_domain::deleted_chats::DeletedChats,
+    undo_room: Option<String>,
     /// Spaces, the one the room list shows ("" for all) and its filter chip.
     spaces: Vec<twake_domain::SpaceSummary>,
     spaces_model: Rc<VecModel<SpaceItem>>,
@@ -104,6 +115,9 @@ impl Default for UiState {
             details: None,
             members_model: Rc::new(VecModel::default()),
             pending: None,
+            pending_more: Vec::new(),
+            deleted: Default::default(),
+            undo_room: None,
             spaces: Vec::new(),
             spaces_model: Rc::new(VecModel::default()),
             current_space: String::new(),
@@ -296,6 +310,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let _ = slint::invoke_from_event_loop(move || {
             if let Some(window) = weak.upgrade() {
                 apply(&window, event);
+                call::mirror(&window);
             }
         });
     }));
@@ -332,6 +347,12 @@ fn main() -> Result<(), slint::PlatformError> {
                 s.details = None;
             });
             if let Some(w) = weak.upgrade() {
+                selection::reset(&w);
+                if !w.get_notice_action().is_empty() {
+                    STATE.with_borrow_mut(|s| s.undo_room = None);
+                    w.set_notice("".into());
+                    w.set_notice_action("".into());
+                }
                 w.set_current_room_id(room_id.clone());
                 w.set_history_complete(false);
                 w.set_history_prepended(false);
@@ -345,6 +366,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 audio::stop(&w);
                 gifs::clear();
                 call::refresh_header(&w);
+                call::note_placement(&w);
                 w.set_activity_open(false);
                 search::reset(&w);
             }
@@ -359,6 +381,9 @@ fn main() -> Result<(), slint::PlatformError> {
     audio::install(&window);
     gifs::install(&window);
     call::install(&window);
+    shared::install(&window);
+    forward::install(&window);
+    settings::install(&window);
     {
         let weak = window.as_weak();
         window.on_composer_unstage(move |thread, index| {
@@ -799,9 +824,33 @@ fn main() -> Result<(), slint::PlatformError> {
             }
         });
         let weak = window.as_weak();
-        window.on_go_to_call(move || {
+        window.on_call_detach(move || {
             if let Some(w) = weak.upgrade() {
-                call::go_to_call(&w);
+                call::detach(&w);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_call_pop_out(move || {
+            if let Some(w) = weak.upgrade() {
+                call::pop_out(&w);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_call_expand(move || {
+            if let Some(w) = weak.upgrade() {
+                call::expand(&w);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_call_open_devices(move |which| {
+            if let Some(w) = weak.upgrade() {
+                call::open_devices(&w, &which);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_call_pick_device(move |kind, id| {
+            if let Some(w) = weak.upgrade() {
+                call::pick_device(&w, &kind, &id);
             }
         });
         let weak = window.as_weak();
@@ -828,6 +877,124 @@ fn main() -> Result<(), slint::PlatformError> {
     }
     window.on_viewer_save(viewer::save);
     window.on_viewer_external(viewer::open_external);
+    {
+        // The text of a message, or the link to it, to the clipboard (web `copyText`,
+        // `copyLink`); the link is matrix.to's, the app having no address of its own (ADR-020)
+        let weak = window.as_weak();
+        window.on_copy_message(move |text| {
+            if let Some(w) = weak.upgrade() {
+                copy_to_clipboard(&w, &text, "Message copied");
+            }
+        });
+        let weak = window.as_weak();
+        window.on_forward_message(move |id| {
+            if let Some(w) = weak.upgrade() {
+                forward::open(&w, vec![id.to_string()]);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_select_message(move |id| {
+            if let Some(w) = weak.upgrade() {
+                selection::select(&w, &id);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_selection_close(move || {
+            if let Some(w) = weak.upgrade() {
+                selection::close(&w);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_selection_forward(move || {
+            if let Some(w) = weak.upgrade() {
+                selection::forward(&w);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_selection_download(move || {
+            if let Some(w) = weak.upgrade() {
+                selection::download(&w);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_selection_copy(move || {
+            if let Some(w) = weak.upgrade() {
+                selection::copy(&w);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_selection_pin(move || {
+            if let Some(w) = weak.upgrade() {
+                selection::pin(&w);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_selection_delete(move || {
+            if let Some(w) = weak.upgrade() {
+                selection::delete(&w);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_directory_open(move || {
+            if let Some(w) = weak.upgrade() {
+                directory::open(&w);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_directory_search(move |_| {
+            if let Some(w) = weak.upgrade() {
+                directory::search(&w);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_directory_choose(move |i| {
+            if let Some(w) = weak.upgrade() {
+                directory::choose(&w, usize::try_from(i).unwrap_or(0));
+            }
+        });
+        let weak = window.as_weak();
+        window.on_show_seen(move |id| {
+            if let Some(w) = weak.upgrade() {
+                show_seen(&w, &id);
+            }
+        });
+        window.on_show_versions(|id| {
+            send(Command::MessageVersions {
+                event_id: id.to_string(),
+            });
+        });
+        let weak = window.as_weak();
+        window.on_forward_filter_edited(move |_| {
+            if let Some(w) = weak.upgrade() {
+                forward::filter_edited(&w);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_forward_toggle(move |id| {
+            if let Some(w) = weak.upgrade() {
+                forward::toggle(&w, &id);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_forward_send(move || {
+            if let Some(w) = weak.upgrade() {
+                forward::send_forward(&w);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_forward_cancel(move || {
+            if let Some(w) = weak.upgrade() {
+                forward::cancel(&w);
+            }
+        });
+        let weak = window.as_weak();
+        window.on_copy_link(move |id| {
+            if let Some(w) = weak.upgrade() {
+                let link = twake_domain::permalink::message_permalink(&current_room(), &id);
+                copy_to_clipboard(&w, &link, "Link copied");
+            }
+        });
+    }
     window.on_save_attachment(|key, name| {
         send(Command::SaveAttachment {
             key: key.to_string(),
@@ -925,6 +1092,13 @@ fn apply(window: &AppWindow, event: Event) {
             if STATE.with_borrow(|s| s.current_room == room_id) {
                 window.set_current_room_name(name.into());
                 window.set_current_room_encrypted(is_encrypted);
+                // A direct message says nothing of who read what (web `!isDirect`)
+                let direct = STATE.with_borrow(|s| {
+                    s.rooms
+                        .iter()
+                        .any(|r| r.id == room_id && r.kind == twake_domain::RoomKind::Direct)
+                });
+                window.set_current_room_direct(direct);
             }
         }
         Event::Timeline {
@@ -993,9 +1167,12 @@ fn apply(window: &AppWindow, event: Event) {
         Event::CallMembers { room_id, user_ids } => call::members(window, room_id, &user_ids),
         Event::CallStatus { room_id, status } => call::status(window, &room_id, status),
         Event::CallTiles(tiles) => call::tiles(window, tiles),
+        Event::CallDevices(lists) => call::devices(window, lists),
         Event::Ringing(ringing) => call::ringing(window, ringing),
         Event::CallFrame { identity, picture } => call::frame(&identity, &picture),
         Event::Autoplay(enabled) => {
+            // Never chosen: on, as the web when the system asks for no reduced motion
+            window.set_autoplay(enabled != Some(false));
             if gifs::set_autoplay(enabled) {
                 redraw_messages(window);
                 viewer::refresh_animation(window);
@@ -1108,6 +1285,7 @@ fn apply(window: &AppWindow, event: Event) {
                 window.set_info_open(false);
                 window.set_current_room_id("".into());
                 close_thread(window);
+                call::note_placement(window);
             }
         }
         Event::Notify {
@@ -1128,6 +1306,22 @@ fn apply(window: &AppWindow, event: Event) {
                     .body(&body)
                     .show();
             });
+        }
+        Event::Forwarded { to_rooms } => forward::forwarded(window, &to_rooms),
+        Event::MessageVersions { versions, .. } => show_versions(window, &versions),
+        Event::PublicRooms(rooms) => directory::loaded(window, rooms),
+        Event::Connection { online } => window.set_offline(!online),
+        Event::Verification(phase) => show_verification(window, phase),
+        Event::ComposerStyle(style) => window.set_composer_style(style.into()),
+        Event::SpaceChoices { room_id, choices } => {
+            if STATE.with_borrow(|s| s.current_room == room_id) {
+                show_space_choices(window, &choices);
+            }
+        }
+        Event::DeletedChats(deleted) => {
+            STATE.with_borrow_mut(|s| s.deleted = deleted);
+            show_rooms(window);
+            redraw_messages(window);
         }
         Event::Notice(text) => {
             DEV.with_borrow(|d| d.stat(&format!("notice: {text}")));
@@ -1221,11 +1415,17 @@ fn show_rooms(window: &AppWindow) {
             pictures,
             asked,
             rooms_model,
+            deleted,
             ..
         } = s;
         let mut find = lookup(pictures, asked, &mut requests);
-        let rows: Vec<RoomRow> = rooms
+        let mut rows: Vec<RoomRow> = rooms
             .iter()
+            // A deleted chat stays out of the list until something newer (web `isChatHidden`)
+            .filter(|r| {
+                let last = r.last_activity.unwrap_or(0) as f64;
+                !twake_domain::deleted_chats::is_chat_hidden(deleted, &r.id, last)
+            })
             .filter(|r| filter.is_empty() || r.name.to_lowercase().contains(&filter))
             .filter(|r| space.as_ref().is_none_or(|ids| ids.contains(&r.id)))
             .filter(|r| match chip.as_str() {
@@ -1238,12 +1438,23 @@ fn show_rooms(window: &AppWindow) {
             })
             .map(|r| view::room_row(r, now, &mut find))
             .collect();
+        // Pinned rooms first, each group in its order (web « Pin »)
+        rows.sort_by_key(|r| !r.favourite);
         sync_model(rooms_model, rows);
     });
     requests.into_iter().for_each(send);
 }
 
 fn show_timeline(window: &AppWindow, entries: &[TimelineEntry]) {
+    // A chat deleted for the user: its history up to then is hidden (web `withoutDeleted`)
+    let (entries, notice) = STATE.with_borrow(|s| {
+        (
+            deleted::visible(entries, &s.current_room, &s.deleted),
+            deleted::notice(&s.current_room, &s.deleted),
+        )
+    });
+    let entries = &entries[..];
+    window.set_deleted_before(notice.into());
     let now = chrono::Utc::now().timestamp_millis();
     let encrypted = window.get_current_room_encrypted();
     let mut requests = Vec::new();
@@ -1275,6 +1486,7 @@ fn show_timeline(window: &AppWindow, entries: &[TimelineEntry]) {
         .into_iter()
         .map(|mut r| {
             r.saved = activity::is_saved(&r.id);
+            r.selected = selection::is_selected(&r.id);
             r.anim = gifs::slot(&r, view::DENSITY, &mut requests);
             r
         })
@@ -1301,6 +1513,7 @@ fn show_timeline(window: &AppWindow, entries: &[TimelineEntry]) {
         window.set_scroll_to_bottom(bump);
         send(Command::MarkRead);
     }
+    shared::show(window, entries);
 }
 
 /// The messages of the room and of the open thread, drawn again from what is kept.
@@ -1408,13 +1621,32 @@ fn ask(window: &AppWindow, message: &str, label: &str, command: Command) {
         command,
         Command::Delete { .. }
             | Command::Room {
-                action: RoomAction::Remove(..) | RoomAction::Ban(..),
+                action: RoomAction::Remove(..)
+                    | RoomAction::Ban(..)
+                    | RoomAction::Report(_)
+                    | RoomAction::ReportMessage(..),
                 ..
             }
     );
     window.set_confirm_with_reason(with_reason);
     window.set_confirm_reason("".into());
     STATE.with_borrow_mut(|s| s.pending = Some(command));
+    window.set_confirm_label(label.into());
+    window.set_confirm_message(message.into());
+}
+
+/// A confirmation for several commands sent together (no reason asked).
+fn ask_many(window: &AppWindow, message: &str, label: &str, mut commands: Vec<Command>) {
+    if commands.is_empty() {
+        return;
+    }
+    let first = commands.remove(0);
+    window.set_confirm_with_reason(false);
+    window.set_confirm_reason("".into());
+    STATE.with_borrow_mut(|s| {
+        s.pending = Some(first);
+        s.pending_more = commands;
+    });
     window.set_confirm_label(label.into());
     window.set_confirm_message(message.into());
 }
@@ -1437,8 +1669,146 @@ fn with_reason(command: Command, reason: Option<String>) -> Command {
             room_id,
             action: RoomAction::Ban(user, reason),
         },
+        Command::Room {
+            room_id,
+            action: RoomAction::Report(_),
+        } => Command::Room {
+            room_id,
+            action: RoomAction::Report(reason),
+        },
+        Command::Room {
+            room_id,
+            action: RoomAction::ReportMessage(id, _),
+        } => Command::Room {
+            room_id,
+            action: RoomAction::ReportMessage(id, reason),
+        },
         other => other,
     }
+}
+
+/// The verification of one's devices at its new phase (web `DeviceVerificationDialog`).
+fn show_verification(window: &AppWindow, phase: twake_core::VerificationPhase) {
+    use twake_core::VerificationPhase as P;
+    let name = match &phase {
+        P::Incoming => "incoming",
+        P::Asking => "asking",
+        P::Waiting => "waiting",
+        P::Comparing { .. } => "comparing",
+        P::Done => "done",
+        P::Cancelled => "cancelled",
+    };
+    if let P::Comparing { emojis, decimals } = &phase {
+        let rows: Vec<VerifyEmoji> = emojis
+            .iter()
+            .map(|(symbol, name)| VerifyEmoji {
+                symbol: symbol.as_str().into(),
+                name: name.as_str().into(),
+            })
+            .collect();
+        window.set_verify_emojis(ModelRc::from(Rc::new(VecModel::from(rows))));
+        let (a, b, c) = decimals;
+        window.set_verify_decimals(format!("{a} {b} {c}").into());
+    }
+    window.set_verify_phase(name.into());
+}
+
+/// « Move to a Space »: « No space » first (checked when the room is in none), then the
+/// spaces where the user may add rooms (web `MoveToSpaceDialog`).
+fn show_space_choices(window: &AppWindow, choices: &[twake_domain::space_choices::SpaceChoice]) {
+    let in_one = choices.iter().any(|c| c.is_current);
+    let rows: Vec<SpaceChoiceRow> = std::iter::once(SpaceChoiceRow {
+        id: "".into(),
+        name: "No space".into(),
+        depth: 0,
+        current: !in_one,
+    })
+    .chain(choices.iter().map(|c| SpaceChoiceRow {
+        id: c.id.as_str().into(),
+        name: c.name.as_str().into(),
+        depth: i32::try_from(c.depth).unwrap_or(0),
+        current: c.is_current,
+    }))
+    .collect();
+    window.set_space_choices(ModelRc::from(Rc::new(VecModel::from(rows))));
+    window.set_space_dialog_open(true);
+}
+
+/// « Edit history », newest first, the newest marked current (web
+/// `MessageVersionsDialog`); a history that could not be read says so instead.
+fn show_versions(window: &AppWindow, versions: &[twake_core::MessageVersion]) {
+    if versions.is_empty() {
+        window.set_notice("The edit history could not be loaded.".into());
+        return;
+    }
+    let now = chrono::Utc::now().timestamp_millis();
+    let rows: Vec<VersionRow> = versions
+        .iter()
+        .rev()
+        .enumerate()
+        .map(|(i, v)| {
+            let when = format!(
+                "{} {}",
+                twake_domain::format::room_list_time(v.sent_at, now),
+                twake_domain::format::message_time(v.sent_at)
+            );
+            VersionRow {
+                text: v.text.as_str().into(),
+                info: if i == 0 {
+                    format!("{when} · current")
+                } else {
+                    when
+                }
+                .into(),
+            }
+        })
+        .collect();
+    window.set_versions(ModelRc::from(Rc::new(VecModel::from(rows))));
+    window.set_versions_title("Edit history".into());
+    window.set_versions_open(true);
+}
+
+/// « Seen by »: the others who read the message, the latest reader first, each with the
+/// time of their receipt (web `message-seen`).
+fn show_seen(window: &AppWindow, id: &str) {
+    let mut readers = STATE.with_borrow(|s| {
+        view::readers_by_message(&s.entries)
+            .remove(id)
+            .unwrap_or_default()
+    });
+    readers.sort_by_key(|r| std::cmp::Reverse(r.read_at));
+    let now = chrono::Utc::now().timestamp_millis();
+    let rows: Vec<VersionRow> = readers
+        .iter()
+        .map(|r| VersionRow {
+            text: r.name.as_str().into(),
+            info: r
+                .read_at
+                .map(|at| {
+                    format!(
+                        "{} {}",
+                        twake_domain::format::room_list_time(at, now),
+                        twake_domain::format::message_time(at)
+                    )
+                })
+                .unwrap_or_default()
+                .into(),
+        })
+        .collect();
+    window.set_versions(ModelRc::from(Rc::new(VecModel::from(rows))));
+    window.set_versions_title("Seen by".into());
+    window.set_versions_open(true);
+}
+
+/// Puts `text` on the system's clipboard and says `done`, or that it could not.
+fn copy_to_clipboard(window: &AppWindow, text: &str, done: &str) {
+    let copied = arboard::Clipboard::new().and_then(|mut c| c.set_text(text));
+    let notice = if copied.is_ok() {
+        done.to_string()
+    } else {
+        "The system refused to copy.".to_string()
+    };
+    window.set_notice(notice.into());
 }
 
 fn current_room() -> String {
@@ -1479,6 +1849,9 @@ fn show_info(window: &AppWindow) {
         sync_model(members_model, view::member_rows(details, &mut find));
     });
     requests.into_iter().for_each(send);
+    let entries = STATE.with_borrow_mut(|s| std::mem::take(&mut s.entries));
+    shared::show(window, &entries);
+    STATE.with_borrow_mut(|s| s.entries = entries);
 }
 
 /// The room info pane, invitations, the new room dialog and the confirmations.
@@ -1587,6 +1960,183 @@ fn wire_room_info(window: &AppWindow) {
             )
         });
     });
+    let w = with.clone();
+    window.on_notice_acted(move || {
+        // « Undo »: the chat and its history come back (web `undeleteChat`)
+        if let Some(room_id) = STATE.with_borrow_mut(|s| s.undo_room.take()) {
+            send(Command::DeleteChat {
+                room_id,
+                before_ts: None,
+            });
+        }
+        w(&|win| {
+            win.set_notice("".into());
+            win.set_notice_action("".into());
+        });
+    });
+    window.on_info_set_join_rule(|rule| {
+        use twake_domain::room_management::JoinRuleChoice;
+        let rule = match rule.as_str() {
+            "invite" => JoinRuleChoice::Invite,
+            "knock" => JoinRuleChoice::Knock,
+            "public" => JoinRuleChoice::Public,
+            _ => return,
+        };
+        room_command(RoomAction::SetJoinRule(rule));
+    });
+    window.on_info_set_listed(|listed| room_command(RoomAction::SetListed(listed)));
+    window.on_info_set_notification(|level| {
+        use twake_domain::room_management::NotificationLevel;
+        let level = match level.as_str() {
+            "mentions" => NotificationLevel::Mentions,
+            "none" => NotificationLevel::None,
+            _ => NotificationLevel::All,
+        };
+        room_command(RoomAction::SetNotificationLevel(level));
+    });
+    // The menu of a room row (web `RoomRowMenu`)
+    let w = with.clone();
+    window.on_room_row_act(move |room_id, action| {
+        use twake_domain::room_management::NotificationLevel;
+        let room_id = room_id.to_string();
+        let room = |action| Command::Room {
+            room_id: room_id.clone(),
+            action,
+        };
+        match action.as_str() {
+            "read" => send(room(RoomAction::MarkRead)),
+            "unread" => send(room(RoomAction::MarkUnread)),
+            "mute" => send(room(RoomAction::SetNotificationLevel(NotificationLevel::None))),
+            "unmute" => send(room(RoomAction::SetNotificationLevel(NotificationLevel::All))),
+            "pin" => send(room(RoomAction::SetFavourite(true))),
+            "unpin" => send(room(RoomAction::SetFavourite(false))),
+            "leave" => w(&|win| ask(win, "Leave this room?", "Leave", room(RoomAction::Leave))),
+            "delete" => {
+                let last = STATE.with_borrow(|s| {
+                    s.rooms
+                        .iter()
+                        .find(|r| r.id == room_id)
+                        .and_then(|r| r.last_activity)
+                        .unwrap_or(0)
+                });
+                let before_ts = chrono::Utc::now().timestamp_millis().max(last) as f64;
+                w(&|win| {
+                    ask(
+                        win,
+                        "Delete this chat?\n\nIt disappears from your list and its history is hidden for \
+                         you; the other members keep it.",
+                        "Delete chat",
+                        Command::DeleteChat {
+                            room_id: room_id.clone(),
+                            before_ts: Some(before_ts),
+                        },
+                    )
+                });
+            }
+            _ => {}
+        }
+    });
+    window.on_info_move_to_space(|| {
+        send(Command::SpaceChoices {
+            room_id: current_room(),
+        });
+    });
+    let w = with.clone();
+    window.on_space_pick(move |id| {
+        send(Command::MoveToSpace {
+            room_id: current_room(),
+            space_id: (!id.is_empty()).then(|| id.to_string()),
+        });
+        w(&|win| win.set_space_dialog_open(false));
+    });
+    let w = with.clone();
+    window.on_report_room(move || {
+        let room_id = current_room();
+        w(&|win| {
+            ask(
+                win,
+                "Report this room\n\nThe administrators of your server receive the room and your \
+                 reason.",
+                "Report",
+                Command::Room {
+                    room_id: room_id.clone(),
+                    action: RoomAction::Report(None),
+                },
+            )
+        });
+    });
+    let w = with.clone();
+    window.on_report_message(move |id| {
+        let room_id = current_room();
+        w(&|win| {
+            ask(
+                win,
+                "Report this message\n\nThe administrators of your server receive the message \
+                 and your reason.",
+                "Report",
+                Command::Room {
+                    room_id: room_id.clone(),
+                    action: RoomAction::ReportMessage(id.to_string(), None),
+                },
+            )
+        });
+    });
+    let w = with.clone();
+    window.on_block_user(move || {
+        // The other person of the direct message (web `peerId`)
+        let peer = STATE.with_borrow(|s| {
+            let details = s.details.as_ref()?;
+            details
+                .members
+                .iter()
+                .find(|m| m.user_id != details.own_user_id)
+                .map(|m| (m.user_id.clone(), m.name.clone()))
+        });
+        let Some((user_id, name)) = peer else {
+            return;
+        };
+        let room_id = current_room();
+        w(&|win| {
+            ask(
+                win,
+                &format!(
+                    "Block {name}?\n\nYou will no longer receive their messages. They won't be \
+                     notified."
+                ),
+                "Block",
+                Command::Room {
+                    room_id: room_id.clone(),
+                    action: RoomAction::Block(user_id.clone()),
+                },
+            )
+        });
+    });
+    let w = with.clone();
+    window.on_delete_chat(move || {
+        let room_id = current_room();
+        // The clock of the server may run ahead of this one (web `deleteChat`)
+        let last = STATE.with_borrow(|s| {
+            s.rooms
+                .iter()
+                .find(|r| r.id == room_id)
+                .and_then(|r| r.last_activity)
+                .unwrap_or(0)
+        });
+        let before_ts = chrono::Utc::now().timestamp_millis().max(last) as f64;
+        w(&|win| {
+            ask(
+                win,
+                "Delete this chat?\n\nIt disappears from your list and its history is hidden for \
+                 you; the other members keep it. You stay a member, so it comes back at the next \
+                 message. To stop receiving it, leave the chat instead.",
+                "Delete chat",
+                Command::DeleteChat {
+                    room_id: room_id.clone(),
+                    before_ts: Some(before_ts),
+                },
+            )
+        });
+    });
     window.on_accept_invite(|room_id| {
         send(Command::Room {
             room_id: room_id.to_string(),
@@ -1603,20 +2153,57 @@ fn wire_room_info(window: &AppWindow) {
     window.on_show_create(move |mode| w(&|win| win.set_create_mode(mode.clone())));
     let w = with.clone();
     window.on_cancel_create(move || w(&|win| win.set_create_mode("".into())));
-    window.on_create_room(|name, topic, people, encrypted| {
-        let invite = people
-            .split([',', ' ', ';', '\n'])
-            .map(str::trim)
-            .filter(|p| !p.is_empty())
-            .map(str::to_string)
-            .collect();
-        send(Command::CreateRoom {
-            name: name.to_string(),
-            topic: topic.to_string(),
-            invite,
-            encrypted,
-        });
+    window.on_retry_send(|id| send(Command::RetrySend { id: id.to_string() }));
+    window.on_verify_device(|| send(Command::VerifyDevice));
+    window.on_verify_accept(|| send(Command::AcceptVerification));
+    window.on_verify_confirm(|matching| send(Command::ConfirmVerification(matching)));
+    let w = with.clone();
+    window.on_verify_cancel(move || {
+        send(Command::CancelVerification);
+        w(&|win| win.set_verify_phase("".into()));
     });
+    let w = with.clone();
+    window.on_verify_close(move || w(&|win| win.set_verify_phase("".into())));
+    window.on_discard_send(|id| send(Command::DiscardSend { id: id.to_string() }));
+    window.on_create_room(
+        |kind, name, topic, people, public, encrypted, access, reactions, slug| {
+            use twake_domain::room_management::{NewPage, NewRoom, NewRoomKind, PageAccess};
+            let invite = people
+                .split([',', ' ', ';', '\n'])
+                .map(str::trim)
+                .filter(|p| !p.is_empty())
+                .map(str::to_string)
+                .collect();
+            let kind = match kind.as_str() {
+                "feed" => NewRoomKind::Broadcast,
+                "space" => NewRoomKind::Space,
+                "voice" => NewRoomKind::Voice,
+                "page" => NewRoomKind::Page,
+                _ => NewRoomKind::Discussion,
+            };
+            let page = (kind == NewRoomKind::Page).then(|| NewPage {
+                access: match access.as_str() {
+                    "invite" => PageAccess::Invite,
+                    "approval" => PageAccess::Approval,
+                    _ => PageAccess::Open,
+                },
+                allows_reactions: reactions,
+                slug: slug.to_string(),
+            });
+            send(Command::CreateRoom(NewRoom {
+                name: name.to_string(),
+                topic: topic.to_string(),
+                kind,
+                is_public: public && kind != NewRoomKind::Page,
+                is_encrypted: encrypted,
+                invite,
+                page,
+                ..NewRoom::default()
+            }));
+        },
+    );
+    window.on_suggest_slug(|name| twake_domain::room_management::suggest_slug(&name).into());
+    window.on_valid_slug(|slug| twake_domain::room_management::is_valid_slug(&slug));
     window.on_open_direct(|user| {
         send(Command::OpenDirect {
             user_id: user.to_string(),
@@ -1630,13 +2217,38 @@ fn wire_room_info(window: &AppWindow) {
             reason.set((!text.is_empty()).then_some(text));
         });
         if let Some(command) = STATE.with_borrow_mut(|s| s.pending.take()) {
+            // A deleted chat says so, with Undo, and is read (web `announceDeletedChat`)
+            if let Command::DeleteChat {
+                room_id,
+                before_ts: Some(_),
+            } = &command
+            {
+                let room_id = room_id.clone();
+                STATE.with_borrow_mut(|s| s.undo_room = Some(room_id));
+                w(&|win| {
+                    win.set_notice("Chat deleted".into());
+                    win.set_notice_action("Undo".into());
+                });
+                send(Command::MarkRead);
+            }
             send(with_reason(command, reason.take()));
+            STATE
+                .with_borrow_mut(|s| std::mem::take(&mut s.pending_more))
+                .into_iter()
+                .for_each(send);
+            // Deleting the messages ticked ends the selection (web)
+            if selection::is_active() {
+                w(&selection::close);
+            }
         }
         w(&|win| win.set_confirm_message("".into()));
     });
     let w = with;
     window.on_confirm_no(move || {
-        STATE.with_borrow_mut(|s| s.pending = None);
+        STATE.with_borrow_mut(|s| {
+            s.pending = None;
+            s.pending_more.clear();
+        });
         w(&|win| win.set_confirm_message("".into()));
     });
 }
@@ -1679,7 +2291,7 @@ fn wire_polls_and_pins(window: &AppWindow) {
     });
     window.on_pin(|id, pinned| {
         send(Command::Pin {
-            id: id.to_string(),
+            ids: vec![id.to_string()],
             pinned,
         })
     });

@@ -2,7 +2,7 @@
 // (ui/ConfirmDialog) and the new room / direct message dialog (ui/CreateRoomScreen).
 import { ListView, ScrollView, CheckBox } from "std-widgets.slint";
 import { Theme } from "theme.slint";
-import { Avatar, Badge, PrimaryButton, TextButton, Field } from "parts.slint";
+import { Avatar, Badge, Icon, Icons, PrimaryButton, TextButton, Field } from "parts.slint";
 
 export struct MemberRow {
     user-id: string,
@@ -34,6 +34,94 @@ export struct RoomInfoData {
     can-edit: bool,
     can-encrypt: bool,
     can-invite: bool,
+    // Who may join (web `AccessLine`, `RoomAccessSettings`): "invite", "knock", "public" or
+    // "other" (a space's rule, told, never changed), and the directory listing
+    access-line: string,
+    join-rule: string,
+    listed: bool,
+    // May go to a space (web `canMoveToSpace`)
+    can-move: bool,
+    // What the user hears of it: "all", "mentions" or "none" (web `notificationLevel`)
+    notification-level: string,
+}
+
+// A choice of « Who can join »: a round mark, checked or not
+component RuleChoice inherits Rectangle {
+    in property <string> label;
+    in property <bool> checked;
+    callback clicked();
+    height: 30px;
+    accessible-role: checkbox;
+    accessible-checked: checked;
+    accessible-label: label;
+    accessible-action-default => { clicked(); }
+    TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    HorizontalLayout {
+        spacing: 10px;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 18px;
+                height: 18px;
+                border-radius: 9px;
+                border-width: root.checked ? 5px : 1.5px;
+                border-color: root.checked ? Theme.primary : Theme.text-secondary;
+            }
+        }
+        Text { text: root.label; color: Theme.text; vertical-alignment: center; }
+    }
+}
+
+// A picture or a video of the room, in the Media tab (web `MediaTile`)
+export struct SharedMediaRow {
+    // The file, for the viewer or the system's player
+    key: string,
+    name: string,
+    picture: image,
+    has-picture: bool,
+    video: bool,
+}
+
+// A link of the room, its preview's title when the app has one (web `LinkRow`)
+export struct SharedLinkRow {
+    url: string,
+    title: string,
+}
+
+// A file of the room: its name, size and day (web `shared-files`)
+export struct SharedFileRow {
+    key: string,
+    name: string,
+    info: string,
+}
+
+// One tab of the info: "members", "media", "links" or "files" (web `InfoTab`)
+component InfoTabButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    callback clicked();
+    height: 36px;
+    width: t.preferred-width + 20px;
+    accessible-role: tab;
+    accessible-label: label;
+    accessible-item-selected: selected;
+    accessible-action-default => { clicked(); }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    t := Text {
+        text: root.label;
+        color: root.selected ? Theme.primary : touch.has-hover ? Theme.text : Theme.text-secondary;
+        font-weight: 600;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    if root.selected: Rectangle {
+        y: parent.height - 2px;
+        height: 2px;
+        background: Theme.primary;
+    }
 }
 
 component MemberLine inherits Rectangle {
@@ -78,6 +166,15 @@ component MemberLine inherits Rectangle {
 export component InfoPane inherits Rectangle {
     in property <RoomInfoData> info;
     in property <[MemberRow]> members;
+    in property <[SharedMediaRow]> media;
+    in property <[SharedLinkRow]> links;
+    in property <[SharedFileRow]> files;
+    // The tab chosen; a direct message has no Members tab and shows Media (web)
+    in-out property <string> tab: "members";
+    property <string> shown-tab: info.direct && tab == "members" ? "media" : tab;
+    callback open-media(string, string, bool);
+    callback open-link(string);
+    callback save-file(string, string);
     in-out property <string> invite-text;
     callback close();
     callback rename(string);
@@ -88,6 +185,19 @@ export component InfoPane inherits Rectangle {
     callback ban(string);
     callback set-role(string, string);
     callback leave();
+    // « Who can join » and « In directory » (web `RoomAccessSettings`, D516)
+    callback set-join-rule(string);
+    callback set-listed(bool);
+    // « Move to a Space » (web `MoveToSpaceDialog`)
+    callback move-to-space();
+    // What the user hears of the room (web `info.levelChoice`)
+    callback set-notification(string);
+    // For the user alone, without leaving (web `menu-delete-chat`, D186)
+    callback delete-chat();
+    // To the server's administrators (web `menu-report`); a person, in a direct message
+    // (web `menu-block`)
+    callback report();
+    callback block();
     property <bool> editing;
     background: Theme.background;
     Rectangle { x: 0; width: 1px; background: Theme.line; }
@@ -128,9 +238,54 @@ export component InfoPane inherits Rectangle {
             }
             if !root.editing: Text { text: info.name; font-size: 20px; font-weight: Theme.weight-bold; color: Theme.text; horizontal-alignment: center; wrap: word-wrap; }
             if !root.editing: Text { text: info.count-text; color: Theme.text-secondary; horizontal-alignment: center; }
+            if !root.editing && !info.direct: Text { text: info.access-line; color: Theme.text-secondary; horizontal-alignment: center; }
+            // Notifications, for every member (web `info.levelChoice`, `info.levelHelp`)
+            if !root.editing: VerticalLayout {
+                spacing: 2px;
+                Text { text: "Notifications"; color: Theme.text-secondary; font-size: 12px; font-weight: 600; }
+                RuleChoice { label: "Every message"; checked: info.notification-level == "all"; clicked => { root.set-notification("all"); } }
+                RuleChoice { label: "Mentions only"; checked: info.notification-level == "mentions"; clicked => { root.set-notification("mentions"); } }
+                RuleChoice { label: "Nothing"; checked: info.notification-level == "none"; clicked => { root.set-notification("none"); } }
+                Text {
+                    text: info.notification-level == "all" ? "You are told about every message."
+                        : info.notification-level == "mentions" ? "Only messages that name you, or everyone."
+                        : "Nothing, not even mentions.";
+                    color: Theme.text-secondary;
+                    font-size: 12px;
+                    wrap: word-wrap;
+                }
+            }
             if !root.editing && info.topic != "": Text { text: info.topic; color: Theme.text; wrap: word-wrap; horizontal-alignment: center; }
             name-field := Field { visible: root.editing; height: root.editing ? self.preferred-height : 0; label: "Name"; }
             topic-field := Field { visible: root.editing; height: root.editing ? self.preferred-height : 0; label: "Description"; }
+            // Who may join: an encrypted room is never offered « Public » nor the listing,
+            // unless it has them already, to take them away (D187)
+            if root.editing && !info.direct: VerticalLayout {
+                spacing: 4px;
+                Text { text: "Who can join"; color: Theme.text-secondary; font-size: 12px; font-weight: 600; }
+                if info.join-rule == "other": Text { text: "Members of a space can join. This isn't changed here."; color: Theme.text-secondary; wrap: word-wrap; }
+                if info.join-rule != "other": RuleChoice { label: "Invite only"; checked: info.join-rule == "invite"; clicked => { root.set-join-rule("invite"); } }
+                if info.join-rule != "other": RuleChoice { label: "On request"; checked: info.join-rule == "knock"; clicked => { root.set-join-rule("knock"); } }
+                if info.join-rule != "other" && (!info.encrypted || info.join-rule == "public"): RuleChoice { label: "Public"; checked: info.join-rule == "public"; clicked => { root.set-join-rule("public"); } }
+                Text {
+                    text: info.encrypted ? "An encrypted room can't be public or listed." : "Public: anyone can join. On request: an administrator approves each request.";
+                    color: Theme.text-secondary;
+                    font-size: 12px;
+                    wrap: word-wrap;
+                }
+                if !info.encrypted || info.listed: HorizontalLayout {
+                    spacing: 8px;
+                    VerticalLayout {
+                        horizontal-stretch: 1;
+                        Text { text: "In directory"; color: Theme.text; }
+                        Text { text: "Anyone can find this room in the public directory."; color: Theme.text-secondary; font-size: 12px; wrap: word-wrap; }
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        CheckBox { checked: info.listed; toggled => { root.set-listed(self.checked); } }
+                    }
+                }
+            }
             HorizontalLayout {
                 spacing: 8px;
                 alignment: center;
@@ -157,9 +312,15 @@ export component InfoPane inherits Rectangle {
                 }
                 TextButton { label: "Invite"; clicked => { if root.invite-text != "" { root.invite(root.invite-text); } } }
             }
-            Text { text: "Members"; font-weight: 600; color: Theme.text; }
+            HorizontalLayout {
+                spacing: 4px;
+                if !info.direct: InfoTabButton { label: "Members"; selected: root.shown-tab == "members"; clicked => { root.tab = "members"; } }
+                InfoTabButton { label: "Media"; selected: root.shown-tab == "media"; clicked => { root.tab = "media"; } }
+                InfoTabButton { label: "Links"; selected: root.shown-tab == "links"; clicked => { root.tab = "links"; } }
+                InfoTabButton { label: "Files"; selected: root.shown-tab == "files"; clicked => { root.tab = "files"; } }
+            }
         }
-        ListView {
+        if root.shown-tab == "members": ListView {
             vertical-stretch: 1;
             for m in root.members: MemberLine {
                 member: m;
@@ -168,9 +329,114 @@ export component InfoPane inherits Rectangle {
                 set-role(role) => { root.set-role(m.user-id, role); }
             }
         }
+        // Nothing in the tab shown (web `info.nothing`)
+        if (root.shown-tab == "media" && root.media.length == 0) || (root.shown-tab == "links" && root.links.length == 0) || (root.shown-tab == "files" && root.files.length == 0): VerticalLayout {
+            vertical-stretch: 1;
+            padding: 16px;
+            Text { text: "Nothing shared yet."; color: Theme.text-secondary; }
+            Rectangle { }
+        }
+        // A grid of three square tiles a line; a click opens the picture or plays the video
+        if root.shown-tab == "media" && root.media.length > 0: ScrollView {
+            vertical-stretch: 1;
+            property <length> gap: 4px;
+            property <length> side: (self.visible-width - 24px - 2 * gap) / 3;
+            content-height: 12px + ceil(root.media.length / 3) * (side + gap);
+            for item[i] in root.media: Rectangle {
+                x: 12px + mod(i, 3) * (parent.side + parent.gap);
+                y: floor(i / 3) * (parent.side + parent.gap);
+                width: parent.side;
+                height: parent.side;
+                border-radius: 6px;
+                clip: true;
+                background: #2a2a2e;
+                accessible-role: button;
+                accessible-label: item.name;
+                accessible-action-default => { root.open-media(item.key, item.name, item.video); }
+                if item.has-picture: Image {
+                    width: parent.width;
+                    height: parent.height;
+                    source: item.picture;
+                    image-fit: cover;
+                }
+                if item.video: Text { text: "▶"; color: #ffffff; font-size: 24px; horizontal-alignment: center; vertical-alignment: center; }
+                TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.open-media(item.key, item.name, item.video); }
+                }
+            }
+        }
+        if root.shown-tab == "links" && root.links.length > 0: ListView {
+            vertical-stretch: 1;
+            for link in root.links: Rectangle {
+                height: link-lines.preferred-height;
+                border-radius: 10px;
+                background: link-touch.has-hover ? Theme.hover : transparent;
+                accessible-role: button;
+                accessible-label: link.title == "" ? link.url : link.title;
+                accessible-action-default => { root.open-link(link.url); }
+                link-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.open-link(link.url); }
+                }
+                link-lines := VerticalLayout {
+                    padding: 8px;
+                    padding-left: 16px;
+                    padding-right: 16px;
+                    spacing: 2px;
+                    if link.title != "": Text { text: link.title; color: Theme.text; font-weight: 600; overflow: elide; }
+                    Text { text: link.url; color: Theme.primary; overflow: elide; }
+                }
+            }
+        }
+        if root.shown-tab == "files" && root.files.length > 0: ListView {
+            vertical-stretch: 1;
+            for file in root.files: Rectangle {
+                height: 52px;
+                border-radius: 10px;
+                background: file-touch.has-hover ? Theme.hover : transparent;
+                accessible-role: button;
+                accessible-label: "Download " + file.name;
+                accessible-action-default => { root.save-file(file.key, file.name); }
+                file-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.save-file(file.key, file.name); }
+                }
+                HorizontalLayout {
+                    padding-left: 16px;
+                    padding-right: 16px;
+                    spacing: 12px;
+                    VerticalLayout {
+                        alignment: center;
+                        Icon { source: Icons.file; fallback: "📄"; color: Theme.text-secondary; size: 20px; }
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        horizontal-stretch: 1;
+                        Text { text: file.name; color: Theme.text; overflow: elide; }
+                        Text { text: file.info; color: Theme.text-secondary; font-size: 12px; overflow: elide; }
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        Text { text: "⬇"; color: Theme.text-secondary; font-size: 16px; }
+                    }
+                }
+            }
+        }
         HorizontalLayout {
             padding: 12px;
             alignment: center;
+            spacing: 8px;
+            if info.can-move: TextButton { label: "Move to a Space"; clicked => { root.move-to-space(); } }
+            TextButton { label: info.direct ? "Report" : "Report room"; clicked => { root.report(); } }
+            if info.direct: TextButton { label: "Block user"; clicked => { root.block(); } }
+        }
+        HorizontalLayout {
+            padding: 12px;
+            padding-top: 0;
+            alignment: center;
+            spacing: 8px;
+            TextButton { label: "Delete chat"; clicked => { root.delete-chat(); } }
             TextButton { label: info.direct ? "Leave this chat" : "Leave the room"; clicked => { root.leave(); } }
         }
     }
@@ -229,14 +495,29 @@ export component CreateDialog inherits Rectangle {
     in-out property <string> topic-text;
     in-out property <string> people-text;
     in-out property <bool> encrypted: true;
-    callback create-room(string, string, string, bool);
+    // What the room is (web `CreateKind`): "group", "feed", "space", "voice" or "page"
+    in-out property <string> kind: "group";
+    in-out property <bool> public;
+    // A Broadcast (web `NewPage`): who may follow, reactions, the address of its page
+    in-out property <string> page-access: "open";
+    in-out property <bool> reactions: true;
+    in-out property <string> slug;
+    property <bool> slug-edited;
+    // The address made of the name (web `suggestSlug`), computed in Rust
+    pure callback suggest-slug(string) -> string;
+    pure callback valid-slug(string) -> bool;
+    callback create-room(string, string, string, string, bool, bool, string, bool, string);
     callback open-direct(string);
     callback cancel();
+    property <bool> is-page: root.kind == "page";
+    // Public: anyone may join and find it; an open Broadcast is public (web `accessOf`)
+    property <bool> is-public: root.public || (root.is-page && root.page-access == "open");
+    property <bool> slug-ok: !root.is-page || root.page-access != "open" || root.valid-slug(root.slug);
     background: #00000066;
     TouchArea { clicked => { root.cancel(); } }
     Rectangle {
-        width: 420px;
-        height: box.preferred-height;
+        width: 460px;
+        height: min(root.height - 40px, box.preferred-height);
         border-radius: 16px;
         background: Theme.background;
         drop-shadow-blur: 20px;
@@ -245,16 +526,106 @@ export component CreateDialog inherits Rectangle {
         box := VerticalLayout {
             padding: 20px;
             spacing: 12px;
-            Text { text: root.mode == "direct" ? "New direct message" : "New room"; font-size: 18px; font-weight: Theme.weight-bold; color: Theme.text; }
+            Text {
+                text: root.mode == "direct" ? "New direct message"
+                    : root.kind == "feed" ? "New feed"
+                    : root.kind == "space" ? "New Space"
+                    : root.kind == "voice" ? "New voice room"
+                    : root.kind == "page" ? "New broadcast"
+                    : "New group chat";
+                font-size: 18px;
+                font-weight: Theme.weight-bold;
+                color: Theme.text;
+            }
             if root.mode == "direct": Field {
                 label: "Matrix id of the person";
                 text <=> root.user-text;
                 accepted => { if root.user-text != "" { root.open-direct(root.user-text); } }
             }
-            if root.mode == "room": Field { label: "Name"; text <=> root.name-text; }
+            // What to create (web `CreatePage` entries), and what it is for
+            if root.mode == "room": HorizontalLayout {
+                spacing: 6px;
+                for k in [
+                    { id: "group", label: "Group" },
+                    { id: "feed", label: "Feed" },
+                    { id: "space", label: "Space" },
+                    { id: "voice", label: "Voice room" },
+                    { id: "page", label: "Broadcast" },
+                ]: Rectangle {
+                    height: 30px;
+                    width: kt.preferred-width + 20px;
+                    border-radius: 15px;
+                    background: root.kind == k.id ? Theme.primary : k-touch.has-hover ? Theme.hover : Theme.panel;
+                    accessible-role: tab;
+                    accessible-label: k.label;
+                    accessible-item-selected: root.kind == k.id;
+                    accessible-action-default => { root.kind = k.id; }
+                    k-touch := TouchArea { mouse-cursor: pointer; clicked => { root.kind = k.id; } }
+                    kt := Text { text: k.label; color: root.kind == k.id ? Theme.on-primary : Theme.text; font-size: 13px; horizontal-alignment: center; vertical-alignment: center; }
+                }
+            }
+            if root.mode == "room": Text {
+                text: root.kind == "feed" ? "Only you and the moderators post."
+                    : root.kind == "space" ? "Brings people and several channels together."
+                    : root.kind == "page" ? "Posts for followers, with an optional public web page."
+                    : root.kind == "voice" ? "A room for calls."
+                    : "Everyone in it can write.";
+                color: Theme.text-secondary;
+                font-size: 12px;
+                wrap: word-wrap;
+            }
+            if root.mode == "room": Field {
+                label: "Name";
+                text <=> root.name-text;
+                changed text => { if !root.slug-edited { root.slug = root.suggest-slug(self.text); } }
+            }
             if root.mode == "room": Field { label: "Description (optional)"; text <=> root.topic-text; }
-            if root.mode == "room": Field { label: "Invite (Matrix ids, separated by commas)"; text <=> root.people-text; }
-            if root.mode == "room": CheckBox { text: "End-to-end encrypted"; checked <=> root.encrypted; }
+            if root.mode == "room" && !root.is-page: Field { label: "Invite (Matrix ids, separated by commas)"; text <=> root.people-text; }
+            if root.mode == "room" && root.is-page: VerticalLayout {
+                spacing: 4px;
+                Text { text: "Who can follow"; color: Theme.text-secondary; font-size: 12px; font-weight: 600; }
+                for a in [
+                    { id: "open", label: "Anyone, with a public web page" },
+                    { id: "invite", label: "Only people I invite" },
+                    { id: "approval", label: "Anyone, after an administrator approves" },
+                ]: Rectangle {
+                    height: 30px;
+                    accessible-role: checkbox;
+                    accessible-checked: root.page-access == a.id;
+                    accessible-label: a.label;
+                    accessible-action-default => { root.page-access = a.id; }
+                    TouchArea { mouse-cursor: pointer; clicked => { root.page-access = a.id; } }
+                    HorizontalLayout {
+                        spacing: 10px;
+                        VerticalLayout {
+                            alignment: center;
+                            Rectangle {
+                                width: 18px;
+                                height: 18px;
+                                border-radius: 9px;
+                                border-width: root.page-access == a.id ? 5px : 1.5px;
+                                border-color: root.page-access == a.id ? Theme.primary : Theme.text-secondary;
+                            }
+                        }
+                        Text { text: a.label; color: Theme.text; vertical-alignment: center; }
+                    }
+                }
+                if root.page-access == "open": Field {
+                    label: "Address of the public page";
+                    text <=> root.slug;
+                    changed text => { root.slug-edited = true; }
+                }
+                if root.page-access == "open": Text {
+                    text: "Lowercase letters, digits and dashes";
+                    color: root.slug-ok ? Theme.text-secondary : Theme.error;
+                    font-size: 12px;
+                }
+                CheckBox { text: "Followers can react to posts"; checked <=> root.reactions; }
+            }
+            if root.mode == "room" && !root.is-page: CheckBox { text: "Public group"; checked <=> root.public; }
+            if root.mode == "room" && root.is-public: Text { text: "Anyone on this server can find and join it."; color: Theme.text-secondary; font-size: 12px; wrap: word-wrap; }
+            // A public room is never encrypted (D187)
+            if root.mode == "room" && !root.is-public: CheckBox { text: "End-to-end encryption"; checked <=> root.encrypted; }
             HorizontalLayout {
                 alignment: end;
                 spacing: 8px;
@@ -262,12 +633,12 @@ export component CreateDialog inherits Rectangle {
                 PrimaryButton {
                     width: 120px;
                     label: root.mode == "direct" ? "Open" : "Create";
-                    enabled: root.mode == "direct" ? root.user-text != "" : root.name-text != "";
+                    enabled: root.mode == "direct" ? root.user-text != "" : root.name-text != "" && root.slug-ok;
                     clicked => {
                         if root.mode == "direct" {
                             root.open-direct(root.user-text);
                         } else {
-                            root.create-room(root.name-text, root.topic-text, root.people-text, root.encrypted);
+                            root.create-room(root.kind, root.name-text, root.topic-text, root.people-text, root.public, root.encrypted, root.page-access, root.reactions, root.slug);
                         }
                     }
                 }
@@ -328,6 +699,278 @@ export component PollDialog inherits Rectangle {
                     enabled: root.question != "" && root.answers != "";
                     clicked => { root.create(root.question, root.answers, root.multiple); }
                 }
+            }
+        }
+    }
+}
+
+// A conversation the message may go to (web `ForwardRoomRow`): the whole line ticks it
+export struct ForwardRow {
+    id: string,
+    name: string,
+    picked: bool,
+}
+
+// « Forward to… » (web `ForwardDialog`): a search, the conversations with a tick each, and
+// Forward once one is ticked.
+export component ForwardDialog inherits Rectangle {
+    in property <[ForwardRow]> rows;
+    in-out property <string> filter;
+    callback filter-edited(string);
+    callback toggle(string);
+    callback send();
+    callback cancel();
+    // One conversation ticked at least: Forward may go
+    in property <bool> has-picked;
+    background: #00000066;
+    TouchArea { clicked => { root.cancel(); } }
+    Rectangle {
+        width: 420px;
+        height: min(root.height - 80px, 560px);
+        border-radius: 16px;
+        background: Theme.background;
+        drop-shadow-blur: 20px;
+        drop-shadow-color: #00000040;
+        TouchArea {}
+        VerticalLayout {
+            padding: 20px;
+            spacing: 12px;
+            Text { text: "Forward to…"; font-size: 18px; font-weight: Theme.weight-bold; color: Theme.text; }
+            Field {
+                label: "Search";
+                text <=> root.filter;
+                // Typing narrows the list, read again in Rust
+                changed text => { root.filter-edited(self.text); }
+            }
+            ListView {
+                vertical-stretch: 1;
+                for row in root.rows: Rectangle {
+                    height: 40px;
+                    border-radius: 8px;
+                    background: row.picked ? Theme.selected : row-touch.has-hover ? Theme.hover : transparent;
+                    accessible-role: checkbox;
+                    accessible-checked: row.picked;
+                    accessible-label: row.name;
+                    accessible-action-default => { root.toggle(row.id); }
+                    row-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.toggle(row.id); }
+                    }
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        spacing: 10px;
+                        VerticalLayout {
+                            alignment: center;
+                            Rectangle {
+                                width: 18px;
+                                height: 18px;
+                                border-radius: 4px;
+                                border-width: row.picked ? 0 : 1.5px;
+                                border-color: Theme.text-secondary;
+                                background: row.picked ? Theme.primary : transparent;
+                                if row.picked: Text { text: "✓"; color: Theme.on-primary; font-size: 12px; horizontal-alignment: center; vertical-alignment: center; }
+                            }
+                        }
+                        Text { text: row.name; color: Theme.text; vertical-alignment: center; overflow: elide; }
+                    }
+                }
+            }
+            HorizontalLayout {
+                alignment: end;
+                spacing: 8px;
+                TextButton { label: "Cancel"; clicked => { root.cancel(); } }
+                PrimaryButton {
+                    width: 120px;
+                    label: "Forward";
+                    enabled: root.has-picked;
+                    clicked => { root.send(); }
+                }
+            }
+        }
+    }
+}
+
+// One version of a message: its text, and its day and time (« · current » on the newest)
+export struct VersionRow {
+    text: string,
+    info: string,
+}
+
+// « Edit history » of a message, newest first (web `MessageVersionsDialog`)
+export component VersionsDialog inherits Rectangle {
+    in property <[VersionRow]> versions;
+    // The same list shows who read a message (« Seen by », web `message-seen`)
+    in property <string> title: "Edit history";
+    callback close();
+    background: #00000066;
+    TouchArea { clicked => { root.close(); } }
+    Rectangle {
+        width: 420px;
+        height: min(root.height - 80px, box.preferred-height);
+        border-radius: 16px;
+        background: Theme.background;
+        drop-shadow-blur: 20px;
+        drop-shadow-color: #00000040;
+        TouchArea {}
+        box := VerticalLayout {
+            padding: 20px;
+            spacing: 12px;
+            HorizontalLayout {
+                Text { text: root.title; font-size: 18px; font-weight: Theme.weight-bold; color: Theme.text; horizontal-stretch: 1; vertical-alignment: center; }
+                TextButton { label: "Close"; clicked => { root.close(); } }
+            }
+            ScrollView {
+                vertical-stretch: 1;
+                min-height: min(lines.preferred-height, 400px);
+                lines := VerticalLayout {
+                    spacing: 12px;
+                    for version in root.versions: VerticalLayout {
+                        spacing: 2px;
+                        Text { text: version.text; color: Theme.text; wrap: word-wrap; }
+                        Text { text: version.info; color: Theme.text-secondary; font-size: 12px; }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// A space a room may go to (web `SpaceChoice`); "" is « No space »
+export struct SpaceChoiceRow {
+    id: string,
+    name: string,
+    depth: int,
+    current: bool,
+}
+
+// « Move to a Space » (web `MoveToSpaceDialog`): no space, then the spaces where the user
+// may add rooms, sub-spaces under their space; the one the room is in checked.
+export component SpaceDialog inherits Rectangle {
+    in property <[SpaceChoiceRow]> choices;
+    callback pick(string);
+    callback cancel();
+    background: #00000066;
+    TouchArea { clicked => { root.cancel(); } }
+    Rectangle {
+        width: 420px;
+        height: min(root.height - 80px, box.preferred-height);
+        border-radius: 16px;
+        background: Theme.background;
+        drop-shadow-blur: 20px;
+        drop-shadow-color: #00000040;
+        TouchArea {}
+        box := VerticalLayout {
+            padding: 20px;
+            spacing: 8px;
+            HorizontalLayout {
+                Text { text: "Move to a Space"; font-size: 18px; font-weight: Theme.weight-bold; color: Theme.text; horizontal-stretch: 1; vertical-alignment: center; }
+                TextButton { label: "Cancel"; clicked => { root.cancel(); } }
+            }
+            for choice in root.choices: Rectangle {
+                height: 40px;
+                border-radius: 8px;
+                background: choice-touch.has-hover ? Theme.hover : transparent;
+                accessible-role: checkbox;
+                accessible-checked: choice.current;
+                accessible-label: choice.name;
+                accessible-action-default => { root.pick(choice.id); }
+                choice-touch := TouchArea { mouse-cursor: pointer; clicked => { root.pick(choice.id); } }
+                HorizontalLayout {
+                    padding-left: 8px + choice.depth * 20px;
+                    spacing: 10px;
+                    VerticalLayout {
+                        alignment: center;
+                        Rectangle {
+                            width: 18px;
+                            height: 18px;
+                            border-radius: 9px;
+                            border-width: choice.current ? 5px : 1.5px;
+                            border-color: choice.current ? Theme.primary : Theme.text-secondary;
+                        }
+                    }
+                    Text { text: choice.name; color: Theme.text; vertical-alignment: center; overflow: elide; }
+                }
+            }
+        }
+    }
+}
+
+// An emoji to compare (web `VerificationEmoji`): its symbol and its English name
+export struct VerifyEmoji {
+    symbol: string,
+    name: string,
+}
+
+// Verifying one's devices (web `DeviceVerificationDialog`): what to do at each phase, the
+// emojis to compare, and its buttons. `phase`: "incoming", "asking", "waiting",
+// "comparing", "done" or "cancelled".
+export component VerifyDialog inherits Rectangle {
+    in property <string> phase;
+    in property <[VerifyEmoji]> emojis;
+    // « 1234 5678 9012 » when the other device shows no emojis
+    in property <string> decimals;
+    callback accept();
+    callback cancel();
+    callback same();
+    callback differ();
+    callback close();
+    property <bool> digits: root.phase == "comparing" && root.emojis.length == 0;
+    background: #00000066;
+    Rectangle {
+        width: 460px;
+        height: box.preferred-height;
+        border-radius: 16px;
+        background: Theme.background;
+        drop-shadow-blur: 20px;
+        drop-shadow-color: #00000040;
+        TouchArea {}
+        box := VerticalLayout {
+            padding: 24px;
+            spacing: 14px;
+            Text {
+                text: root.phase == "incoming" ? "Verify a new device"
+                    : root.phase == "asking" ? "Waiting for your other devices"
+                    : root.phase == "waiting" ? "Waiting for the other device"
+                    : root.digits ? "Compare the numbers"
+                    : root.phase == "comparing" ? "Compare the emojis"
+                    : root.phase == "done" ? "Device verified"
+                    : "Verification stopped";
+                font-size: 18px;
+                font-weight: Theme.weight-bold;
+                color: Theme.text;
+            }
+            Text {
+                text: root.phase == "incoming" ? "One of your other devices asks to be verified. Do it only if you just signed in there."
+                    : root.phase == "asking" ? "Open Twake Chat on another device where you are signed in and accept the request. None at hand? Close this window and use your recovery key."
+                    : root.phase == "waiting" ? "Open Twake Chat on your other device and accept the request."
+                    : root.digits ? "Check that your other device shows the same numbers, in the same order."
+                    : root.phase == "comparing" ? "Check that your other device shows the same emojis, in the same order."
+                    : root.phase == "done" ? "Your devices trust each other: the encrypted history is shared with this device."
+                    : "Nothing was trusted. You can start again from the security banner.";
+                color: Theme.text-secondary;
+                wrap: word-wrap;
+            }
+            if root.phase == "comparing" && !root.digits: HorizontalLayout {
+                alignment: center;
+                spacing: 8px;
+                for emoji in root.emojis: VerticalLayout {
+                    width: 52px;
+                    spacing: 4px;
+                    Text { text: emoji.symbol; font-size: 32px; horizontal-alignment: center; }
+                    Text { text: emoji.name; color: Theme.text-secondary; font-size: 11px; horizontal-alignment: center; wrap: word-wrap; }
+                }
+            }
+            if root.digits: Text { text: root.decimals; font-size: 24px; color: Theme.text; horizontal-alignment: center; }
+            HorizontalLayout {
+                alignment: end;
+                spacing: 8px;
+                if root.phase == "incoming": TextButton { label: "Not now"; clicked => { root.cancel(); } }
+                if root.phase == "incoming": PrimaryButton { width: 120px; label: "Verify"; clicked => { root.accept(); } }
+                if root.phase == "asking" || root.phase == "waiting": TextButton { label: "Cancel"; clicked => { root.cancel(); } }
+                if root.phase == "comparing": TextButton { label: "They differ"; clicked => { root.differ(); } }
+                if root.phase == "comparing": PrimaryButton { width: 120px; label: "They match"; clicked => { root.same(); } }
+                if root.phase == "done" || root.phase == "cancelled": PrimaryButton { width: 120px; label: "Close"; clicked => { root.close(); } }
             }
         }
     }
